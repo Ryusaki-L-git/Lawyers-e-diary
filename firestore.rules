@@ -1,0 +1,295 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function self(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+
+    function activeMember(teamId, uid) {
+      return signedIn()
+        && exists(/databases/$(database)/documents/teams/$(teamId)/members/$(uid))
+        && get(/databases/$(database)/documents/teams/$(teamId)/members/$(uid)).data.isActive == true
+        && get(/databases/$(database)/documents/teams/$(teamId)).data.isActive == true;
+    }
+
+    function teamManager(teamId, uid) {
+      return activeMember(teamId, uid)
+        && get(/databases/$(database)/documents/teams/$(teamId)/members/$(uid)).data.role in ['owner', 'leader'];
+    }
+
+    function teamOwner(teamId, uid) {
+      return signedIn()
+        && get(/databases/$(database)/documents/teams/$(teamId)).data.isActive == true
+        && get(/databases/$(database)/documents/teams/$(teamId)).data.ownerId == uid;
+    }
+
+    function caseReadable(data) {
+      return signedIn() && (
+        data.ownerUid == request.auth.uid
+        || data.userId == request.auth.uid
+        || data.assignedTo == request.auth.uid
+        || data.teamOwnerUid == request.auth.uid
+      );
+    }
+
+    function caseManager(data) {
+      return signedIn()
+        && data.teamId is string
+        && teamManager(data.teamId, request.auth.uid);
+    }
+
+    // ----------------------------------------------------------------------
+    // Private user profile. Never expose the full users collection.
+    // ----------------------------------------------------------------------
+    match /users/{uid} {
+      allow read: if self(uid);
+      allow create: if self(uid);
+      allow update: if self(uid);
+      allow delete: if false;
+    }
+
+    // Minimal directory used for LED-ID lookup. It contains no phone,
+    // address, email, subscription, or other private profile information.
+    match /led_id_directory/{ledId} {
+      allow read: if signedIn();
+
+      allow create: if self(request.resource.data.uid)
+        && request.resource.data.ledId == ledId
+        && request.resource.data.profileCompleted == true;
+
+      allow update: if self(resource.data.uid)
+        && request.resource.data.uid == resource.data.uid
+        && request.resource.data.ledId == resource.data.ledId
+        && request.resource.data.ledId == ledId;
+
+      allow delete: if false;
+    }
+
+    // Legacy sequential LED-ID counter. The client may only increment it by
+    // one; it cannot reset, decrement, or rewrite unrelated fields.
+    match /metadata/{docId} {
+      allow read: if signedIn() && docId == 'counters';
+      allow create: if signedIn()
+        && docId == 'counters'
+        && request.resource.data.userCount is int
+        && request.resource.data.userCount >= 0
+        && request.resource.data.updatedAt != null;
+
+      allow update: if signedIn()
+        && docId == 'counters'
+        && request.resource.data.userCount is int
+        && request.resource.data.userCount == resource.data.userCount + 1
+        && request.resource.data.updatedAt != null;
+      allow delete: if false;
+    }
+
+    // ----------------------------------------------------------------------
+    // Cases
+    // ----------------------------------------------------------------------
+    match /cases/{caseId} {
+      allow read: if caseReadable(resource.data) || caseManager(resource.data);
+
+      allow create: if signedIn()
+        && (
+          request.resource.data.ownerUid == request.auth.uid
+          || request.resource.data.userId == request.auth.uid
+        );
+
+      allow update: if (
+        caseManager(resource.data)
+        || (
+          caseReadable(resource.data)
+          && (
+            resource.data.ownerUid == request.auth.uid
+            || resource.data.userId == request.auth.uid
+            || (
+              resource.data.assignedTo == request.auth.uid
+              && request.resource.data.ownerUid == resource.data.ownerUid
+              && request.resource.data.userId == resource.data.userId
+              && request.resource.data.teamId == resource.data.teamId
+              && request.resource.data.teamOwnerUid == resource.data.teamOwnerUid
+              && request.resource.data.assignedTo == resource.data.assignedTo
+            )
+          )
+        )
+      );
+      allow delete: if false;
+
+      match /notes/{noteId} {
+        allow read: if caseReadable(get(/databases/$(database)/documents/cases/$(caseId)).data)
+          || caseManager(get(/databases/$(database)/documents/cases/$(caseId)).data);
+        allow create: if caseReadable(get(/databases/$(database)/documents/cases/$(caseId)).data)
+          || caseManager(get(/databases/$(database)/documents/cases/$(caseId)).data);
+        allow update, delete: if false;
+      }
+    }
+
+    // ----------------------------------------------------------------------
+    // Personal entities
+    // ----------------------------------------------------------------------
+    match /clients/{clientId} {
+      allow read: if signedIn() && resource.data.userId == request.auth.uid;
+      allow create: if signedIn() && request.resource.data.userId == request.auth.uid;
+      allow update: if signedIn() && resource.data.userId == request.auth.uid
+        && request.resource.data.userId == resource.data.userId;
+      allow delete: if false;
+    }
+
+    match /reminders/{reminderId} {
+      allow read: if signedIn() && resource.data.userId == request.auth.uid;
+      allow create: if signedIn() && request.resource.data.userId == request.auth.uid;
+      allow update: if signedIn() && resource.data.userId == request.auth.uid
+        && request.resource.data.userId == resource.data.userId;
+      allow delete: if signedIn() && resource.data.userId == request.auth.uid;
+    }
+
+    match /fees/{feeId} {
+      allow read: if signedIn() && resource.data.userId == request.auth.uid;
+      allow create: if signedIn() && request.resource.data.userId == request.auth.uid;
+      allow update: if signedIn() && resource.data.userId == request.auth.uid
+        && request.resource.data.userId == resource.data.userId;
+      allow delete: if signedIn() && resource.data.userId == request.auth.uid;
+
+      match /transactions/{transactionId} {
+        allow read: if signedIn()
+          && get(/databases/$(database)/documents/fees/$(feeId)).data.userId == request.auth.uid;
+        allow create: if signedIn()
+          && get(/databases/$(database)/documents/fees/$(feeId)).data.userId == request.auth.uid;
+        allow update, delete: if false;
+      }
+    }
+
+    match /support_requests/{uid}/tickets/{ticketId} {
+      allow read: if self(uid);
+      allow create: if self(uid)
+        && request.resource.data.userId == uid
+        && request.resource.data.status == 'pending';
+      allow update, delete: if false;
+    }
+
+    // ----------------------------------------------------------------------
+    // Teams
+    // ----------------------------------------------------------------------
+    match /teams/{teamId} {
+      allow read: if signedIn()
+        && resource.data.isActive == true
+        && (
+          resource.data.ownerId == request.auth.uid
+          || activeMember(teamId, request.auth.uid)
+        );
+
+      allow create: if signedIn()
+        && request.resource.data.ownerId == request.auth.uid
+        && request.resource.data.memberCount == 1
+        && request.resource.data.isActive == true;
+
+      allow update: if signedIn()
+        && resource.data.isActive == true
+        && (
+          (
+            teamManager(teamId, request.auth.uid)
+            && request.resource.data.ownerId == resource.data.ownerId
+          )
+          || (
+            resource.data.ownerId == request.auth.uid
+            && request.resource.data.ownerId != resource.data.ownerId
+            && request.resource.data.isActive == resource.data.isActive
+            && getAfter(/databases/$(database)/documents/teams/$(teamId)/members/$(request.resource.data.ownerId)).data.role == 'owner'
+            && getAfter(/databases/$(database)/documents/teams/$(teamId)/members/$(request.auth.uid)).data.role == 'leader'
+          )
+          || (
+            self(request.auth.uid)
+            && request.resource.data.ownerId == resource.data.ownerId
+            && request.resource.data.memberCount == resource.data.memberCount - 1
+            && getAfter(/databases/$(database)/documents/teams/$(teamId)/members/$(request.auth.uid)).data.isActive == false
+          )
+        );
+
+      allow delete: if signedIn() && resource.data.ownerId == request.auth.uid;
+
+      match /members/{memberId} {
+        allow read: if signedIn()
+          && (
+            resource.data.userId == request.auth.uid
+            || teamManager(teamId, request.auth.uid)
+          );
+
+        allow create: if signedIn()
+          && (
+            teamManager(teamId, request.auth.uid)
+            || (
+              getAfter(/databases/$(database)/documents/teams/$(teamId)).data.ownerId == request.auth.uid
+              && getAfter(/databases/$(database)/documents/teams/$(teamId)).data.isActive == true
+            )
+          )
+          && request.resource.data.userId == memberId
+          && request.resource.data.teamId == teamId
+          && request.resource.data.isActive == true;
+
+        allow update: if signedIn()
+          && (
+            (
+              teamManager(teamId, request.auth.uid)
+              && request.resource.data.userId == resource.data.userId
+              && request.resource.data.teamId == resource.data.teamId
+              && (
+                request.resource.data.role != 'owner'
+                || request.auth.uid == get(/databases/$(database)/documents/teams/$(teamId)).data.ownerId
+              )
+              && (
+                resource.data.role != 'owner'
+                || request.auth.uid == get(/databases/$(database)/documents/teams/$(teamId)).data.ownerId
+              )
+            )
+            || (
+              self(memberId)
+              && resource.data.userId == request.auth.uid
+              && request.resource.data.userId == resource.data.userId
+              && request.resource.data.teamId == resource.data.teamId
+              && request.resource.data.isActive == false
+              && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isActive'])
+            )
+          );
+
+        allow delete: if false;
+      }
+
+      match /groups/{groupId} {
+        allow read: if activeMember(teamId, request.auth.uid);
+        allow create: if teamManager(teamId, request.auth.uid)
+          && request.resource.data.teamId == teamId;
+        allow update, delete: if teamManager(teamId, request.auth.uid)
+          && resource.data.teamId == teamId;
+      }
+
+      match /messages/{messageId} {
+        allow read: if activeMember(teamId, request.auth.uid);
+        allow create: if activeMember(teamId, request.auth.uid)
+          && request.resource.data.teamId == teamId
+          && request.resource.data.senderId == request.auth.uid;
+        allow update, delete: if false;
+      }
+
+      match /activity/{activityId} {
+        allow read: if activeMember(teamId, request.auth.uid);
+        allow create: if (
+            teamManager(teamId, request.auth.uid)
+            || (
+              getAfter(/databases/$(database)/documents/teams/$(teamId)).data.ownerId == request.auth.uid
+              && getAfter(/databases/$(database)/documents/teams/$(teamId)).data.isActive == true
+            )
+          )
+          && request.resource.data.teamId == teamId
+          && request.resource.data.actorId == request.auth.uid;
+        allow update, delete: if false;
+      }
+    }
+
+    // Everything not explicitly listed above is denied by default.
+  }
+}
