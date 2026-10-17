@@ -36,6 +36,8 @@ import 'windows/windows_home_screen.dart';
 import 'windows/windows_cases_screen.dart';
 import 'windows/windows_calendar_screen.dart';
 import 'windows/windows_clients_screen.dart';
+import 'windows/windows_reminders_screen.dart';
+import 'windows/windows_fees_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -90,9 +92,13 @@ class MyApp extends StatelessWidget {
         '/full_calendar': (context) => _platformRoute('/full_calendar', const FullCalendarScreen()),
         '/juris': (context) => _platformRoute('/juris', const JurisChatScreen()),
         '/profile': (context) => _platformRoute('/profile', const ProfileScreen()),
-        '/fee': (context) => _platformRoute('/fee', const FeeListScreen()),
+        '/fee': (context) => defaultTargetPlatform == TargetPlatform.windows
+            ? const WindowsDesktopShell(activeRoute: '/fee', child: WindowsFeesScreen())
+            : const FeeListScreen(),
         '/todo': (context) => _platformRoute('/todo', const ModuleLandingScreen(title: 'To-Do List', icon: Icons.checklist_rounded)),
-        '/reminders': (context) => _platformRoute('/reminders', const RemindersListScreen()),
+        '/reminders': (context) => defaultTargetPlatform == TargetPlatform.windows
+            ? const WindowsDesktopShell(activeRoute: '/reminders', child: WindowsRemindersScreen())
+            : const RemindersListScreen(),
         '/starred': (context) => _platformRoute('/starred', const StarredCasesScreen()),
         '/settings': (context) => _platformRoute('/settings', const AppSettingsScreen()),
         '/cloud_storage': (context) => _platformRoute('/cloud_storage', const CloudStorageScreen()),
