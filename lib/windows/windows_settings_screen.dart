@@ -27,6 +27,7 @@ class WindowsSettingsScreen extends StatelessWidget {
       const Text('PREFERENCES & SERVICES',style:TextStyle(color:WindowsDesktopShell.muted,fontSize:10,fontWeight:FontWeight.w800,letterSpacing:1.2)),
       const SizedBox(height:12),
       _SettingTile(icon:Icons.tune_rounded,title:'Application settings',subtitle:'General preferences and app behavior',route:'/settings_native',onTap:()=>Navigator.of(context).pushNamed('/settings_native')),
+      _SettingTile(icon:Icons.security_outlined,title:'Security & access',subtitle:'Password recovery and account access',route:'/security',onTap:()=>Navigator.of(context).pushNamed('/security')),
       _SettingTile(icon:Icons.cloud_outlined,title:'Cloud storage',subtitle:'Review available storage options',route:'/cloud_storage',onTap:()=>Navigator.of(context).pushNamed('/cloud_storage')),
       _SettingTile(icon:Icons.workspace_premium_outlined,title:'Plans & upgrades',subtitle:'Review available plan information',route:'/upgrade',onTap:()=>Navigator.of(context).pushNamed('/upgrade')),
       _SettingTile(icon:Icons.help_outline_rounded,title:'Help & support',subtitle:'Get help with your LED workspace',route:'/support',onTap:()=>Navigator.of(context).pushNamed('/support')),
