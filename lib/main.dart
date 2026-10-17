@@ -89,7 +89,9 @@ class MyApp extends StatelessWidget {
         '/case_management': (context) => defaultTargetPlatform == TargetPlatform.windows
             ? const WindowsDesktopShell(activeRoute: '/case_management', child: WindowsCaseManagementScreen())
             : const CaseManagementScreen(),
-        '/completed_cases': (context) => _platformRoute('/completed_cases', const CompletedCasesScreen()),
+        '/completed_cases': (context) => defaultTargetPlatform == TargetPlatform.windows
+            ? const WindowsDesktopShell(activeRoute: '/completed_cases', child: WindowsCasesScreen(initialStatus: 'completed'))
+            : const CompletedCasesScreen(),
         '/deleted_cases': (context) => _platformRoute('/deleted_cases', const DeletedCasesScreen()),
         '/transfer_case': (context) => _platformRoute('/transfer_case', const TransferCaseScreen()),
         '/clients': (context) => defaultTargetPlatform == TargetPlatform.windows
@@ -124,7 +126,9 @@ class MyApp extends StatelessWidget {
         '/reminders': (context) => defaultTargetPlatform == TargetPlatform.windows
             ? const WindowsDesktopShell(activeRoute: '/reminders', child: WindowsRemindersScreen())
             : const RemindersListScreen(),
-        '/starred': (context) => _platformRoute('/starred', const StarredCasesScreen()),
+        '/starred': (context) => defaultTargetPlatform == TargetPlatform.windows
+            ? const WindowsDesktopShell(activeRoute: '/starred', child: WindowsCasesScreen(initialStatus: 'starred'))
+            : const StarredCasesScreen(),
         '/settings': (context) => defaultTargetPlatform == TargetPlatform.windows
             ? const WindowsDesktopShell(activeRoute: '/settings', child: WindowsSettingsScreen())
             : const AppSettingsScreen(),
