@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../models/case_model.dart';
-import '../services/firestore_service.dart';
+import '../data/local/app_database.dart';
+import '../repositories/case_repository.dart';
 import 'windows_case_detail_screen.dart';
 import 'windows_desktop_shell.dart';
 
@@ -13,7 +14,7 @@ class WindowsCauseListScreen extends StatefulWidget{
 }
 class _WindowsCauseListScreenState extends State<WindowsCauseListScreen>{
   DateTime _date=DateTime(DateTime.now().year,DateTime.now().month,DateTime.now().day);
-  final _service=FirestoreService();
+  final _service=CaseRepository(database:AppDatabase.instance);
   final _dateFormat=DateFormat('EEEE, dd MMMM yyyy');
   @override
   Widget build(BuildContext context)=>Scaffold(backgroundColor:WindowsDesktopShell.canvas,body:SafeArea(child:Padding(padding:const EdgeInsets.fromLTRB(30,25,30,30),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
@@ -36,7 +37,7 @@ class _WindowsCauseListScreenState extends State<WindowsCauseListScreen>{
       TextButton.icon(onPressed:()=>setState(()=>_date=DateTime.now()),icon:const Icon(Icons.today_rounded,color:WindowsDesktopShell.gold,size:17),label:const Text('Today',style:TextStyle(color:Colors.white))),
     ])),
     const SizedBox(height:16),
-    Expanded(child:StreamBuilder<List<CaseModel>>(stream:_service.watchCases(specificDate:_date,sortBy:'nextHearing',limit:500),builder:(context,snapshot){
+    Expanded(child:StreamBuilder<List<CaseModel>>(stream:_service.watchCasesForCurrentUser(hearingDateFrom:_date,hearingDateTo:_date.add(const Duration(days:1)).subtract(const Duration(microseconds:1)),sortBy:'nextHearing'),builder:(context,snapshot){
       if(snapshot.hasError)return _empty(Icons.error_outline_rounded,'Could not load cause list',snapshot.error.toString());
       if(snapshot.connectionState==ConnectionState.waiting&&snapshot.data==null)return const Center(child:CircularProgressIndicator(color:WindowsDesktopShell.forest));
       final cases=snapshot.data??const <CaseModel>[];
