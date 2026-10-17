@@ -29,7 +29,7 @@ class WindowsProfileScreen extends StatelessWidget{
             const SizedBox(height:6),Text(value('advocateType','Legal professional'),style:const TextStyle(color:Color(0xFFD8E1D9),fontSize:12)),
             const SizedBox(height:7),Text(user.email??'No email available',style:const TextStyle(color:Color(0xFFB9C7BD),fontSize:11)),
           ])),
-          FilledButton.icon(onPressed:()=>Navigator.of(context).push(MaterialPageRoute<void>(builder:(_)=>const WindowsDesktopShell(activeRoute:'/profile',child:EditProfileScreen()))),icon:const Icon(Icons.edit_outlined,size:17),label:const Text('Edit profile'),style:FilledButton.styleFrom(backgroundColor:WindowsDesktopShell.gold,foregroundColor:WindowsDesktopShell.forest,padding:const EdgeInsets.symmetric(horizontal:16,vertical:15))),
+          FilledButton.icon(onPressed:()=>Navigator.of(context).push(MaterialPageRoute<void>(builder:(_)=>const WindowsDesktopShell(activeRoute:'/profile',child:WindowsEditProfileScreen()))),icon:const Icon(Icons.edit_outlined,size:17),label:const Text('Edit profile'),style:FilledButton.styleFrom(backgroundColor:WindowsDesktopShell.gold,foregroundColor:WindowsDesktopShell.forest,padding:const EdgeInsets.symmetric(horizontal:16,vertical:15))),
         ])),
         const SizedBox(height:20),
         LayoutBuilder(builder:(context,constraints){
