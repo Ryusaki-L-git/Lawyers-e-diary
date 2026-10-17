@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../data/local/app_database.dart';
 import '../models/case_model.dart';
 import '../repositories/case_repository.dart';
-import '../screens/cases/case_detail_screen.dart';
+import 'windows_case_detail_screen.dart';
 import 'windows_desktop_shell.dart';
 
 /// Windows desktop case table backed by the existing user-scoped repository.
@@ -29,7 +29,7 @@ class _WindowsCasesScreenState extends State<WindowsCasesScreen> {
     Navigator.of(context).push(MaterialPageRoute<void>(
       builder: (_) => WindowsDesktopShell(
         activeRoute: '/cases',
-        child: CaseDetailScreen(caseItem: item, localOnly: true),
+        child: WindowsCaseDetailScreen(caseItem: item),
       ),
     ));
   }
