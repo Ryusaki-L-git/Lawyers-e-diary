@@ -48,7 +48,7 @@ class _WindowsTransferCaseScreenState extends State<WindowsTransferCaseScreen> {
           final members=(snapshot.data??const <TeamMemberModel>[]).where((m)=>m.id!=_service.currentUserId).toList();
           if(members.isEmpty)return _note('No other lawyers are available in the identity directory.');
           final selectedExists=members.any((m)=>m.id==_memberId);
-          return DropdownButtonFormField<String>(value:selectedExists?_memberId:null,decoration:const InputDecoration(labelText:'Receiving lawyer',border:OutlineInputBorder()),hint:const Text('Choose a lawyer'),items:members.map((m)=>DropdownMenuItem(value:m.id,child:Text(m.name+' · '+m.role,overflow:TextOverflow.ellipsis))).toList(),onChanged:_busy?null:(id){final found=members.where((m)=>m.id==id);if(found.isNotEmpty){final m=found.first;setState(()=>{_memberId=m.id;_memberName=m.name;});}});
+          return DropdownButtonFormField<String>(value:selectedExists?_memberId:null,decoration:const InputDecoration(labelText:'Receiving lawyer',border:OutlineInputBorder()),hint:const Text('Choose a lawyer'),items:members.map((m)=>DropdownMenuItem(value:m.id,child:Text(m.name+' · '+m.role,overflow:TextOverflow.ellipsis))).toList(),onChanged:_busy?null:(id){final found=members.where((m)=>m.id==id);if(found.isNotEmpty){final m=found.first;setState(() {_memberId=m.id; _memberName=m.name;});}});
         }),
       ]),
       const SizedBox(height:15),
