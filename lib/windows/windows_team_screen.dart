@@ -41,13 +41,13 @@ class WindowsTeamScreen extends StatelessWidget {
               Text(team.name,style:const TextStyle(color:WindowsDesktopShell.ink,fontSize:17,fontWeight:FontWeight.w800)),
               const SizedBox(height:4),Text(team.lawFirm.isEmpty?'Firm name not specified':team.lawFirm,style:const TextStyle(color:WindowsDesktopShell.muted,fontSize:12)),
             ])),
-            Container(padding:const EdgeInsets.symmetric(horizontal:10,vertical:6),decoration:BoxDecoration(color:const Color(0xFFE9EEE9),borderRadius:BorderRadius.circular(8)),child:Text('\${team.memberCount} members',style:const TextStyle(color:WindowsDesktopShell.forest,fontSize:11,fontWeight:FontWeight.w800))),
+            Container(padding:const EdgeInsets.symmetric(horizontal:10,vertical:6),decoration:BoxDecoration(color:const Color(0xFFE9EEE9),borderRadius:BorderRadius.circular(8)),child:Text('${team.memberCount} members',style:const TextStyle(color:WindowsDesktopShell.forest,fontSize:11,fontWeight:FontWeight.w800))),
             const SizedBox(width:12),OutlinedButton(onPressed:()=>Navigator.of(context).push(MaterialPageRoute<void>(builder:(_)=>const WindowsDesktopShell(activeRoute:'/team',child:TeamEntryScreen()))),style:OutlinedButton.styleFrom(foregroundColor:WindowsDesktopShell.forest,side:const BorderSide(color:WindowsDesktopShell.border)),child:const Text('Manage team')),
           ]),
           if(team.description.trim().isNotEmpty)Padding(padding:const EdgeInsets.only(top:14),child:Text(team.description,style:const TextStyle(color:WindowsDesktopShell.muted,fontSize:12,height:1.5))),
           const SizedBox(height:17),
           StreamBuilder<List<TeamMembership>>(stream:TeamService.instance.watchMembers(team.id),builder:(context,memberSnapshot){
-            if(memberSnapshot.hasError)return Text('Could not load members: \${memberSnapshot.error}',style:const TextStyle(color:Color(0xFF9A4A3F),fontSize:11));
+            if(memberSnapshot.hasError)return Text('Could not load members: ${memberSnapshot.error}',style:const TextStyle(color:Color(0xFF9A4A3F),fontSize:11));
             if(memberSnapshot.connectionState==ConnectionState.waiting&&memberSnapshot.data==null)return const LinearProgressIndicator(color:WindowsDesktopShell.gold);
             final members=memberSnapshot.data??const <TeamMembership>[];
             return Wrap(spacing:9,runSpacing:9,children:[for(final member in members)Container(padding:const EdgeInsets.symmetric(horizontal:11,vertical:9),decoration:BoxDecoration(color:WindowsDesktopShell.canvas,borderRadius:BorderRadius.circular(10)),child:Row(mainAxisSize:MainAxisSize.min,children:[
