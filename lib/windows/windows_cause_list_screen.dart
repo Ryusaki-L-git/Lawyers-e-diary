@@ -44,7 +44,7 @@ class _WindowsCauseListScreenState extends State<WindowsCauseListScreen>{
       if(cases.isEmpty)return _empty(Icons.event_available_outlined,'No matters scheduled', 'No cases in your accessible docket have a hearing date recorded for this day.');
       return Container(decoration:BoxDecoration(color:Colors.white,borderRadius:BorderRadius.circular(15),border:Border.all(color:WindowsDesktopShell.border)),child:Column(children:[
         Container(padding:const EdgeInsets.symmetric(horizontal:20,vertical:15),decoration:const BoxDecoration(border:Border(bottom:BorderSide(color:WindowsDesktopShell.border))),child:Row(children:[
-          Expanded(flex:4,child:Text('MATTER  ·  \${cases.length}',style:const TextStyle(color:WindowsDesktopShell.muted,fontSize:10,fontWeight:FontWeight.w800,letterSpacing:1))),
+          Expanded(flex:4,child:Text('MATTER  ·  ${cases.length}',style:const TextStyle(color:WindowsDesktopShell.muted,fontSize:10,fontWeight:FontWeight.w800,letterSpacing:1))),
           const Expanded(flex:2,child:Text('CLIENT',style:TextStyle(color:WindowsDesktopShell.muted,fontSize:10,fontWeight:FontWeight.w800,letterSpacing:1))),
           const Expanded(flex:2,child:Text('COURT / FORUM',style:TextStyle(color:WindowsDesktopShell.muted,fontSize:10,fontWeight:FontWeight.w800,letterSpacing:1))),
           const Expanded(flex:2,child:Text('STATUS',style:TextStyle(color:WindowsDesktopShell.muted,fontSize:10,fontWeight:FontWeight.w800,letterSpacing:1))),
