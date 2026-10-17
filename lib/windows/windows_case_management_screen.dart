@@ -20,7 +20,7 @@ class WindowsCaseManagementScreen extends StatelessWidget{
         const SizedBox(height:7),const Text('Case management',style:TextStyle(fontFamily:'Georgia',color:WindowsDesktopShell.forest,fontSize:29,fontWeight:FontWeight.w700)),
         const SizedBox(height:5),const Text('A live operational overview of your local case register.',style:TextStyle(color:WindowsDesktopShell.muted,fontSize:13)),
         const SizedBox(height:22),
-        if(snapshot.hasError)Container(width:double.infinity,padding:const EdgeInsets.all(14),decoration:BoxDecoration(color:Colors.white,borderRadius:BorderRadius.circular(12),border:Border.all(color:WindowsDesktopShell.border)),child:Text('Could not load case statistics: \${snapshot.error}',style:const TextStyle(color:Color(0xFF9A4A3F),fontSize:12))),
+        if(snapshot.hasError)Container(width:double.infinity,padding:const EdgeInsets.all(14),decoration:BoxDecoration(color:Colors.white,borderRadius:BorderRadius.circular(12),border:Border.all(color:WindowsDesktopShell.border)),child:Text('Could not load case statistics: ${snapshot.error}',style:const TextStyle(color:Color(0xFF9A4A3F),fontSize:12))),
         if(snapshot.connectionState==ConnectionState.waiting&&snapshot.data==null)const LinearProgressIndicator(color:WindowsDesktopShell.gold),
         LayoutBuilder(builder:(context,constraints){
           final cols=constraints.maxWidth>1100?4:constraints.maxWidth>700?2:1;
