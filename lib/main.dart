@@ -33,6 +33,7 @@ import 'welcome_screen.dart';
 import 'widgets/app_palette.dart';
 import 'windows/windows_desktop_shell.dart';
 import 'windows/windows_home_screen.dart';
+import 'windows/windows_cases_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -63,7 +64,9 @@ class MyApp extends StatelessWidget {
         '/home': (context) => defaultTargetPlatform == TargetPlatform.windows
             ? const WindowsDesktopShell(activeRoute: '/home', child: WindowsHomeScreen())
             : const HomeScreen(),
-        '/cases': (context) => _platformRoute('/cases', const AllCasesScreen()),
+        '/cases': (context) => defaultTargetPlatform == TargetPlatform.windows
+            ? const WindowsDesktopShell(activeRoute: '/cases', child: WindowsCasesScreen())
+            : const AllCasesScreen(),
         '/add_case': (context) => _platformRoute('/add_case', const AddCaseScreen()),
         '/search_cases': (context) => _platformRoute('/search_cases', const SearchCasesScreen()),
         '/case_management': (context) => _platformRoute('/case_management', const CaseManagementScreen()),
