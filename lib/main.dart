@@ -41,6 +41,7 @@ import 'windows/windows_fees_screen.dart';
 import 'windows/windows_juris_screen.dart';
 import 'windows/windows_settings_screen.dart';
 import 'windows/windows_team_screen.dart';
+import 'windows/windows_profile_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -98,7 +99,9 @@ class MyApp extends StatelessWidget {
         '/juris': (context) => defaultTargetPlatform == TargetPlatform.windows
             ? const WindowsDesktopShell(activeRoute: '/juris', child: WindowsJurisScreen())
             : const JurisChatScreen(),
-        '/profile': (context) => _platformRoute('/profile', const ProfileScreen()),
+        '/profile': (context) => defaultTargetPlatform == TargetPlatform.windows
+            ? const WindowsDesktopShell(activeRoute: '/profile', child: WindowsProfileScreen())
+            : const ProfileScreen(),
         '/fee': (context) => defaultTargetPlatform == TargetPlatform.windows
             ? const WindowsDesktopShell(activeRoute: '/fee', child: WindowsFeesScreen())
             : const FeeListScreen(),
