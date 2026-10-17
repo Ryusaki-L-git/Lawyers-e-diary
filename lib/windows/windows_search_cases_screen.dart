@@ -34,7 +34,7 @@ class _WindowsSearchCasesScreenState extends State<WindowsSearchCasesScreen>{
       if(items.isEmpty)return _empty(Icons.search_off_rounded,'No matching cases',_query.text.isEmpty?'No cases are available in this view yet.':'Try a different title, client name, or case number.');
       return Container(decoration:BoxDecoration(color:Colors.white,borderRadius:BorderRadius.circular(15),border:Border.all(color:WindowsDesktopShell.border)),child:Column(children:[
         Container(padding:const EdgeInsets.symmetric(horizontal:20,vertical:15),decoration:const BoxDecoration(border:Border(bottom:BorderSide(color:WindowsDesktopShell.border))),child:Row(children:[
-          Expanded(flex:4,child:Text('CASE REGISTER  ·  \${items.length}',style:const TextStyle(color:WindowsDesktopShell.muted,fontSize:10,fontWeight:FontWeight.w800,letterSpacing:1))),
+          Expanded(flex:4,child:Text('CASE REGISTER  ·  ${items.length}',style:const TextStyle(color:WindowsDesktopShell.muted,fontSize:10,fontWeight:FontWeight.w800,letterSpacing:1))),
           const Expanded(flex:2,child:Text('CLIENT',style:TextStyle(color:WindowsDesktopShell.muted,fontSize:10,fontWeight:FontWeight.w800,letterSpacing:1))),
           const Expanded(flex:2,child:Text('NEXT HEARING',style:TextStyle(color:WindowsDesktopShell.muted,fontSize:10,fontWeight:FontWeight.w800,letterSpacing:1))),
           const Expanded(flex:2,child:Text('STATUS',style:TextStyle(color:WindowsDesktopShell.muted,fontSize:10,fontWeight:FontWeight.w800,letterSpacing:1))),
@@ -45,7 +45,7 @@ class _WindowsSearchCasesScreenState extends State<WindowsSearchCasesScreen>{
           return InkWell(onTap:()=>Navigator.of(context).push(MaterialPageRoute<void>(builder:(_)=>WindowsDesktopShell(activeRoute:'/cases',child:WindowsCaseDetailScreen(caseItem:c)))),child:Padding(padding:const EdgeInsets.symmetric(horizontal:20,vertical:14),child:Row(children:[
             Expanded(flex:4,child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text(c.caseTitle,style:const TextStyle(color:WindowsDesktopShell.ink,fontSize:13,fontWeight:FontWeight.w800),maxLines:2,overflow:TextOverflow.ellipsis),const SizedBox(height:4),Text(c.caseNumber,style:const TextStyle(color:WindowsDesktopShell.muted,fontSize:10))])),
             Expanded(flex:2,child:Text(c.clientName,style:const TextStyle(color:WindowsDesktopShell.ink,fontSize:11),maxLines:2,overflow:TextOverflow.ellipsis)),
-            Expanded(flex:2,child:Text(c.nextHearingDate==null?'Not scheduled':'\${c.nextHearingDate!.day.toString().padLeft(2,'0')}/\${c.nextHearingDate!.month.toString().padLeft(2,'0')}/\${c.nextHearingDate!.year}',style:const TextStyle(color:WindowsDesktopShell.ink,fontSize:11))),
+            Expanded(flex:2,child:Text(c.nextHearingDate==null?'Not scheduled':'${c.nextHearingDate!.day.toString().padLeft(2,'0')}/${c.nextHearingDate!.month.toString().padLeft(2,'0')}/${c.nextHearingDate!.year}',style:const TextStyle(color:WindowsDesktopShell.ink,fontSize:11))),
             Expanded(flex:2,child:Align(alignment:Alignment.centerLeft,child:Container(padding:const EdgeInsets.symmetric(horizontal:9,vertical:6),decoration:BoxDecoration(color:color.withValues(alpha:.09),borderRadius:BorderRadius.circular(7)),child:Text(c.status,style:TextStyle(color:color,fontSize:10,fontWeight:FontWeight.w800))))),
             const Icon(Icons.chevron_right_rounded,color:WindowsDesktopShell.muted,size:19),
           ])));
