@@ -53,6 +53,7 @@ import 'windows/windows_support_screen.dart';
 import 'windows/windows_transfer_case_screen.dart';
 import 'windows/windows_cloud_storage_screen.dart';
 import 'windows/windows_upgrade_screen.dart';
+import 'windows/windows_app_settings_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -102,7 +103,7 @@ class MyApp extends StatelessWidget {
             ? const WindowsDesktopShell(activeRoute: '/deleted_cases', child: WindowsDeletedCasesScreen())
             : const DeletedCasesScreen(),
         '/transfer_case': (context) => defaultTargetPlatform == TargetPlatform.windows
-            ? const WindowsDesktopShell(activeRoute: '/transfer_case', child: WindowsTransferCaseScreen(caseItem: ModalRoute.of(context)?.settings.arguments is CaseModel ? ModalRoute.of(context)!.settings.arguments as CaseModel : null))
+            ? WindowsDesktopShell(activeRoute: '/transfer_case', child: WindowsTransferCaseScreen(caseItem: ModalRoute.of(context)?.settings.arguments is CaseModel ? ModalRoute.of(context)!.settings.arguments as CaseModel : null))
             : const TransferCaseScreen(),
         '/clients': (context) => defaultTargetPlatform == TargetPlatform.windows
             ? const WindowsDesktopShell(activeRoute: '/clients', child: WindowsClientsScreen())
@@ -144,7 +145,9 @@ class MyApp extends StatelessWidget {
         '/settings': (context) => defaultTargetPlatform == TargetPlatform.windows
             ? const WindowsDesktopShell(activeRoute: '/settings', child: WindowsSettingsScreen())
             : const AppSettingsScreen(),
-        '/settings_native': (context) => _platformRoute('/settings', const AppSettingsScreen()),
+        '/settings_native': (context) => defaultTargetPlatform == TargetPlatform.windows
+            ? const WindowsDesktopShell(activeRoute: '/settings', child: WindowsAppSettingsScreen())
+            : const AppSettingsScreen(),
         '/cloud_storage': (context) => defaultTargetPlatform == TargetPlatform.windows
             ? const WindowsDesktopShell(activeRoute: '/settings', child: WindowsCloudStorageScreen())
             : const CloudStorageScreen(),
