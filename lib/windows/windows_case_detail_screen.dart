@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../data/local/app_database.dart';
 import '../models/case_model.dart';
@@ -75,7 +76,7 @@ class _WindowsCaseDetailScreenState extends State<WindowsCaseDetailScreen> {
               const SizedBox(height: 16),
               _Panel(title: 'Documents', icon: Icons.description_outlined, child: item.documents.isEmpty
                 ? const _EmptySection(message: 'No documents are attached to this case yet.')
-                : Column(children: [for (final document in item.documents) ListTile(contentPadding: EdgeInsets.zero, leading: const Icon(Icons.description_outlined, color: WindowsDesktopShell.forest), title: Text(document.name, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12)), subtitle: Text(document.type + ' · ' + document.size, style: const TextStyle(fontSize: 10, color: WindowsDesktopShell.muted)))])),
+                : Column(children: [for (final document in item.documents) ListTile(contentPadding: EdgeInsets.zero, leading: const Icon(Icons.description_outlined, color: WindowsDesktopShell.forest), title: Text(document.name, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12)), subtitle: Text(document.type + ' · ' + document.size, style: const TextStyle(fontSize: 10, color: WindowsDesktopShell.muted)), trailing: Icon(document.url == null ? Icons.info_outline_rounded : Icons.open_in_new_rounded, color: WindowsDesktopShell.muted, size: 17), onTap: document.url == null ? null : () => _openDocument(document))])),
             ]);
             if (constraints.maxWidth < 940) return Column(children: [left, const SizedBox(height: 16), right]);
             return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [Expanded(child: left), const SizedBox(width: 18), Expanded(child: right)]);
@@ -85,6 +86,21 @@ class _WindowsCaseDetailScreenState extends State<WindowsCaseDetailScreen> {
         ]),
       )),
     );
+  }
+
+  Future<void> _openDocument(CaseDocumentModel document) async {
+    final rawUrl = document.url?.trim();
+    final uri = rawUrl == null ? null : Uri.tryParse(rawUrl);
+    if (uri == null || uri.scheme != 'https' || !uri.hasAuthority) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('This document does not have a valid secure link.')));
+      return;
+    }
+    try {
+      final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
+      if (!opened && mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not open this document link.')));
+    } catch (_) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not open this document link.')));
+    }
   }
 
   Future<void> _toggleStar() async {
