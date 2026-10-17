@@ -40,6 +40,7 @@ import 'windows/windows_reminders_screen.dart';
 import 'windows/windows_fees_screen.dart';
 import 'windows/windows_juris_screen.dart';
 import 'windows/windows_settings_screen.dart';
+import 'windows/windows_team_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -83,7 +84,9 @@ class MyApp extends StatelessWidget {
             ? const WindowsDesktopShell(activeRoute: '/clients', child: WindowsClientsScreen())
             : const ClientListScreen(),
         '/support': (context) => _platformRoute('/support', const HelpSupportScreen()),
-        '/team': (context) => _platformRoute('/team', const TeamEntryScreen()),
+        '/team': (context) => defaultTargetPlatform == TargetPlatform.windows
+            ? const WindowsDesktopShell(activeRoute: '/team', child: WindowsTeamScreen())
+            : const TeamEntryScreen(),
         '/calendar': (context) => defaultTargetPlatform == TargetPlatform.windows
             ? const WindowsDesktopShell(activeRoute: '/calendar', child: WindowsCalendarScreen())
             : const CalendarListScreen(),
