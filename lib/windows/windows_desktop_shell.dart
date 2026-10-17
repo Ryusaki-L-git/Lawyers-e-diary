@@ -32,6 +32,8 @@ class WindowsDesktopShell extends StatelessWidget {
     _DesktopNavItem('JURIS intelligence', Icons.auto_awesome_outlined, '/juris', 'INTELLIGENCE'),
     _DesktopNavItem('Profile', Icons.person_outline_rounded, '/profile', 'ACCOUNT'),
     _DesktopNavItem('Settings', Icons.settings_outlined, '/settings', 'ACCOUNT'),
+    _DesktopNavItem('Help & support', Icons.help_outline_rounded, '/support', 'ACCOUNT'),
+    _DesktopNavItem('Settings', Icons.settings_outlined, '/settings', 'ACCOUNT'),
   ];
 
   @override
