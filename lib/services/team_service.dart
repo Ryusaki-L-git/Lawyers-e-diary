@@ -600,21 +600,38 @@ class TeamService {
     if (memberId.isEmpty) {
       throw StateError('Cases can only be assigned to a verified LED user.');
     }
-    final teamSnapshot = await _db.collection('teams').doc(teamId).get();
-    final memberSnapshot = await _db
-        .collection('teams')
-        .doc(teamId)
-        .collection('members')
-        .doc(memberId)
-        .get();
+    final actorId = currentUserId;
+    if (actorId == null || actorId.isEmpty) {
+      throw StateError('Sign in before assigning a team case.');
+    }
+
+    final teamRef = _db.collection('teams').doc(teamId);
+    final teamSnapshot = await teamRef.get();
+    final actorMembership = await teamRef.collection('members').doc(actorId).get();
+    final memberSnapshot = await teamRef.collection('members').doc(memberId).get();
     final teamOwnerId = teamSnapshot.data()?['ownerId'] as String?;
+    final actorData = actorMembership.data();
+    final actorRole = actorData?['role'] as String?;
     if (!teamSnapshot.exists ||
         teamSnapshot.data()?['isActive'] != true ||
-        teamOwnerId == null ||
-        !memberSnapshot.exists ||
+        teamOwnerId == null) {
+      throw StateError('This team is not active or is no longer available.');
+    }
+    if (!actorMembership.exists ||
+        actorData?['isActive'] != true ||
+        actorData?['identityType'] != 'firebase_uid' ||
+        (actorRole != TeamRole.owner.value && actorRole != TeamRole.leader.value)) {
+      throw StateError('Only an active team owner or leader can assign cases.');
+    }
+    if (!memberSnapshot.exists ||
         memberSnapshot.data()?['isActive'] != true ||
-        memberSnapshot.data()?['identityType'] != 'firebase_uid') {
-      throw StateError('Cases can only be assigned to an active LED member.');
+        memberSnapshot.data()?['identityType'] != 'firebase_uid' ||
+        memberSnapshot.data()?['userId'] != memberId) {
+      throw StateError('Cases can only be assigned to an active, verified team member.');
+    }
+    final caseSnapshot = await _db.collection('cases').doc(caseId).get();
+    if (!caseSnapshot.exists || caseSnapshot.data()?['teamId'] != teamId) {
+      throw StateError('The selected case is not available in this team.');
     }
 
     await _db.collection('cases').doc(caseId).update({
