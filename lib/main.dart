@@ -42,6 +42,7 @@ import 'windows/windows_juris_screen.dart';
 import 'windows/windows_settings_screen.dart';
 import 'windows/windows_team_screen.dart';
 import 'windows/windows_profile_screen.dart';
+import 'windows/windows_cause_list_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -94,7 +95,9 @@ class MyApp extends StatelessWidget {
         '/calendar_list': (context) => defaultTargetPlatform == TargetPlatform.windows
             ? const WindowsDesktopShell(activeRoute: '/calendar', child: WindowsCalendarScreen())
             : const CalendarListScreen(),
-        '/cause_list': (context) => _platformRoute('/cause_list', const CauseListScreen()),
+        '/cause_list': (context) => defaultTargetPlatform == TargetPlatform.windows
+            ? const WindowsDesktopShell(activeRoute: '/cause_list', child: WindowsCauseListScreen())
+            : const CauseListScreen(),
         '/full_calendar': (context) => _platformRoute('/full_calendar', const FullCalendarScreen()),
         '/juris': (context) => defaultTargetPlatform == TargetPlatform.windows
             ? const WindowsDesktopShell(activeRoute: '/juris', child: WindowsJurisScreen())
