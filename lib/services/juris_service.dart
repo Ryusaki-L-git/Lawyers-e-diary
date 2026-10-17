@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 
 /// Minimal authenticated HTTP client for the JURIS backend.
 ///
@@ -17,6 +18,8 @@ class JurisService {
   Future<JurisChatResult> sendMessage({
     required String message,
     required String sessionId,
+    String? activeCaseId,
+    String? activeCaseTitle,
   }) async {
     final trimmed = message.trim();
     if (trimmed.isEmpty) throw const JurisServiceException('Please enter a message.');
@@ -31,8 +34,18 @@ class JurisService {
     }
 
     final base = Uri.tryParse(_baseUrl);
-    if (base == null || !base.hasScheme || !base.hasAuthority || base.scheme != 'https') {
-      throw const JurisServiceException('JURIS endpoint must be a valid HTTPS URL.');
+    final isWindowsLocalDevelopment =
+        defaultTargetPlatform == TargetPlatform.windows &&
+        base != null &&
+        base.scheme == 'http' &&
+        (base.host == '127.0.0.1' || base.host == 'localhost');
+    if (base == null ||
+        !base.hasScheme ||
+        !base.hasAuthority ||
+        (base.scheme != 'https' && !isWindowsLocalDevelopment)) {
+      throw const JurisServiceException(
+        'JURIS must use HTTPS, except for localhost during Windows development.',
+      );
     }
     final uri = base.resolve('/chat');
     final request = await _client.postUrl(uri).timeout(const Duration(seconds: 15));
@@ -43,7 +56,15 @@ class JurisService {
       'message': trimmed,
       'session_id': sessionId,
       'client_version': 'led-flutter',
-      'context': {'current_screen': 'unknown'},
+      'context': {
+        'current_screen': activeCaseId == null ? 'legal_research' : 'case_detail',
+        if (activeCaseId != null && activeCaseId.trim().isNotEmpty)
+          'active_case': {
+            'resource_type': 'case',
+            'resource_id': activeCaseId,
+            'display_name': activeCaseTitle ?? '',
+          },
+      },
     }));
 
     final response = await request.close().timeout(const Duration(seconds: 50));

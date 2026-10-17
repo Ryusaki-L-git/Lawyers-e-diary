@@ -201,6 +201,86 @@ class _SignupScreenState extends State<SignupScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (defaultTargetPlatform == TargetPlatform.windows) {
+      return _buildWindowsSignup();
+    }
+    return _buildMobileSignup();
+  }
+
+  Widget _buildWindowsSignup() {
+    const forest = Color(0xFF1F3D2B);
+    const gold = Color(0xFFCCA046);
+    const ivory = Color(0xFFF7F5F2);
+    const muted = Color(0xFF6B665E);
+    return Scaffold(
+      backgroundColor: ivory,
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(28),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 1080),
+              child: Container(
+                clipBehavior: Clip.antiAlias,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(22),
+                  border: Border.all(color: const Color(0xFFE5DFD7)),
+                  boxShadow: const [BoxShadow(color: Color(0x12000000), blurRadius: 32, offset: Offset(0, 16))],
+                ),
+                child: LayoutBuilder(builder: (context, constraints) {
+                  final compact = constraints.maxWidth < 780;
+                  final form = Padding(
+                    padding: EdgeInsets.all(compact ? 26 : 48),
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
+                      const Text('CREATE YOUR LED ACCOUNT', style: TextStyle(color: muted, fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 1.4)),
+                      const SizedBox(height: 12),
+                      const Text('Begin your practice workspace.', style: TextStyle(color: forest, fontFamily: 'Georgia', fontSize: 28, fontWeight: FontWeight.w700)),
+                      const SizedBox(height: 8),
+                      const Text('Register with email and password to get started.', style: TextStyle(color: muted, fontSize: 12, height: 1.5)),
+                      const SizedBox(height: 28),
+                      _field(label: 'Email address', hint: 'name@lawfirm.com', icon: Icons.email_outlined, controller: emailController, keyboardType: TextInputType.emailAddress),
+                      const SizedBox(height: 18),
+                      _field(label: 'Password', hint: 'At least 8 characters', icon: Icons.lock_outline_rounded, controller: passwordController, obscureText: true),
+                      const SizedBox(height: 18),
+                      _field(label: 'Confirm password', hint: 'Re-enter your password', icon: Icons.lock_outline_rounded, controller: confirmPasswordController, obscureText: true),
+                      const SizedBox(height: 24),
+                      SizedBox(height: 52, child: FilledButton(
+                        onPressed: isLoading ? null : createAccount,
+                        style: FilledButton.styleFrom(backgroundColor: forest, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                        child: isSignupLoading ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Text('Create account', style: TextStyle(fontWeight: FontWeight.w800)),
+                      )),
+                      const SizedBox(height: 15),
+                      const Text('By creating an account, use accurate account details and keep your credentials private.', style: TextStyle(color: muted, fontSize: 10, height: 1.5)),
+                      const SizedBox(height: 14),
+                      TextButton(onPressed: isLoading ? null : () => Navigator.pushReplacementNamed(context, '/login'), child: const Text('Already have an account? Sign in', style: TextStyle(color: forest, fontWeight: FontWeight.w700))),
+                    ]),
+                  );
+                  final brand = Container(
+                    padding: const EdgeInsets.all(38),
+                    decoration: const BoxDecoration(gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [forest, Color(0xFF13291C)])),
+                    child: const Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: [
+                      Icon(Icons.balance_rounded, color: gold, size: 38),
+                      SizedBox(height: 22),
+                      Text("LAWYER'S E-DIARY", style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w800, letterSpacing: 2)),
+                      SizedBox(height: 20),
+                      Text('A more considered way to manage legal work.', style: TextStyle(color: Colors.white, fontFamily: 'Georgia', fontSize: 29, fontWeight: FontWeight.w700, height: 1.2)),
+                      SizedBox(height: 14),
+                      Text('Cases, hearing dates, client records and legal workflows — brought together in one focused desktop workspace.', style: TextStyle(color: Color(0xFFD8E1D9), fontSize: 13, height: 1.6)),
+                    ]),
+                  );
+                  if (compact) return Column(children: [brand, form]);
+                  return IntrinsicHeight(child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [Expanded(flex: 5, child: brand), Expanded(flex: 6, child: Center(child: form))]));
+                }),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMobileSignup() {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F1E8),
       body: SafeArea(

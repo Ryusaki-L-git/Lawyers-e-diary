@@ -1,4 +1,5 @@
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'login_screen.dart';
@@ -17,6 +18,7 @@ import 'screens/module_landing_screen.dart';
 import 'screens/juris/juris_chat_screen.dart';
 import 'screens/notification_screen.dart';
 import 'screens/profile/profile_screen.dart';
+import 'screens/profile/account_security_screen.dart';
 import 'screens/fees/fee_list_screen.dart';
 import 'screens/cases/starred_cases_screen.dart';
 import 'screens/reminders/reminders_list_screen.dart';
@@ -30,6 +32,29 @@ import 'signup_screen.dart';
 import 'splash_screen.dart';
 import 'welcome_screen.dart';
 import 'widgets/app_palette.dart';
+import 'windows/windows_desktop_shell.dart';
+import 'windows/windows_home_screen.dart';
+import 'windows/windows_cases_screen.dart';
+import 'windows/windows_calendar_screen.dart';
+import 'windows/windows_clients_screen.dart';
+import 'windows/windows_reminders_screen.dart';
+import 'windows/windows_fees_screen.dart';
+import 'windows/windows_juris_screen.dart';
+import 'windows/windows_settings_screen.dart';
+import 'windows/windows_team_screen.dart';
+import 'windows/windows_profile_screen.dart';
+import 'windows/windows_cause_list_screen.dart';
+import 'windows/windows_add_case_screen.dart';
+import 'windows/windows_search_cases_screen.dart';
+import 'windows/windows_notifications_screen.dart';
+import 'windows/windows_case_management_screen.dart';
+import 'windows/windows_deleted_cases_screen.dart';
+import 'windows/windows_support_screen.dart';
+import 'windows/windows_transfer_case_screen.dart';
+import 'windows/windows_cloud_storage_screen.dart';
+import 'windows/windows_upgrade_screen.dart';
+import 'windows/windows_app_settings_screen.dart';
+import 'windows/windows_security_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -39,6 +64,11 @@ void main() async {
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
+
+  Widget _platformRoute(String route, Widget screen) {
+    if (defaultTargetPlatform != TargetPlatform.windows) return screen;
+    return WindowsDesktopShell(activeRoute: route, child: screen);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -52,34 +82,94 @@ class MyApp extends StatelessWidget {
         '/login': (context) => const LoginScreen(),
         '/signup': (context) => const SignupScreen(),
         '/welcome': (context) => const WelcomeScreen(),
-        '/home': (context) => const HomeScreen(),
-        '/cases': (context) => const AllCasesScreen(),
-        '/add_case': (context) => const AddCaseScreen(),
-        '/search_cases': (context) => const SearchCasesScreen(),
-        '/case_management': (context) => const CaseManagementScreen(),
-        '/completed_cases': (context) => const CompletedCasesScreen(),
-        '/deleted_cases': (context) => const DeletedCasesScreen(),
-        '/transfer_case': (context) => const TransferCaseScreen(),
-        '/clients': (context) => const ClientListScreen(),
-        '/support': (context) => const HelpSupportScreen(),
-        '/team': (context) => const TeamEntryScreen(),
-        '/calendar': (context) => const CalendarListScreen(),
-        '/calendar_list': (context) => const CalendarListScreen(),
-        '/cause_list': (context) => const CauseListScreen(),
-        '/full_calendar': (context) => const FullCalendarScreen(),
-        '/juris': (context) => const JurisChatScreen(),
-        '/profile': (context) => const ProfileScreen(),
-        '/fee': (context) => const FeeListScreen(),
-        '/todo': (context) => const ModuleLandingScreen(
-              title: 'To-Do List',
-              icon: Icons.checklist_rounded,
+        '/home': (context) => defaultTargetPlatform == TargetPlatform.windows
+            ? const WindowsDesktopShell(activeRoute: '/home', child: WindowsHomeScreen())
+            : const HomeScreen(),
+        '/cases': (context) => defaultTargetPlatform == TargetPlatform.windows
+            ? const WindowsDesktopShell(activeRoute: '/cases', child: WindowsCasesScreen())
+            : const AllCasesScreen(),
+        '/add_case': (context) => defaultTargetPlatform == TargetPlatform.windows
+            ? const WindowsDesktopShell(activeRoute: '/cases', child: WindowsAddCaseScreen())
+            : const AddCaseScreen(),
+        '/search_cases': (context) => defaultTargetPlatform == TargetPlatform.windows
+            ? const WindowsDesktopShell(activeRoute: '/search_cases', child: WindowsSearchCasesScreen())
+            : const SearchCasesScreen(),
+        '/case_management': (context) => defaultTargetPlatform == TargetPlatform.windows
+            ? const WindowsDesktopShell(activeRoute: '/case_management', child: WindowsCaseManagementScreen())
+            : const CaseManagementScreen(),
+        '/completed_cases': (context) => defaultTargetPlatform == TargetPlatform.windows
+            ? const WindowsDesktopShell(activeRoute: '/completed_cases', child: WindowsCasesScreen(initialStatus: 'completed'))
+            : const CompletedCasesScreen(),
+        '/deleted_cases': (context) => defaultTargetPlatform == TargetPlatform.windows
+            ? const WindowsDesktopShell(activeRoute: '/deleted_cases', child: WindowsDeletedCasesScreen())
+            : const DeletedCasesScreen(),
+        '/transfer_case': (context) => defaultTargetPlatform == TargetPlatform.windows
+            ? WindowsDesktopShell(activeRoute: '/transfer_case', child: const WindowsTransferCaseScreen())
+            : const TransferCaseScreen(),
+        '/clients': (context) => defaultTargetPlatform == TargetPlatform.windows
+            ? const WindowsDesktopShell(activeRoute: '/clients', child: WindowsClientsScreen())
+            : const ClientListScreen(),
+        '/support': (context) => defaultTargetPlatform == TargetPlatform.windows
+            ? const WindowsDesktopShell(activeRoute: '/support', child: WindowsSupportScreen())
+            : const HelpSupportScreen(),
+        '/team': (context) => defaultTargetPlatform == TargetPlatform.windows
+            ? const WindowsDesktopShell(activeRoute: '/team', child: WindowsTeamScreen())
+            : const TeamEntryScreen(),
+        '/calendar': (context) => defaultTargetPlatform == TargetPlatform.windows
+            ? const WindowsDesktopShell(activeRoute: '/calendar', child: WindowsCalendarScreen())
+            : const CalendarListScreen(),
+        '/calendar_list': (context) => defaultTargetPlatform == TargetPlatform.windows
+            ? const WindowsDesktopShell(activeRoute: '/calendar', child: WindowsCalendarScreen())
+            : const CalendarListScreen(),
+        '/cause_list': (context) => defaultTargetPlatform == TargetPlatform.windows
+            ? const WindowsDesktopShell(activeRoute: '/cause_list', child: WindowsCauseListScreen())
+            : const CauseListScreen(),
+        '/full_calendar': (context) => defaultTargetPlatform == TargetPlatform.windows
+            ? const WindowsDesktopShell(activeRoute: '/calendar', child: WindowsCalendarScreen())
+            : const FullCalendarScreen(),
+        '/juris': (context) {
+          if (defaultTargetPlatform != TargetPlatform.windows) return const JurisChatScreen();
+          final args = ModalRoute.of(context)?.settings.arguments;
+          final contextData = args is Map ? args : const <String, dynamic>{};
+          return WindowsDesktopShell(
+            activeRoute: '/juris',
+            child: WindowsJurisScreen(
+              caseId: contextData['caseId'] as String?,
+              caseTitle: contextData['caseTitle'] as String?,
             ),
-        '/reminders': (context) => const RemindersListScreen(),
-        '/starred': (context) => const StarredCasesScreen(),
-        '/settings': (context) => const AppSettingsScreen(),
-        '/cloud_storage': (context) => const CloudStorageScreen(),
-        '/upgrade': (context) => const UpgradePromptScreen(),
-        '/notifications': (context) => const NotificationScreen(),
+          );
+        },
+        '/profile': (context) => defaultTargetPlatform == TargetPlatform.windows
+            ? const WindowsDesktopShell(activeRoute: '/profile', child: WindowsProfileScreen())
+            : const ProfileScreen(),
+        '/fee': (context) => defaultTargetPlatform == TargetPlatform.windows
+            ? const WindowsDesktopShell(activeRoute: '/fee', child: WindowsFeesScreen())
+            : const FeeListScreen(),
+        '/todo': (context) => _platformRoute('/todo', const ModuleLandingScreen(title: 'To-Do List', icon: Icons.checklist_rounded)),
+        '/reminders': (context) => defaultTargetPlatform == TargetPlatform.windows
+            ? const WindowsDesktopShell(activeRoute: '/reminders', child: WindowsRemindersScreen())
+            : const RemindersListScreen(),
+        '/starred': (context) => defaultTargetPlatform == TargetPlatform.windows
+            ? const WindowsDesktopShell(activeRoute: '/starred', child: WindowsCasesScreen(initialStatus: 'starred'))
+            : const StarredCasesScreen(),
+        '/settings': (context) => defaultTargetPlatform == TargetPlatform.windows
+            ? const WindowsDesktopShell(activeRoute: '/settings', child: WindowsSettingsScreen())
+            : const AppSettingsScreen(),
+        '/security': (context) => defaultTargetPlatform == TargetPlatform.windows
+            ? const WindowsDesktopShell(activeRoute: '/settings', child: WindowsSecurityScreen())
+            : const AccountSecurityScreen(),
+        '/settings_native': (context) => defaultTargetPlatform == TargetPlatform.windows
+            ? const WindowsDesktopShell(activeRoute: '/settings', child: WindowsAppSettingsScreen())
+            : const AppSettingsScreen(),
+        '/cloud_storage': (context) => defaultTargetPlatform == TargetPlatform.windows
+            ? const WindowsDesktopShell(activeRoute: '/settings', child: WindowsCloudStorageScreen())
+            : const CloudStorageScreen(),
+        '/upgrade': (context) => defaultTargetPlatform == TargetPlatform.windows
+            ? const WindowsDesktopShell(activeRoute: '/settings', child: WindowsUpgradeScreen())
+            : const UpgradePromptScreen(),
+        '/notifications': (context) => defaultTargetPlatform == TargetPlatform.windows
+            ? const WindowsDesktopShell(activeRoute: '/notifications', child: WindowsNotificationsScreen())
+            : const NotificationScreen(),
       },
     );
   }

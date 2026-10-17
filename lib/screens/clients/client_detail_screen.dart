@@ -1,9 +1,11 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../models/client_model.dart';
 import '../../services/client_service.dart';
 import '../../widgets/app_palette.dart';
+import '../../windows/windows_desktop_shell.dart';
 import 'add_edit_client_screen.dart';
 
 /// Comprehensive Client Dossier screen showing contact information,
@@ -153,7 +155,12 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
     final updated = await Navigator.push<ClientModel>(
       context,
       MaterialPageRoute(
-        builder: (_) => AddEditClientScreen(client: _client),
+        builder: (_) => defaultTargetPlatform == TargetPlatform.windows
+            ? WindowsDesktopShell(
+                activeRoute: '/clients',
+                child: AddEditClientScreen(client: _client),
+              )
+            : AddEditClientScreen(client: _client),
       ),
     );
     if (updated != null && mounted) {
