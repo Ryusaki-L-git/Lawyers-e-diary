@@ -31,7 +31,6 @@ import 'signup_screen.dart';
 import 'splash_screen.dart';
 import 'welcome_screen.dart';
 import 'widgets/app_palette.dart';
-import 'widgets/app_bottom_navigation.dart';
 import 'windows/windows_desktop_shell.dart';
 import 'windows/windows_home_screen.dart';
 
@@ -44,7 +43,7 @@ void main() async {
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
-  Widget _platformRoute(BuildContext context, String route, Widget screen) {
+  Widget _platformRoute(String route, Widget screen) {
     if (defaultTargetPlatform != TargetPlatform.windows) return screen;
     return WindowsDesktopShell(activeRoute: route, child: screen);
   }
@@ -64,7 +63,7 @@ class MyApp extends StatelessWidget {
         '/home': (context) => defaultTargetPlatform == TargetPlatform.windows
             ? const WindowsDesktopShell(activeRoute: '/home', child: WindowsHomeScreen())
             : const HomeScreen(),
-        '/cases': (context) => _platformRoute(context, '/cases', const AllCasesScreen()),
+        '/cases': (context) => _platformRoute('/cases', const AllCasesScreen()),
         '/add_case': (context) => _platformRoute(context, '/add_case', const AddCaseScreen()),
         '/search_cases': (context) => _platformRoute(context, '/search_cases', const SearchCasesScreen()),
         '/case_management': (context) => _platformRoute(context, '/case_management', const CaseManagementScreen()),
