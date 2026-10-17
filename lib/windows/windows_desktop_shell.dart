@@ -17,6 +17,7 @@ class WindowsDesktopShell extends StatelessWidget {
   static const _items = <_DesktopNavItem>[
     _DesktopNavItem('Home', Icons.space_dashboard_outlined, '/home', 'WORKSPACE'),
     _DesktopNavItem('All cases', Icons.folder_open_outlined, '/cases', 'WORKSPACE'),
+    _DesktopNavItem('Case management', Icons.view_quilt_outlined, '/case_management', 'WORKSPACE'),
     _DesktopNavItem('Search cases', Icons.manage_search_rounded, '/search_cases', 'WORKSPACE'),
     _DesktopNavItem('Calendar & hearings', Icons.calendar_month_outlined, '/calendar', 'WORKSPACE'),
     _DesktopNavItem('Cause list', Icons.gavel_outlined, '/cause_list', 'WORKSPACE'),
