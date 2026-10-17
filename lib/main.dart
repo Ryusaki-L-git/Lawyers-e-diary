@@ -49,6 +49,9 @@ import 'windows/windows_notifications_screen.dart';
 import 'windows/windows_case_management_screen.dart';
 import 'windows/windows_deleted_cases_screen.dart';
 import 'windows/windows_support_screen.dart';
+import 'windows/windows_transfer_case_screen.dart';
+import 'windows/windows_cloud_storage_screen.dart';
+import 'windows/windows_upgrade_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -97,7 +100,9 @@ class MyApp extends StatelessWidget {
         '/deleted_cases': (context) => defaultTargetPlatform == TargetPlatform.windows
             ? const WindowsDesktopShell(activeRoute: '/deleted_cases', child: WindowsDeletedCasesScreen())
             : const DeletedCasesScreen(),
-        '/transfer_case': (context) => _platformRoute('/transfer_case', const TransferCaseScreen()),
+        '/transfer_case': (context) => defaultTargetPlatform == TargetPlatform.windows
+            ? const WindowsDesktopShell(activeRoute: '/transfer_case', child: WindowsTransferCaseScreen())
+            : const TransferCaseScreen(),
         '/clients': (context) => defaultTargetPlatform == TargetPlatform.windows
             ? const WindowsDesktopShell(activeRoute: '/clients', child: WindowsClientsScreen())
             : const ClientListScreen(),
@@ -139,8 +144,12 @@ class MyApp extends StatelessWidget {
             ? const WindowsDesktopShell(activeRoute: '/settings', child: WindowsSettingsScreen())
             : const AppSettingsScreen(),
         '/settings_native': (context) => _platformRoute('/settings', const AppSettingsScreen()),
-        '/cloud_storage': (context) => _platformRoute('/cloud_storage', const CloudStorageScreen()),
-        '/upgrade': (context) => _platformRoute('/upgrade', const UpgradePromptScreen()),
+        '/cloud_storage': (context) => defaultTargetPlatform == TargetPlatform.windows
+            ? const WindowsDesktopShell(activeRoute: '/settings', child: WindowsCloudStorageScreen())
+            : const CloudStorageScreen(),
+        '/upgrade': (context) => defaultTargetPlatform == TargetPlatform.windows
+            ? const WindowsDesktopShell(activeRoute: '/settings', child: WindowsUpgradeScreen())
+            : const UpgradePromptScreen(),
         '/notifications': (context) => defaultTargetPlatform == TargetPlatform.windows
             ? const WindowsDesktopShell(activeRoute: '/notifications', child: WindowsNotificationsScreen())
             : const NotificationScreen(),
