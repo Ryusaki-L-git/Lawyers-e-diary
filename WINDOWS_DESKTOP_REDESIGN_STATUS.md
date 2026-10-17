@@ -25,7 +25,7 @@ Branch: windows-desktop-redesign
 1. This is the first desktop foundation, not a completed redesign of every module. Existing module screens are currently reused inside the new sidebar shell; each module still needs a Windows-specific layout review and polish.
 2. Detail screens opened with direct MaterialPageRoute pushes may leave the persistent shell until those flows are adapted.
 3. Firebase initialization still calls Firebase.initializeApp() without DefaultFirebaseOptions.currentPlatform. A repository lookup did not find lib/firebase_options.dart. Windows Firebase initialization must be verified and configured for the actual Firebase project before running the desktop app.
-4. JURIS requires a real HTTPS JURIS_BASE_URL; local http://127.0.0.1:8000 is not accepted by the current service's HTTPS-only validation. A deliberate, Windows-development-only localhost configuration would be needed for local testing; production must remain HTTPS.
+4. JURIS requires a real HTTPS JURIS_BASE_URL in production. The client now allows http://127.0.0.1 or http://localhost only when running on Windows, for local development; all other non-HTTPS endpoints remain rejected.
 5. Existing LED screens and JURIS are not yet compile-tested in this environment. No claim is made that Windows build, Firebase sign-in, Firestore access, or JURIS requests have been validated end to end.
 6. No secrets or Firebase credentials have been added.
 
