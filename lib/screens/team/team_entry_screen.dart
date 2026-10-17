@@ -1,9 +1,11 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../models/team_model.dart';
 import '../../services/team_service.dart';
 import '../../widgets/app_palette.dart';
 import 'create_team_screen.dart';
+import '../../windows/windows_desktop_shell.dart';
 import 'member/cases_my_cases_screen.dart';
 import 'member/groups_my_groups_screen.dart';
 import 'member/team_chat_member_screen.dart';
@@ -165,7 +167,9 @@ class _TeamEntryScreenState extends State<TeamEntryScreen> {
                       onPressed: () => Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (_) => const CreateTeamScreen(),
+                          builder: (_) => defaultTargetPlatform == TargetPlatform.windows
+                              ? const WindowsDesktopShell(activeRoute: '/team', child: CreateTeamScreen())
+                              : const CreateTeamScreen(),
                         ),
                       ),
                       style: ElevatedButton.styleFrom(
