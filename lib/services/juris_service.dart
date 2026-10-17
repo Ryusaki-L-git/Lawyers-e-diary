@@ -18,6 +18,8 @@ class JurisService {
   Future<JurisChatResult> sendMessage({
     required String message,
     required String sessionId,
+    String? activeCaseId,
+    String? activeCaseTitle,
   }) async {
     final trimmed = message.trim();
     if (trimmed.isEmpty) throw const JurisServiceException('Please enter a message.');
@@ -54,7 +56,15 @@ class JurisService {
       'message': trimmed,
       'session_id': sessionId,
       'client_version': 'led-flutter',
-      'context': {'current_screen': 'unknown'},
+      'context': {
+        'current_screen': activeCaseId == null ? 'legal_research' : 'case_detail',
+        if (activeCaseId != null && activeCaseId.trim().isNotEmpty)
+          'active_case': {
+            'resource_type': 'case',
+            'resource_id': activeCaseId,
+            'display_name': activeCaseTitle ?? '',
+          },
+      },
     }));
 
     final response = await request.close().timeout(const Duration(seconds: 50));
