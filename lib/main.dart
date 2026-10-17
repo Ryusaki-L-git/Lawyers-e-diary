@@ -35,6 +35,7 @@ import 'windows/windows_desktop_shell.dart';
 import 'windows/windows_home_screen.dart';
 import 'windows/windows_cases_screen.dart';
 import 'windows/windows_calendar_screen.dart';
+import 'windows/windows_clients_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -74,7 +75,9 @@ class MyApp extends StatelessWidget {
         '/completed_cases': (context) => _platformRoute('/completed_cases', const CompletedCasesScreen()),
         '/deleted_cases': (context) => _platformRoute('/deleted_cases', const DeletedCasesScreen()),
         '/transfer_case': (context) => _platformRoute('/transfer_case', const TransferCaseScreen()),
-        '/clients': (context) => _platformRoute('/clients', const ClientListScreen()),
+        '/clients': (context) => defaultTargetPlatform == TargetPlatform.windows
+            ? const WindowsDesktopShell(activeRoute: '/clients', child: WindowsClientsScreen())
+            : const ClientListScreen(),
         '/support': (context) => _platformRoute('/support', const HelpSupportScreen()),
         '/team': (context) => _platformRoute('/team', const TeamEntryScreen()),
         '/calendar': (context) => defaultTargetPlatform == TargetPlatform.windows
