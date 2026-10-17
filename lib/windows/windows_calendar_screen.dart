@@ -53,13 +53,13 @@ class _WindowsCalendarScreenState extends State<WindowsCalendarScreen> {
               final wide = constraints.maxWidth >= 960;
               final calendarPanel = Container(padding: const EdgeInsets.all(22), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: WindowsDesktopShell.border)), child: Column(children: [
                 Row(children: [
-                  IconButton(onPressed: () => setState(() => _month = DateTime(_month.year, _month.month - 1, 1)), icon: const Icon(Icons.chevron_left_rounded)),
+                  IconButton(onPressed: () => setState(() { _month = DateTime(_month.year, _month.month - 1, 1); _selected = DateTime(_month.year, _month.month, 1); }), icon: const Icon(Icons.chevron_left_rounded)),
                   Expanded(child: Column(children: [
                     Text(monthName, style: const TextStyle(color: WindowsDesktopShell.ink, fontSize: 20, fontWeight: FontWeight.w800)),
                     const SizedBox(height: 3),
                     Text(_month.year.toString() + ' · ' + monthHearings.length.toString() + ' scheduled matters', style: const TextStyle(color: WindowsDesktopShell.muted, fontSize: 11)),
                   ])),
-                  IconButton(onPressed: () => setState(() => _month = DateTime(_month.year, _month.month + 1, 1)), icon: const Icon(Icons.chevron_right_rounded)),
+                  IconButton(onPressed: () => setState(() { _month = DateTime(_month.year, _month.month + 1, 1); _selected = DateTime(_month.year, _month.month, 1); }), icon: const Icon(Icons.chevron_right_rounded)),
                 ]),
                 const SizedBox(height: 18),
                 const Row(children: [
