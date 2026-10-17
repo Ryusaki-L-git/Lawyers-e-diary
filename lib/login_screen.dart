@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/services.dart';
 import 'ld_logo.dart';
 import 'templates/animations/staggered_entry.dart';
@@ -45,6 +46,31 @@ class _LoginScreenState extends State<LoginScreen>
     _entryController.controller.forward();
   }
 
+  Future<void> _continueAfterLogin() async {
+    var destination = '/home';
+    if (defaultTargetPlatform == TargetPlatform.windows) {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        _showSnackBar('Sign-in could not be verified. Please try again.');
+        return;
+      }
+      try {
+        final profile = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .get();
+        destination = profile.data()?['profileCompleted'] == true
+            ? '/home'
+            : '/welcome';
+      } catch (_) {
+        // Keep the user on the profile setup path if the completion flag
+        // cannot be read; do not silently skip required onboarding.
+        destination = '/welcome';
+      }
+    }
+    if (mounted) Navigator.pushReplacementNamed(context, destination);
+  }
+
   Future<void> signInWithGoogle() async {
     setState(() => isGoogleLoading = true);
 
@@ -56,7 +82,7 @@ class _LoginScreenState extends State<LoginScreen>
 
       if (!mounted) return;
 
-      Navigator.pushReplacementNamed(context, '/home');
+      await _continueAfterLogin();
     } on FirebaseAuthException catch (e, stackTrace) {
       debugPrint(
         'Google Sign-In Firebase error: code=${e.code}, '
