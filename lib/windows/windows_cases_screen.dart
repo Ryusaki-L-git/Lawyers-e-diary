@@ -47,7 +47,7 @@ class _WindowsCasesScreenState extends State<WindowsCasesScreen> {
             final query = _search.text.trim().toLowerCase();
             var cases = allCases.where((item) {
               if (item.isDeleted) return false;
-              if (_status == 'active' && (item.isCompleted || item.isUrgent == false && item.status != 'active')) return false;
+              if (_status == 'active' && item.status != 'active') return false;
               if (_status == 'completed' && !item.isCompleted) return false;
               if (_status == 'urgent' && !item.isUrgent) return false;
               if (_status == 'starred' && !item.isStarred) return false;
