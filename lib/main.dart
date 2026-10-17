@@ -3,7 +3,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'login_screen.dart';
-import 'models/case_model.dart';
 import 'screens/calendar_list_screen.dart';
 import 'screens/cases/add_case_screen.dart';
 import 'screens/cases/all_cases_screen.dart';
@@ -103,7 +102,7 @@ class MyApp extends StatelessWidget {
             ? const WindowsDesktopShell(activeRoute: '/deleted_cases', child: WindowsDeletedCasesScreen())
             : const DeletedCasesScreen(),
         '/transfer_case': (context) => defaultTargetPlatform == TargetPlatform.windows
-            ? WindowsDesktopShell(activeRoute: '/transfer_case', child: WindowsTransferCaseScreen(caseItem: ModalRoute.of(context)?.settings.arguments is CaseModel ? ModalRoute.of(context)!.settings.arguments as CaseModel : null))
+            ? WindowsDesktopShell(activeRoute: '/transfer_case', child: const WindowsTransferCaseScreen())
             : const TransferCaseScreen(),
         '/clients': (context) => defaultTargetPlatform == TargetPlatform.windows
             ? const WindowsDesktopShell(activeRoute: '/clients', child: WindowsClientsScreen())
