@@ -37,6 +37,7 @@ Branch: windows-desktop-redesign
 - lib/windows/windows_case_detail_screen.dart and lib/services/juris_service.dart: the JURIS handoff sends a lightweight selected-case reference (`case` resource ID and display name) in the documented RequestContext contract, not raw case contents. JURIS must still resolve the reference and enforce authorization on the backend.
 - lib/windows/windows_settings_screen.dart: added the Windows security/password-recovery shortcut.
 - lib/windows/windows_case_detail_screen.dart: document links with secure HTTPS URLs can be opened externally; missing or non-HTTPS links are not treated as working attachments.
+- lib/screens/clients/client_detail_screen.dart, lib/screens/team/team_entry_screen.dart, and lib/screens/fees/fee_detail_screen.dart: nested Windows client-edit, team-create, and fee-payment flows now retain the desktop shell; non-Windows navigation remains unchanged.
 - lib/windows/windows_cloud_storage_screen.dart: desktop subscription/storage status view; explicitly distinguishes a stored sync timestamp from a real synchronization job.
 - lib/windows/windows_upgrade_screen.dart: desktop plan comparison and upgrade request information; does not invent prices or process payments.
 - lib/windows/windows_support_screen.dart: desktop knowledge center, support-ticket submission and live ticket history using SupportService.
