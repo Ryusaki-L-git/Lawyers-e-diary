@@ -22,6 +22,7 @@ class WindowsDesktopShell extends StatelessWidget {
     _DesktopNavItem('Cause list', Icons.gavel_outlined, '/cause_list', 'WORKSPACE'),
     _DesktopNavItem('Clients', Icons.people_outline_rounded, '/clients', 'PRACTICE'),
     _DesktopNavItem('Reminders', Icons.notifications_none_rounded, '/reminders', 'PRACTICE'),
+    _DesktopNavItem('Notifications', Icons.mark_email_unread_outlined, '/notifications', 'PRACTICE'),
     _DesktopNavItem('Fees & transactions', Icons.account_balance_wallet_outlined, '/fee', 'PRACTICE'),
     _DesktopNavItem('Team workspace', Icons.groups_2_outlined, '/team', 'PRACTICE'),
     _DesktopNavItem('JURIS intelligence', Icons.auto_awesome_outlined, '/juris', 'INTELLIGENCE'),
