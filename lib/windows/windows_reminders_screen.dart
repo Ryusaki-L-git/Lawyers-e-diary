@@ -41,7 +41,7 @@ class _WindowsRemindersScreenState extends State<WindowsRemindersScreen> {
         if(items.isEmpty)return _empty('Nothing to follow up on',_filter=='All'?'Create a reminder for a deadline or client follow-up.':'There are no reminders in this view.');
         return Container(decoration:BoxDecoration(color:Colors.white,borderRadius:BorderRadius.circular(15),border:Border.all(color:WindowsDesktopShell.border)),child:Column(children:[
           Container(padding:const EdgeInsets.symmetric(horizontal:20,vertical:15),decoration:const BoxDecoration(border:Border(bottom:BorderSide(color:WindowsDesktopShell.border))),child:Row(children:[
-            Expanded(flex:4,child:Text('REMINDER  ·  \${items.length}',style:const TextStyle(color:WindowsDesktopShell.muted,fontSize:10,fontWeight:FontWeight.w800,letterSpacing:1))),
+            Expanded(flex:4,child:Text('REMINDER  ·  ${items.length}',style:const TextStyle(color:WindowsDesktopShell.muted,fontSize:10,fontWeight:FontWeight.w800,letterSpacing:1))),
             const Expanded(flex:3,child:Text('RELATED MATTER',style:TextStyle(color:WindowsDesktopShell.muted,fontSize:10,fontWeight:FontWeight.w800,letterSpacing:1))),
             const Expanded(flex:2,child:Text('DUE',style:TextStyle(color:WindowsDesktopShell.muted,fontSize:10,fontWeight:FontWeight.w800,letterSpacing:1))),
             const SizedBox(width:86),
@@ -78,7 +78,7 @@ class _WindowsRemindersScreenState extends State<WindowsRemindersScreen> {
 
   Future<void> _add() async { await Navigator.of(context).push(MaterialPageRoute<void>(builder:(_)=>const WindowsDesktopShell(activeRoute:'/reminders',child:AddReminderScreen()))); }
   Future<void> _delete(ReminderModel r) async {
-    final ok=await showDialog<bool>(context:context,builder:(ctx)=>AlertDialog(title:const Text('Delete reminder?'),content:Text('“\${r.title}” will be permanently deleted.'),actions:[TextButton(onPressed:()=>Navigator.pop(ctx,false),child:const Text('Cancel')),FilledButton(onPressed:()=>Navigator.pop(ctx,true),child:const Text('Delete'))]));
+    final ok=await showDialog<bool>(context:context,builder:(ctx)=>AlertDialog(title:const Text('Delete reminder?'),content:Text('“${r.title}” will be permanently deleted.'),actions:[TextButton(onPressed:()=>Navigator.pop(ctx,false),child:const Text('Cancel')),FilledButton(onPressed:()=>Navigator.pop(ctx,true),child:const Text('Delete'))]));
     if(ok==true)await _service.deleteReminder(r.id);
   }
 }
