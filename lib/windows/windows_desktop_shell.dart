@@ -19,6 +19,7 @@ class WindowsDesktopShell extends StatelessWidget {
     _DesktopNavItem('All cases', Icons.folder_open_outlined, '/cases', 'WORKSPACE'),
     _DesktopNavItem('Case management', Icons.view_quilt_outlined, '/case_management', 'WORKSPACE'),
     _DesktopNavItem('Completed cases', Icons.task_alt_rounded, '/completed_cases', 'WORKSPACE'),
+    _DesktopNavItem('Deleted cases', Icons.delete_outline_rounded, '/deleted_cases', 'WORKSPACE'),
     _DesktopNavItem('Starred cases', Icons.star_outline_rounded, '/starred', 'WORKSPACE'),
     _DesktopNavItem('Search cases', Icons.manage_search_rounded, '/search_cases', 'WORKSPACE'),
     _DesktopNavItem('Calendar & hearings', Icons.calendar_month_outlined, '/calendar', 'WORKSPACE'),
