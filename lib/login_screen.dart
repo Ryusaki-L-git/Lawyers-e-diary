@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/services.dart';
@@ -287,6 +288,7 @@ class _LoginScreenState extends State<LoginScreen>
                       loadingColor: Colors.black87,
                     ),
                   ),
+                  if (defaultTargetPlatform != TargetPlatform.windows) ...[
                   const SizedBox(height: 24),
                   const Row(
                     children: [
@@ -330,6 +332,7 @@ class _LoginScreenState extends State<LoginScreen>
                     ),
                   ),
                   const SizedBox(height: 20),
+                  ],
                   _entry(
                     6,
                     Column(
