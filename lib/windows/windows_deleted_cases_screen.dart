@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:drift/drift.dart';
 
 import '../data/local/app_database.dart';
 import '../models/case_model.dart';
@@ -30,7 +31,7 @@ class WindowsDeletedCasesScreen extends StatelessWidget{
             Container(width:42,height:42,decoration:BoxDecoration(color:const Color(0xFFF8E8E5),borderRadius:BorderRadius.circular(11)),child:const Icon(Icons.archive_outlined,color:Color(0xFF9A4A3F),size:20)),
             const SizedBox(width:12),Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
               Text(c.caseTitle,style:const TextStyle(color:WindowsDesktopShell.ink,fontSize:13,fontWeight:FontWeight.w800)),
-              const SizedBox(height:4),Text('\${c.caseNumber} · \${c.clientName}',style:const TextStyle(color:WindowsDesktopShell.muted,fontSize:11)),
+              const SizedBox(height:4),Text('${c.caseNumber} · ${c.clientName}',style:const TextStyle(color:WindowsDesktopShell.muted,fontSize:11)),
             ])),
             OutlinedButton.icon(onPressed:()=>Navigator.of(context).push(MaterialPageRoute<void>(builder:(_)=>WindowsDesktopShell(activeRoute:'/deleted_cases',child:WindowsCaseDetailScreen(caseItem:c)))),icon:const Icon(Icons.visibility_outlined,size:16),label:const Text('Review'),style:OutlinedButton.styleFrom(foregroundColor:WindowsDesktopShell.forest,side:const BorderSide(color:WindowsDesktopShell.border))),
             const SizedBox(width:8),FilledButton.icon(onPressed:()async{try{await repository.restoreCase(c.id);if(context.mounted)ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content:Text('Case restored to active status.')));}catch(e){if(context.mounted)ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text('Could not restore case: $e')));}},icon:const Icon(Icons.restore_rounded,size:16),label:const Text('Restore'),style:FilledButton.styleFrom(backgroundColor:WindowsDesktopShell.forest)),
