@@ -13,7 +13,7 @@ class _WindowsJurisScreenState extends State<WindowsJurisScreen>{
   final _controller=TextEditingController();
   final _scroll=ScrollController();
   final _service=JurisService();
-  final _sessionId='\${DateTime.now().microsecondsSinceEpoch}-\${math.Random().nextInt(1<<32)}';
+  final _sessionId='${DateTime.now().microsecondsSinceEpoch}-${math.Random().nextInt(1<<32)}';
   final List<_JurisMessage> _messages=[const _JurisMessage(false,'Welcome to JURIS. Ask a legal research or case-analysis question. Verify important conclusions against the original statute, judgment, and official source.')];
   bool _busy=false;
   @override
