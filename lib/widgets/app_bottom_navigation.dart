@@ -1,4 +1,5 @@
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'app_nav_controller.dart';
@@ -171,6 +172,11 @@ class AppBottomNavigation extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Windows uses the persistent desktop sidebar; preserve the mobile bar elsewhere.
+    if (defaultTargetPlatform == TargetPlatform.windows) {
+      return const SizedBox.shrink();
+    }
+
     final List<NavItemConfig> tabs =
         mode == NavMode.home ? homeTabs : caseTabs;
 
