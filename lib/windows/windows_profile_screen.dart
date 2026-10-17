@@ -2,7 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
-import '../screens/profile/edit_profile_screen.dart';
+import 'windows_edit_profile_screen.dart';
 import 'windows_desktop_shell.dart';
 
 class WindowsProfileScreen extends StatelessWidget{
