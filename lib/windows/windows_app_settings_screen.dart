@@ -20,6 +20,7 @@ class WindowsAppSettingsScreen extends StatelessWidget {
       ])),
       const SizedBox(height:20),
       const Text('SERVICES',style:TextStyle(color:WindowsDesktopShell.muted,fontSize:10,fontWeight:FontWeight.w800,letterSpacing:1.2)),const SizedBox(height:10),
+      _tile(context,Icons.security_outlined,'Security & access','Password recovery and account access','/security'),
       _tile(context,Icons.cloud_outlined,'Cloud & storage','Subscription metadata and sync status','/cloud_storage'),
       _tile(context,Icons.workspace_premium_outlined,'Plans & upgrades','Review plan information and request an upgrade','/upgrade'),
       _tile(context,Icons.help_outline_rounded,'Help & support','Knowledge center and your submitted support requests','/support'),
