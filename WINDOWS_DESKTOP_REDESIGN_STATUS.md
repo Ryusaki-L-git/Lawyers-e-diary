@@ -32,6 +32,10 @@ Branch: windows-desktop-redesign
 - lib/windows/windows_settings_screen.dart: desktop settings hub for account, cloud storage, plans, and support.
 - lib/windows/windows_notifications_screen.dart: honest empty state; does not show the old hard-coded demo alerts as if they were real notifications.
 - lib/windows/windows_transfer_case_screen.dart: Windows team-case assignment workflow backed by TeamService. It only lists cases belonging to a team the user can access, requires an active owner/leader role before exposing assignment, and offers active verified members of that same team. It uses the existing team assignment service rather than rewriting case ownership.
+- lib/login_screen.dart: Windows email/password sign-in checks the signed-in user's existing `profileCompleted` flag before routing to Home; incomplete profiles continue to `/welcome`. Non-Windows routing remains `/home`.
+- lib/windows/windows_case_detail_screen.dart and lib/services/juris_service.dart: the JURIS handoff sends a lightweight selected-case reference (`case` resource ID and display name) in the documented RequestContext contract, not raw case contents. JURIS must still resolve the reference and enforce authorization on the backend.
+- lib/windows/windows_settings_screen.dart: added the Windows security/password-recovery shortcut.
+- lib/windows/windows_case_detail_screen.dart: document links with secure HTTPS URLs can be opened externally; missing or non-HTTPS links are not treated as working attachments.
 - lib/windows/windows_cloud_storage_screen.dart: desktop subscription/storage status view; explicitly distinguishes a stored sync timestamp from a real synchronization job.
 - lib/windows/windows_upgrade_screen.dart: desktop plan comparison and upgrade request information; does not invent prices or process payments.
 - lib/windows/windows_support_screen.dart: desktop knowledge center, support-ticket submission and live ticket history using SupportService.
@@ -60,10 +64,10 @@ Branch: windows-desktop-redesign
 
 ## Next implementation order
 
-1. Review the Windows welcome/profile-completion experience and ensure the profile completion gate routes to the Windows home after a successful save.
+1. Review the Windows welcome/profile-completion screen visually on a real desktop; the existing profile form and ID transaction are reused and must be validated with the actual Firebase project.
 2. Make nested create/edit/detail flows retain the desktop shell consistently and review all route transitions, including back behavior.
 3. Connect a persistent notification feed only after a real notification model/service exists; the current Windows page intentionally avoids fabricated alerts.
-4. Improve JURIS case-context handoff only through the existing authorized backend contract; do not bypass access checks or send private case content without an authorized context contract.
+4. Confirm the JURIS backend resolves `active_case` references through its authorized context resolver in the target environment; LED sends only a reference, not case contents.
 5. Review empty/loading/error states and keyboard/focus behavior across all desktop pages.
 6. The user will run dart format, flutter analyze, flutter test, and flutter build windows locally; address findings from that run.
 7. Package the verified Release build for installation only after local checks and Firebase configuration are complete.
