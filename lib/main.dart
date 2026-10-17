@@ -127,9 +127,18 @@ class MyApp extends StatelessWidget {
         '/full_calendar': (context) => defaultTargetPlatform == TargetPlatform.windows
             ? const WindowsDesktopShell(activeRoute: '/calendar', child: WindowsCalendarScreen())
             : const FullCalendarScreen(),
-        '/juris': (context) => defaultTargetPlatform == TargetPlatform.windows
-            ? const WindowsDesktopShell(activeRoute: '/juris', child: WindowsJurisScreen())
-            : const JurisChatScreen(),
+        '/juris': (context) {
+          if (defaultTargetPlatform != TargetPlatform.windows) return const JurisChatScreen();
+          final args = ModalRoute.of(context)?.settings.arguments;
+          final contextData = args is Map ? args : const <String, dynamic>{};
+          return WindowsDesktopShell(
+            activeRoute: '/juris',
+            child: WindowsJurisScreen(
+              caseId: contextData['caseId'] as String?,
+              caseTitle: contextData['caseTitle'] as String?,
+            ),
+          );
+        },
         '/profile': (context) => defaultTargetPlatform == TargetPlatform.windows
             ? const WindowsDesktopShell(activeRoute: '/profile', child: WindowsProfileScreen())
             : const ProfileScreen(),
