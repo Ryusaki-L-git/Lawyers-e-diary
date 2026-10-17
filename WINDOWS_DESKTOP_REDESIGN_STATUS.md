@@ -9,7 +9,7 @@ Branch: windows-desktop-redesign
 - Existing Flutter routes were inspected in lib/main.dart. They include home, cases, case creation/search/management, completed/deleted/transferred/starred cases, calendar/cause list, clients, team, JURIS chat, fees, reminders, notifications, profile, settings, cloud storage, upgrade, and support.
 - The repository already contains a Windows Flutter runner and a generated Windows plugin list including Firebase Core, Firebase Auth, Cloud Firestore, printing, share_plus, sqlite3_flutter_libs, and url_launcher_windows.
 - The app's current case list uses the existing local Drift repository (CaseRepository) scoped to the authenticated user. The Windows home screen reads through that repository and does not introduce sample case records.
-- JURIS is a separate FastAPI backend. Its documented integration uses a Firebase ID token in a Bearer header. The LED chat client requires JURIS_BASE_URL configured at build time and currently sends current_screen: unknown.
+- JURIS is a separate FastAPI backend. Its documented integration uses a Firebase ID token in a Bearer header. The LED chat client requires JURIS_BASE_URL configured at build time. The Windows client sends the documented `legal_research` or `case_detail` screen and, when opened from a case, a lightweight `active_case` reference that the JURIS context resolver must authorize.
 
 ## Added on this branch
 
@@ -32,6 +32,7 @@ Branch: windows-desktop-redesign
 - lib/windows/windows_settings_screen.dart: desktop settings hub for account, cloud storage, plans, and support.
 - lib/windows/windows_notifications_screen.dart: honest empty state; does not show the old hard-coded demo alerts as if they were real notifications.
 - lib/windows/windows_transfer_case_screen.dart: Windows team-case assignment workflow backed by TeamService. It only lists cases belonging to a team the user can access, requires an active owner/leader role before exposing assignment, and offers active verified members of that same team. It uses the existing team assignment service rather than rewriting case ownership.
+- lib/services/team_service.dart: `assignCase` now independently verifies the caller's active owner/leader membership, the target's active verified membership, and that the selected cloud case belongs to the chosen team before writing the assignment.
 - lib/login_screen.dart: Windows email/password sign-in checks the signed-in user's existing `profileCompleted` flag before routing to Home; incomplete profiles continue to `/welcome`. Non-Windows routing remains `/home`.
 - lib/windows/windows_case_detail_screen.dart and lib/services/juris_service.dart: the JURIS handoff sends a lightweight selected-case reference (`case` resource ID and display name) in the documented RequestContext contract, not raw case contents. JURIS must still resolve the reference and enforce authorization on the backend.
 - lib/windows/windows_settings_screen.dart: added the Windows security/password-recovery shortcut.
