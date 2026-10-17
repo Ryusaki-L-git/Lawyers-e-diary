@@ -12,7 +12,7 @@ class WindowsProfileScreen extends StatelessWidget{
     final user=FirebaseAuth.instance.currentUser;
     if(user==null)return const Scaffold(backgroundColor:WindowsDesktopShell.canvas,body:Center(child:Text('Please sign in to view your profile.')));
     return Scaffold(backgroundColor:WindowsDesktopShell.canvas,body:SafeArea(child:StreamBuilder<DocumentSnapshot<Map<String,dynamic>>>(stream:FirebaseFirestore.instance.collection('users').doc(user.uid).snapshots(),builder:(context,snapshot){
-      if(snapshot.hasError)return Center(child:Text('Could not load profile: \${snapshot.error}'));
+      if(snapshot.hasError)return Center(child:Text('Could not load profile: ${snapshot.error}'));
       if(snapshot.connectionState==ConnectionState.waiting&&snapshot.data==null)return const Center(child:CircularProgressIndicator(color:WindowsDesktopShell.forest));
       final data=snapshot.data?.data()??<String,dynamic>{};
       String value(String key,String fallback)=>((data[key] as String?)?.trim().isNotEmpty==true)?(data[key] as String).trim():fallback;
