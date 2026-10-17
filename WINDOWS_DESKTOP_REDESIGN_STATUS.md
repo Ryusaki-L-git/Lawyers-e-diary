@@ -18,6 +18,18 @@ Branch: windows-desktop-redesign
 - lib/windows/windows_cases_screen.dart: desktop case register using the existing user-scoped repository, with search, status filters, sorting, and a case-detail handoff.
 - lib/windows/windows_case_detail_screen.dart: wide case workspace with parties, court/hearing information, notes, documents, JURIS handoff, starred toggle, and soft-delete action.
 - lib/windows/windows_calendar_screen.dart: month calendar and selected-day hearing agenda from the current user's local case repository.
+- lib/windows/windows_add_case_screen.dart: desktop case registration form using the existing local-first CaseRepository.
+- lib/windows/windows_search_cases_screen.dart: desktop search/filter/sort over the authenticated user's local case register.
+- lib/windows/windows_case_management_screen.dart: live local-docket operational summary and shortcuts.
+- lib/windows/windows_cause_list_screen.dart: date-specific cause list backed by the local-first case repository.
+- lib/windows/windows_clients_screen.dart: desktop client directory with live user-scoped search/type filtering and existing client create/detail flows.
+- lib/windows/windows_reminders_screen.dart: desktop reminder table with pending/completed filters and existing complete/delete/create operations.
+- lib/windows/windows_fees_screen.dart: fee summary and register backed by the existing fee service, with existing create/detail/payment flows.
+- lib/windows/windows_team_screen.dart: desktop team/chambers overview backed by TeamService and live membership data.
+- lib/windows/windows_juris_screen.dart: desktop JURIS chat workspace using the existing JurisService.
+- lib/windows/windows_profile_screen.dart: desktop legal profile backed by the signed-in user's Firestore profile, with existing edit flow.
+- lib/windows/windows_settings_screen.dart: desktop settings hub for account, cloud storage, plans, and support.
+- lib/windows/windows_notifications_screen.dart: honest empty state; does not show the old hard-coded demo alerts as if they were real notifications.
 - lib/login_screen.dart: a separate Windows two-panel sign-in design with LED branding, email/password authentication, sign-up/help links; existing mobile sign-in layout remains for other platforms.
 - lib/main.dart: existing named routes are preserved; Windows route entries are wrapped in the desktop shell and /home selects the new Windows home. Android and other platforms continue to use the existing Home screen and route widgets.
 - lib/widgets/app_bottom_navigation.dart: existing bottom navigation is hidden on Windows; it remains unchanged on other platforms.
@@ -34,11 +46,11 @@ Branch: windows-desktop-redesign
 
 ## Next implementation order
 
-1. Configure and verify Windows Firebase initialization against the real LED Firebase project.
-2. Build a Windows-specific signup and password-recovery experience, keeping Android flows unchanged.
-3. Continue desktop redesign of clients, reminders, fees, team, JURIS/drafting, profile/settings, and empty/loading/error states.
-4. Replace reused mobile cause-list and secondary screens with desktop layouts.
-5. Adapt nested detail navigation so the persistent desktop shell stays consistent in every workflow.
-6. Configure the local JURIS URL for Windows development and verify case context is passed intentionally, without bypassing authorization.
-7. The user will run dart format, flutter analyze, flutter test, and flutter build windows locally; fix any findings from that run.
-8. Package the verified Release build for installation only after the local checks pass.
+1. Build a Windows-specific signup and password-recovery experience while preserving Android flows.
+2. Redesign remaining case workflows: completed/deleted/starred/transferred cases, and case-management subflows.
+3. Replace reused mobile support, cloud-storage, upgrade, and secondary settings screens with desktop-specific layouts where their real workflows support it.
+4. Make nested create/edit/detail flows retain the desktop shell consistently and review all route transitions.
+5. Connect a persistent notification feed only after a real notification model/service exists; the current Windows page intentionally avoids fabricated alerts.
+6. Improve JURIS case-context handoff only through the existing authorized backend contract; do not bypass access checks.
+7. The user will run dart format, flutter analyze, flutter test, and flutter build windows locally; address findings from that run.
+8. Package the verified Release build for installation only after local checks and Firebase configuration are complete.
