@@ -39,6 +39,7 @@ import 'windows/windows_clients_screen.dart';
 import 'windows/windows_reminders_screen.dart';
 import 'windows/windows_fees_screen.dart';
 import 'windows/windows_juris_screen.dart';
+import 'windows/windows_settings_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -103,7 +104,10 @@ class MyApp extends StatelessWidget {
             ? const WindowsDesktopShell(activeRoute: '/reminders', child: WindowsRemindersScreen())
             : const RemindersListScreen(),
         '/starred': (context) => _platformRoute('/starred', const StarredCasesScreen()),
-        '/settings': (context) => _platformRoute('/settings', const AppSettingsScreen()),
+        '/settings': (context) => defaultTargetPlatform == TargetPlatform.windows
+            ? const WindowsDesktopShell(activeRoute: '/settings', child: WindowsSettingsScreen())
+            : const AppSettingsScreen(),
+        '/settings_native': (context) => _platformRoute('/settings', const AppSettingsScreen()),
         '/cloud_storage': (context) => _platformRoute('/cloud_storage', const CloudStorageScreen()),
         '/upgrade': (context) => _platformRoute('/upgrade', const UpgradePromptScreen()),
         '/notifications': (context) => _platformRoute('/notifications', const NotificationScreen()),
