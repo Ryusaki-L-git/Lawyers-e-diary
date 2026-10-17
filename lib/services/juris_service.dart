@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 
 /// Minimal authenticated HTTP client for the JURIS backend.
 ///
@@ -31,8 +32,18 @@ class JurisService {
     }
 
     final base = Uri.tryParse(_baseUrl);
-    if (base == null || !base.hasScheme || !base.hasAuthority || base.scheme != 'https') {
-      throw const JurisServiceException('JURIS endpoint must be a valid HTTPS URL.');
+    final isWindowsLocalDevelopment =
+        defaultTargetPlatform == TargetPlatform.windows &&
+        base != null &&
+        base.scheme == 'http' &&
+        (base.host == '127.0.0.1' || base.host == 'localhost');
+    if (base == null ||
+        !base.hasScheme ||
+        !base.hasAuthority ||
+        (base.scheme != 'https' && !isWindowsLocalDevelopment)) {
+      throw const JurisServiceException(
+        'JURIS must use HTTPS, except for localhost during Windows development.',
+      );
     }
     final uri = base.resolve('/chat');
     final request = await _client.postUrl(uri).timeout(const Duration(seconds: 15));
