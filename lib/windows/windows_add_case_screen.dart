@@ -39,10 +39,10 @@ class _WindowsAddCaseScreenState extends State<WindowsAddCaseScreen>{
         _panel('Parties & contact',Icons.people_outline_rounded,[
           _field('Client name *',_client,'Client or entity name'),
           _field('Opposing party',_opponent,'Opposing party name',isRequired:false),
-          _field('Client phone',_phone,'Contact number',required:false,type:TextInputType.phone),
+          _field('Client phone',_phone,'Contact number',isRequired:false,type:TextInputType.phone),
         ]),
         const SizedBox(height:15),
-        _panel('Initial notes',Icons.notes_rounded,[_field('Notes',_notes,'Key facts, next steps or preparation notes',required:false,maxLines:6)]),
+        _panel('Initial notes',Icons.notes_rounded,[_field('Notes',_notes,'Key facts, next steps or preparation notes',isRequired:false,maxLines:6)]),
       ]);
       if(!wide)return Column(children:[left,const SizedBox(height:15),right]);
       return Row(crossAxisAlignment:CrossAxisAlignment.start,children:[Expanded(child:left),const SizedBox(width:16),Expanded(child:right)]);
