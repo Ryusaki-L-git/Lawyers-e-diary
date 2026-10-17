@@ -32,7 +32,7 @@ class _WindowsCaseDetailScreenState extends State<WindowsCaseDetailScreen> {
             const Expanded(child: Text('CASE WORKSPACE', style: TextStyle(color: WindowsDesktopShell.muted, fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 1.5))),
             OutlinedButton.icon(onPressed: _busy ? null : _toggleStar, icon: Icon(_starred ? Icons.star_rounded : Icons.star_outline_rounded, color: WindowsDesktopShell.gold), label: Text(_starred ? 'Starred' : 'Star case')),
             const SizedBox(width: 10),
-            FilledButton.icon(onPressed: () => Navigator.of(context).pushNamed('/juris'), icon: const Icon(Icons.auto_awesome_rounded, size: 18), label: const Text('Discuss with JURIS'), style: FilledButton.styleFrom(backgroundColor: WindowsDesktopShell.forest)),
+            FilledButton.icon(onPressed: () => Navigator.of(context).pushNamed('/juris', arguments: {'caseId': item.id, 'caseTitle': item.caseTitle}), icon: const Icon(Icons.auto_awesome_rounded, size: 18), label: const Text('Discuss with JURIS'), style: FilledButton.styleFrom(backgroundColor: WindowsDesktopShell.forest)),
           ]),
           const SizedBox(height: 24),
           Container(width: double.infinity, padding: const EdgeInsets.all(27), decoration: BoxDecoration(color: WindowsDesktopShell.forest, borderRadius: BorderRadius.circular(18)), child: Wrap(spacing: 24, runSpacing: 18, alignment: WrapAlignment.spaceBetween, crossAxisAlignment: WrapCrossAlignment.center, children: [
