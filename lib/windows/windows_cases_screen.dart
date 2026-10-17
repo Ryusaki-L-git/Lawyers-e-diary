@@ -90,12 +90,12 @@ class _WindowsCasesScreenState extends State<WindowsCasesScreen> {
               padding: const EdgeInsets.fromLTRB(28, 24, 28, 28),
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  const Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text('CASE REGISTER', style: TextStyle(color: WindowsDesktopShell.muted, fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 1.5)),
-                    SizedBox(height: 7),
+                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    const Text('CASE REGISTER', style: TextStyle(color: WindowsDesktopShell.muted, fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 1.5)),
+                    const SizedBox(height: 7),
                     Text(_pageTitle, style: const TextStyle(fontFamily: 'Georgia', color: WindowsDesktopShell.forest, fontSize: 28, fontWeight: FontWeight.w700)),
-                    SizedBox(height: 5),
-                    Text('Search, review and organize your legal matters.', style: TextStyle(color: WindowsDesktopShell.muted, fontSize: 13)),
+                    const SizedBox(height: 5),
+                    const Text('Search, review and organize your legal matters.', style: TextStyle(color: WindowsDesktopShell.muted, fontSize: 13)),
                   ])),
                   FilledButton.icon(
                     onPressed: () => Navigator.of(context).pushNamed('/add_case'),
