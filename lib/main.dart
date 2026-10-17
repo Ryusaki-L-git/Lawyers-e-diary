@@ -43,6 +43,7 @@ import 'windows/windows_settings_screen.dart';
 import 'windows/windows_team_screen.dart';
 import 'windows/windows_profile_screen.dart';
 import 'windows/windows_cause_list_screen.dart';
+import 'windows/windows_add_case_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -76,7 +77,9 @@ class MyApp extends StatelessWidget {
         '/cases': (context) => defaultTargetPlatform == TargetPlatform.windows
             ? const WindowsDesktopShell(activeRoute: '/cases', child: WindowsCasesScreen())
             : const AllCasesScreen(),
-        '/add_case': (context) => _platformRoute('/add_case', const AddCaseScreen()),
+        '/add_case': (context) => defaultTargetPlatform == TargetPlatform.windows
+            ? const WindowsDesktopShell(activeRoute: '/cases', child: WindowsAddCaseScreen())
+            : const AddCaseScreen(),
         '/search_cases': (context) => _platformRoute('/search_cases', const SearchCasesScreen()),
         '/case_management': (context) => _platformRoute('/case_management', const CaseManagementScreen()),
         '/completed_cases': (context) => _platformRoute('/completed_cases', const CompletedCasesScreen()),
