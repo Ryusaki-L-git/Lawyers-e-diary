@@ -1,4 +1,5 @@
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'login_screen.dart';
@@ -30,6 +31,9 @@ import 'signup_screen.dart';
 import 'splash_screen.dart';
 import 'welcome_screen.dart';
 import 'widgets/app_palette.dart';
+import 'widgets/app_bottom_navigation.dart';
+import 'windows/windows_desktop_shell.dart';
+import 'windows/windows_home_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -39,6 +43,11 @@ void main() async {
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
+
+  Widget _platformRoute(BuildContext context, String route, Widget screen) {
+    if (defaultTargetPlatform != TargetPlatform.windows) return screen;
+    return WindowsDesktopShell(activeRoute: route, child: screen);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -52,34 +61,33 @@ class MyApp extends StatelessWidget {
         '/login': (context) => const LoginScreen(),
         '/signup': (context) => const SignupScreen(),
         '/welcome': (context) => const WelcomeScreen(),
-        '/home': (context) => const HomeScreen(),
-        '/cases': (context) => const AllCasesScreen(),
-        '/add_case': (context) => const AddCaseScreen(),
-        '/search_cases': (context) => const SearchCasesScreen(),
-        '/case_management': (context) => const CaseManagementScreen(),
-        '/completed_cases': (context) => const CompletedCasesScreen(),
-        '/deleted_cases': (context) => const DeletedCasesScreen(),
-        '/transfer_case': (context) => const TransferCaseScreen(),
-        '/clients': (context) => const ClientListScreen(),
-        '/support': (context) => const HelpSupportScreen(),
-        '/team': (context) => const TeamEntryScreen(),
-        '/calendar': (context) => const CalendarListScreen(),
-        '/calendar_list': (context) => const CalendarListScreen(),
-        '/cause_list': (context) => const CauseListScreen(),
-        '/full_calendar': (context) => const FullCalendarScreen(),
-        '/juris': (context) => const JurisChatScreen(),
-        '/profile': (context) => const ProfileScreen(),
-        '/fee': (context) => const FeeListScreen(),
-        '/todo': (context) => const ModuleLandingScreen(
-              title: 'To-Do List',
-              icon: Icons.checklist_rounded,
-            ),
-        '/reminders': (context) => const RemindersListScreen(),
-        '/starred': (context) => const StarredCasesScreen(),
-        '/settings': (context) => const AppSettingsScreen(),
-        '/cloud_storage': (context) => const CloudStorageScreen(),
-        '/upgrade': (context) => const UpgradePromptScreen(),
-        '/notifications': (context) => const NotificationScreen(),
+        '/home': (context) => defaultTargetPlatform == TargetPlatform.windows
+            ? const WindowsDesktopShell(activeRoute: '/home', child: WindowsHomeScreen())
+            : const HomeScreen(),
+        '/cases': (context) => _platformRoute(context, '/cases', const AllCasesScreen()),
+        '/add_case': (context) => _platformRoute(context, '/add_case', const AddCaseScreen()),
+        '/search_cases': (context) => _platformRoute(context, '/search_cases', const SearchCasesScreen()),
+        '/case_management': (context) => _platformRoute(context, '/case_management', const CaseManagementScreen()),
+        '/completed_cases': (context) => _platformRoute(context, '/completed_cases', const CompletedCasesScreen()),
+        '/deleted_cases': (context) => _platformRoute(context, '/deleted_cases', const DeletedCasesScreen()),
+        '/transfer_case': (context) => _platformRoute(context, '/transfer_case', const TransferCaseScreen()),
+        '/clients': (context) => _platformRoute(context, '/clients', const ClientListScreen()),
+        '/support': (context) => _platformRoute(context, '/support', const HelpSupportScreen()),
+        '/team': (context) => _platformRoute(context, '/team', const TeamEntryScreen()),
+        '/calendar': (context) => _platformRoute(context, '/calendar', const CalendarListScreen()),
+        '/calendar_list': (context) => _platformRoute(context, '/calendar_list', const CalendarListScreen()),
+        '/cause_list': (context) => _platformRoute(context, '/cause_list', const CauseListScreen()),
+        '/full_calendar': (context) => _platformRoute(context, '/full_calendar', const FullCalendarScreen()),
+        '/juris': (context) => _platformRoute(context, '/juris', const JurisChatScreen()),
+        '/profile': (context) => _platformRoute(context, '/profile', const ProfileScreen()),
+        '/fee': (context) => _platformRoute(context, '/fee', const FeeListScreen()),
+        '/todo': (context) => _platformRoute(context, '/todo', const ModuleLandingScreen(title: 'To-Do List', icon: Icons.checklist_rounded)),
+        '/reminders': (context) => _platformRoute(context, '/reminders', const RemindersListScreen()),
+        '/starred': (context) => _platformRoute(context, '/starred', const StarredCasesScreen()),
+        '/settings': (context) => _platformRoute(context, '/settings', const AppSettingsScreen()),
+        '/cloud_storage': (context) => _platformRoute(context, '/cloud_storage', const CloudStorageScreen()),
+        '/upgrade': (context) => _platformRoute(context, '/upgrade', const UpgradePromptScreen()),
+        '/notifications': (context) => _platformRoute(context, '/notifications', const NotificationScreen()),
       },
     );
   }
