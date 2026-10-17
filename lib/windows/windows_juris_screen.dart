@@ -5,7 +5,9 @@ import '../services/juris_service.dart';
 import 'windows_desktop_shell.dart';
 
 class WindowsJurisScreen extends StatefulWidget {
-  const WindowsJurisScreen({super.key});
+  const WindowsJurisScreen({super.key, this.caseId, this.caseTitle});
+  final String? caseId;
+  final String? caseTitle;
   @override
   State<WindowsJurisScreen> createState()=>_WindowsJurisScreenState();
 }
@@ -25,7 +27,7 @@ class _WindowsJurisScreenState extends State<WindowsJurisScreen>{
     setState((){_messages.add(_JurisMessage(true,text));_busy=true;_controller.clear();});
     _scrollEnd();
     try{
-      final response=await _service.sendMessage(message:text,sessionId:_sessionId);
+      final response=await _service.sendMessage(message:text,sessionId:_sessionId,activeCaseId:widget.caseId,activeCaseTitle:widget.caseTitle);
       if(mounted)setState(()=>_messages.add(_JurisMessage(false,response.reply)));
     }catch(e){
       if(mounted)setState(()=>_messages.add(_JurisMessage(false,'I could not complete that request. $e')));
@@ -41,7 +43,7 @@ class _WindowsJurisScreenState extends State<WindowsJurisScreen>{
       const Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
         Text('LEGAL INTELLIGENCE',style:TextStyle(color:WindowsDesktopShell.muted,fontSize:10,fontWeight:FontWeight.w800,letterSpacing:1.5)),
         SizedBox(height:5),Text('JURIS',style:TextStyle(fontFamily:'Georgia',color:WindowsDesktopShell.forest,fontSize:29,fontWeight:FontWeight.w700)),
-        SizedBox(height:3),Text('Research and reasoning for your legal workflow.',style:TextStyle(color:WindowsDesktopShell.muted,fontSize:12)),
+        SizedBox(height:3),Text(widget.caseId==null?'Research and reasoning for your legal workflow.':'Case context attached: '+(widget.caseTitle??'Selected case'),style:TextStyle(color:WindowsDesktopShell.muted,fontSize:12)),
       ])),
       OutlinedButton.icon(onPressed:()=>setState(()=>_messages..clear()..add(const _JurisMessage(false,'New conversation. Ask a legal research or case-analysis question. Verify important conclusions against original sources.'))),icon:const Icon(Icons.add_rounded),label:const Text('New conversation'),style:OutlinedButton.styleFrom(foregroundColor:WindowsDesktopShell.forest,side:const BorderSide(color:WindowsDesktopShell.border),padding:const EdgeInsets.symmetric(horizontal:15,vertical:15))),
     ]),
