@@ -1,9 +1,11 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../models/fee_model.dart';
 import '../../services/firestore_service.dart';
 import '../../widgets/app_palette.dart';
+import '../../windows/windows_desktop_shell.dart';
 import 'record_payment_screen.dart';
 
 /// Detailed view of a single fee record with line items and transactions.
@@ -41,7 +43,9 @@ class _FeeDetailScreenState extends State<FeeDetailScreen> {
     final result = await Navigator.push<bool>(
       context,
       MaterialPageRoute(
-        builder: (_) => RecordPaymentScreen(fee: widget.fee),
+        builder: (_) => defaultTargetPlatform == TargetPlatform.windows
+                    ? WindowsDesktopShell(activeRoute: '/fee', child: RecordPaymentScreen(fee: widget.fee))
+                    : RecordPaymentScreen(fee: widget.fee),
       ),
     );
     if (result == true && mounted) {
