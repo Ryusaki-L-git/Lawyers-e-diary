@@ -8,7 +8,9 @@ import 'windows_desktop_shell.dart';
 
 /// Windows desktop case table backed by the existing user-scoped repository.
 class WindowsCasesScreen extends StatefulWidget {
-  const WindowsCasesScreen({super.key});
+  const WindowsCasesScreen({super.key, this.initialStatus = 'all'});
+
+  final String initialStatus;
 
   @override
   State<WindowsCasesScreen> createState() => _WindowsCasesScreenState();
@@ -18,6 +20,20 @@ class _WindowsCasesScreenState extends State<WindowsCasesScreen> {
   final _search = TextEditingController();
   String _status = 'all';
   String _sort = 'hearing';
+
+  @override
+  void initState() {
+    super.initState();
+    _status = widget.initialStatus;
+  }
+
+  String get _pageTitle => switch (_status) {
+    'completed' => 'Completed cases',
+    'starred' => 'Starred cases',
+    'urgent' => 'Urgent cases',
+    'active' => 'Active cases',
+    _ => 'All cases',
+  };
 
   @override
   void dispose() {
@@ -77,7 +93,7 @@ class _WindowsCasesScreenState extends State<WindowsCasesScreen> {
                   const Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                     Text('CASE REGISTER', style: TextStyle(color: WindowsDesktopShell.muted, fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 1.5)),
                     SizedBox(height: 7),
-                    Text('All cases', style: TextStyle(fontFamily: 'Georgia', color: WindowsDesktopShell.forest, fontSize: 28, fontWeight: FontWeight.w700)),
+                    Text(_pageTitle, style: const TextStyle(fontFamily: 'Georgia', color: WindowsDesktopShell.forest, fontSize: 28, fontWeight: FontWeight.w700)),
                     SizedBox(height: 5),
                     Text('Search, review and organize your legal matters.', style: TextStyle(color: WindowsDesktopShell.muted, fontSize: 13)),
                   ])),
