@@ -47,6 +47,7 @@ import 'windows/windows_add_case_screen.dart';
 import 'windows/windows_search_cases_screen.dart';
 import 'windows/windows_notifications_screen.dart';
 import 'windows/windows_case_management_screen.dart';
+import 'windows/windows_deleted_cases_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -92,7 +93,9 @@ class MyApp extends StatelessWidget {
         '/completed_cases': (context) => defaultTargetPlatform == TargetPlatform.windows
             ? const WindowsDesktopShell(activeRoute: '/completed_cases', child: WindowsCasesScreen(initialStatus: 'completed'))
             : const CompletedCasesScreen(),
-        '/deleted_cases': (context) => _platformRoute('/deleted_cases', const DeletedCasesScreen()),
+        '/deleted_cases': (context) => defaultTargetPlatform == TargetPlatform.windows
+            ? const WindowsDesktopShell(activeRoute: '/deleted_cases', child: WindowsDeletedCasesScreen())
+            : const DeletedCasesScreen(),
         '/transfer_case': (context) => _platformRoute('/transfer_case', const TransferCaseScreen()),
         '/clients': (context) => defaultTargetPlatform == TargetPlatform.windows
             ? const WindowsDesktopShell(activeRoute: '/clients', child: WindowsClientsScreen())
