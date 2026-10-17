@@ -50,7 +50,7 @@ class _WindowsClientsScreenState extends State<WindowsClientsScreen> {
             if (clients.isEmpty) return _message(Icons.people_outline_rounded, 'No clients found', _search.text.isEmpty && _type=='All' ? 'Add a client to begin building your directory.' : 'Try changing your search or filter.');
             return Container(decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(15), border: Border.all(color: WindowsDesktopShell.border)), child: Column(children: [
               Container(padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15), decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: WindowsDesktopShell.border))), child: Row(children: [
-                Expanded(flex: 4, child: Text('CLIENT / ENTITY  ·  \${clients.length}', style: const TextStyle(color: WindowsDesktopShell.muted, fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 1))),
+                Expanded(flex: 4, child: Text('CLIENT / ENTITY  ·  ${clients.length}', style: const TextStyle(color: WindowsDesktopShell.muted, fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 1))),
                 const Expanded(flex: 2, child: Text('TYPE', style: TextStyle(color: WindowsDesktopShell.muted, fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 1))),
                 const Expanded(flex: 3, child: Text('CONTACT', style: TextStyle(color: WindowsDesktopShell.muted, fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 1))),
                 const SizedBox(width: 30),
