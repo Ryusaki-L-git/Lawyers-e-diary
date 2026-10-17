@@ -29,7 +29,7 @@ class WindowsDesktopShell extends StatelessWidget {
     _DesktopNavItem('Notifications', Icons.mark_email_unread_outlined, '/notifications', 'PRACTICE'),
     _DesktopNavItem('Fees & transactions', Icons.account_balance_wallet_outlined, '/fee', 'PRACTICE'),
     _DesktopNavItem('Team workspace', Icons.groups_2_outlined, '/team', 'PRACTICE'),
-    _DesktopNavItem('Transfer case', Icons.drive_file_move_outline_rounded, '/transfer_case', 'PRACTICE'),
+    _DesktopNavItem('Assign team case', Icons.assignment_ind_outlined, '/transfer_case', 'PRACTICE'),
     _DesktopNavItem('JURIS intelligence', Icons.auto_awesome_outlined, '/juris', 'INTELLIGENCE'),
     _DesktopNavItem('Profile', Icons.person_outline_rounded, '/profile', 'ACCOUNT'),
     _DesktopNavItem('Settings', Icons.settings_outlined, '/settings', 'ACCOUNT'),
