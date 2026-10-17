@@ -161,6 +161,28 @@ class _LoginScreenState extends State<LoginScreen>
     }
   }
 
+  Future<void> _sendWindowsPasswordReset() async {
+    final email = emailController.text.trim();
+    if (email.isEmpty) {
+      _showSnackBar('Enter your account email first.');
+      return;
+    }
+    try {
+      await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
+      if (mounted) {
+        _showSnackBar('If an account exists for that email, password-reset instructions have been sent.');
+      }
+    } on FirebaseAuthException catch (error) {
+      if (mounted) {
+        _showSnackBar(error.code == 'invalid-email'
+            ? 'Enter a valid email address.'
+            : 'Unable to send reset instructions right now. Please try again.');
+      }
+    } catch (_) {
+      if (mounted) _showSnackBar('Unable to send reset instructions right now. Please try again.');
+    }
+  }
+
   void _showSnackBar(String message) {
     if (mounted) AppSnackbar.show(context, message);
   }
@@ -335,6 +357,7 @@ class _LoginScreenState extends State<LoginScreen>
         const SizedBox(height: 20),
         _entry(6, Column(children: [
           TextButton(onPressed: isLoading ? null : () => Navigator.pushNamed(context, '/signup'), child: const Text("Don't have an account? Create one", style: TextStyle(color: forest, fontWeight: FontWeight.w700))),
+          TextButton(onPressed: isLoading ? null : _sendWindowsPasswordReset, child: const Text('Forgot password?', style: TextStyle(color: forest, fontWeight: FontWeight.w700))),
           TextButton(onPressed: isLoading ? null : showHelpDialog, child: const Text('Need help signing in?', style: TextStyle(color: muted))),
         ])),
       ],
