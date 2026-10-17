@@ -45,6 +45,7 @@ import 'windows/windows_profile_screen.dart';
 import 'windows/windows_cause_list_screen.dart';
 import 'windows/windows_add_case_screen.dart';
 import 'windows/windows_search_cases_screen.dart';
+import 'windows/windows_notifications_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -104,7 +105,9 @@ class MyApp extends StatelessWidget {
         '/cause_list': (context) => defaultTargetPlatform == TargetPlatform.windows
             ? const WindowsDesktopShell(activeRoute: '/cause_list', child: WindowsCauseListScreen())
             : const CauseListScreen(),
-        '/full_calendar': (context) => _platformRoute('/full_calendar', const FullCalendarScreen()),
+        '/full_calendar': (context) => defaultTargetPlatform == TargetPlatform.windows
+            ? const WindowsDesktopShell(activeRoute: '/calendar', child: WindowsCalendarScreen())
+            : const FullCalendarScreen(),
         '/juris': (context) => defaultTargetPlatform == TargetPlatform.windows
             ? const WindowsDesktopShell(activeRoute: '/juris', child: WindowsJurisScreen())
             : const JurisChatScreen(),
@@ -125,7 +128,9 @@ class MyApp extends StatelessWidget {
         '/settings_native': (context) => _platformRoute('/settings', const AppSettingsScreen()),
         '/cloud_storage': (context) => _platformRoute('/cloud_storage', const CloudStorageScreen()),
         '/upgrade': (context) => _platformRoute('/upgrade', const UpgradePromptScreen()),
-        '/notifications': (context) => _platformRoute('/notifications', const NotificationScreen()),
+        '/notifications': (context) => defaultTargetPlatform == TargetPlatform.windows
+            ? const WindowsDesktopShell(activeRoute: '/notifications', child: WindowsNotificationsScreen())
+            : const NotificationScreen(),
       },
     );
   }
