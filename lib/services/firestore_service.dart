@@ -216,6 +216,7 @@ class FirestoreService {
       });
     } catch (e) {
       debugPrint('Error transferring case: $e');
+      rethrow;
     }
   }
 
