@@ -16,6 +16,9 @@ Branch: windows-desktop-redesign
 - lib/windows/windows_desktop_shell.dart: Windows-only persistent forest-green navigation sidebar with grouped links.
 - lib/windows/windows_home_screen.dart: desktop-first legal command center showing real local case counts, today's hearings, recent case updates, and quick links.
 - lib/windows/windows_cases_screen.dart: desktop case register using the existing user-scoped repository, with search, status filters, sorting, and a case-detail handoff.
+- lib/windows/windows_case_detail_screen.dart: wide case workspace with parties, court/hearing information, notes, documents, JURIS handoff, starred toggle, and soft-delete action.
+- lib/windows/windows_calendar_screen.dart: month calendar and selected-day hearing agenda from the current user's local case repository.
+- lib/login_screen.dart: a separate Windows two-panel sign-in design with LED branding, email/password authentication, sign-up/help links; existing mobile sign-in layout remains for other platforms.
 - lib/main.dart: existing named routes are preserved; Windows route entries are wrapped in the desktop shell and /home selects the new Windows home. Android and other platforms continue to use the existing Home screen and route widgets.
 - lib/widgets/app_bottom_navigation.dart: existing bottom navigation is hidden on Windows; it remains unchanged on other platforms.
 - lib/login_screen.dart: Google Sign-In UI is hidden on Windows, leaving email/password as the initial Windows sign-in method while retaining Google Sign-In on Android.
@@ -31,11 +34,11 @@ Branch: windows-desktop-redesign
 
 ## Next implementation order
 
-1. Verify Flutter/Dart and Windows Firebase setup on the actual Windows development machine.
-2. Add a proper Windows authentication layout, preserving email/password first and keeping Android Google Sign-In intact.
-3. Redesign cases list and case detail around desktop tables, filters, and a multi-panel workspace while preserving existing repository behavior.
-4. Redesign calendar/hearings and client workflows.
-5. Redesign reminders, fees, team, JURIS/drafting, profile/settings, and all empty/loading/error states.
-6. Adapt nested detail navigation so the desktop shell remains persistent.
-7. Run dart format, flutter analyze, flutter test, and flutter build windows on Windows; fix all introduced errors and report pre-existing errors separately.
-8. Package the verified Release build for installation only after the checks pass.
+1. Configure and verify Windows Firebase initialization against the real LED Firebase project.
+2. Build a Windows-specific signup and password-recovery experience, keeping Android flows unchanged.
+3. Continue desktop redesign of clients, reminders, fees, team, JURIS/drafting, profile/settings, and empty/loading/error states.
+4. Replace reused mobile cause-list and secondary screens with desktop layouts.
+5. Adapt nested detail navigation so the persistent desktop shell stays consistent in every workflow.
+6. Configure the local JURIS URL for Windows development and verify case context is passed intentionally, without bypassing authorization.
+7. The user will run dart format, flutter analyze, flutter test, and flutter build windows locally; fix any findings from that run.
+8. Package the verified Release build for installation only after the local checks pass.
