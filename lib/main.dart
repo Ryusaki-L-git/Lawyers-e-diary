@@ -38,6 +38,7 @@ import 'windows/windows_calendar_screen.dart';
 import 'windows/windows_clients_screen.dart';
 import 'windows/windows_reminders_screen.dart';
 import 'windows/windows_fees_screen.dart';
+import 'windows/windows_juris_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -90,7 +91,9 @@ class MyApp extends StatelessWidget {
             : const CalendarListScreen(),
         '/cause_list': (context) => _platformRoute('/cause_list', const CauseListScreen()),
         '/full_calendar': (context) => _platformRoute('/full_calendar', const FullCalendarScreen()),
-        '/juris': (context) => _platformRoute('/juris', const JurisChatScreen()),
+        '/juris': (context) => defaultTargetPlatform == TargetPlatform.windows
+            ? const WindowsDesktopShell(activeRoute: '/juris', child: WindowsJurisScreen())
+            : const JurisChatScreen(),
         '/profile': (context) => _platformRoute('/profile', const ProfileScreen()),
         '/fee': (context) => defaultTargetPlatform == TargetPlatform.windows
             ? const WindowsDesktopShell(activeRoute: '/fee', child: WindowsFeesScreen())
