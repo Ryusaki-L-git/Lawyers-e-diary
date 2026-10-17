@@ -38,6 +38,7 @@ Branch: windows-desktop-redesign
 - lib/windows/windows_app_settings_screen.dart: desktop account/settings hub that routes to existing service-backed pages without pretending unsaved preferences persist.
 - lib/windows/windows_edit_profile_screen.dart: desktop professional profile editor preserving the existing Firestore user and LED ID directory update fields.
 - lib/windows/windows_security_screen.dart: desktop account security and Firebase password-reset workflow, with honest wording about sync limitations.
+- lib/windows/windows_edit_profile_screen.dart and /security route: Windows profile editing and password recovery now have dedicated desktop layouts; Android continues to use the original screens.
 - lib/main.dart: /security is now platform-aware and Windows uses the desktop security page.
 - lib/services/firestore_service.dart: case-transfer failures now propagate to the caller so transfer UI can show failure instead of swallowing it.
 - lib/login_screen.dart: a separate Windows two-panel sign-in design with LED branding, email/password authentication, sign-up/help links; existing mobile sign-in layout remains for other platforms.
