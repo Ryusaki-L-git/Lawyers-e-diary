@@ -18,6 +18,7 @@ import 'screens/module_landing_screen.dart';
 import 'screens/juris/juris_chat_screen.dart';
 import 'screens/notification_screen.dart';
 import 'screens/profile/profile_screen.dart';
+import 'screens/profile/account_security_screen.dart';
 import 'screens/fees/fee_list_screen.dart';
 import 'screens/cases/starred_cases_screen.dart';
 import 'screens/reminders/reminders_list_screen.dart';
@@ -53,6 +54,7 @@ import 'windows/windows_transfer_case_screen.dart';
 import 'windows/windows_cloud_storage_screen.dart';
 import 'windows/windows_upgrade_screen.dart';
 import 'windows/windows_app_settings_screen.dart';
+import 'windows/windows_security_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -144,6 +146,9 @@ class MyApp extends StatelessWidget {
         '/settings': (context) => defaultTargetPlatform == TargetPlatform.windows
             ? const WindowsDesktopShell(activeRoute: '/settings', child: WindowsSettingsScreen())
             : const AppSettingsScreen(),
+        '/security': (context) => defaultTargetPlatform == TargetPlatform.windows
+            ? const WindowsDesktopShell(activeRoute: '/settings', child: WindowsSecurityScreen())
+            : const AccountSecurityScreen(),
         '/settings_native': (context) => defaultTargetPlatform == TargetPlatform.windows
             ? const WindowsDesktopShell(activeRoute: '/settings', child: WindowsAppSettingsScreen())
             : const AppSettingsScreen(),
