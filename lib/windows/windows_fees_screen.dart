@@ -36,7 +36,7 @@ class WindowsFeesScreen extends StatelessWidget {
           const SizedBox(height:17),
           Expanded(child:Container(decoration:BoxDecoration(color:Colors.white,borderRadius:BorderRadius.circular(15),border:Border.all(color:WindowsDesktopShell.border)),child:Column(children:[
             Container(padding:const EdgeInsets.symmetric(horizontal:20,vertical:15),decoration:const BoxDecoration(border:Border(bottom:BorderSide(color:WindowsDesktopShell.border))),child:Row(children:[
-              Expanded(flex:4,child:Text('CLIENT / MATTER  ·  \${fees.length}',style:const TextStyle(color:WindowsDesktopShell.muted,fontSize:10,fontWeight:FontWeight.w800,letterSpacing:1))),
+              Expanded(flex:4,child:Text('CLIENT / MATTER  ·  ${fees.length}',style:const TextStyle(color:WindowsDesktopShell.muted,fontSize:10,fontWeight:FontWeight.w800,letterSpacing:1))),
               const Expanded(flex:2,child:Text('AGREED',style:TextStyle(color:WindowsDesktopShell.muted,fontSize:10,fontWeight:FontWeight.w800,letterSpacing:1))),
               const Expanded(flex:2,child:Text('COLLECTED',style:TextStyle(color:WindowsDesktopShell.muted,fontSize:10,fontWeight:FontWeight.w800,letterSpacing:1))),
               const Expanded(flex:2,child:Text('OUTSTANDING',style:TextStyle(color:WindowsDesktopShell.muted,fontSize:10,fontWeight:FontWeight.w800,letterSpacing:1))),
@@ -47,9 +47,9 @@ class WindowsFeesScreen extends StatelessWidget {
               final statusColor=f.status==FeeStatus.settled?const Color(0xFF536D5A):f.status==FeeStatus.partiallyPaid?const Color(0xFF9B782B):WindowsDesktopShell.muted;
               return InkWell(onTap:()=>Navigator.of(context).push(MaterialPageRoute<void>(builder:(_)=>WindowsDesktopShell(activeRoute:'/fee',child:FeeDetailScreen(fee:f)))),child:Padding(padding:const EdgeInsets.symmetric(horizontal:20,vertical:15),child:Row(children:[
                 Expanded(flex:4,child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text(f.clientName,style:const TextStyle(color:WindowsDesktopShell.ink,fontSize:13,fontWeight:FontWeight.w800)),const SizedBox(height:4),Text(f.caseTitle,maxLines:1,overflow:TextOverflow.ellipsis,style:const TextStyle(color:WindowsDesktopShell.muted,fontSize:11)),const SizedBox(height:6),Text(f.status.label,style:TextStyle(color:statusColor,fontSize:10,fontWeight:FontWeight.w800))])),
-                Expanded(flex:2,child:Text('₹ \${money.format(f.agreedTotal)}',style:const TextStyle(color:WindowsDesktopShell.ink,fontSize:11,fontWeight:FontWeight.w700))),
-                Expanded(flex:2,child:Text('₹ \${money.format(f.collectedTotal)}',style:const TextStyle(color:WindowsDesktopShell.ink,fontSize:11))),
-                Expanded(flex:2,child:Text('₹ \${money.format(f.pendingTotal)}',style:TextStyle(color:f.pendingTotal>0?const Color(0xFF9A4A3F):WindowsDesktopShell.forest,fontSize:11,fontWeight:FontWeight.w800))),
+                Expanded(flex:2,child:Text('₹ ${money.format(f.agreedTotal)}',style:const TextStyle(color:WindowsDesktopShell.ink,fontSize:11,fontWeight:FontWeight.w700))),
+                Expanded(flex:2,child:Text('₹ ${money.format(f.collectedTotal)}',style:const TextStyle(color:WindowsDesktopShell.ink,fontSize:11))),
+                Expanded(flex:2,child:Text('₹ ${money.format(f.pendingTotal)}',style:TextStyle(color:f.pendingTotal>0?const Color(0xFF9A4A3F):WindowsDesktopShell.forest,fontSize:11,fontWeight:FontWeight.w800))),
                 SizedBox(width:105,child:Align(alignment:Alignment.centerRight,child:OutlinedButton(onPressed:()=>Navigator.of(context).push(MaterialPageRoute<void>(builder:(_)=>WindowsDesktopShell(activeRoute:'/fee',child:FeeDetailScreen(fee:f)))),style:OutlinedButton.styleFrom(foregroundColor:WindowsDesktopShell.forest,side:const BorderSide(color:WindowsDesktopShell.border)),child:const Text('Details')))),
               ])));
             })),
@@ -64,6 +64,6 @@ class WindowsFeesScreen extends StatelessWidget {
     const SizedBox(width:12),_stat('COLLECTED',collected,money,const Color(0xFF536D5A)),
     const SizedBox(width:12),_stat('OUTSTANDING',pending,money,const Color(0xFF9A4A3F)),
   ]);
-  Widget _stat(String label,double amount,NumberFormat money,Color color)=>Expanded(child:Container(padding:const EdgeInsets.all(18),decoration:BoxDecoration(color:Colors.white,borderRadius:BorderRadius.circular(14),border:Border.all(color:WindowsDesktopShell.border)),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text(label,style:const TextStyle(color:WindowsDesktopShell.muted,fontSize:10,fontWeight:FontWeight.w800,letterSpacing:1)),const SizedBox(height:9),Text('₹ \${money.format(amount)}',maxLines:1,overflow:TextOverflow.ellipsis,style:TextStyle(color:color,fontSize:21,fontWeight:FontWeight.w800))])));
+  Widget _stat(String label,double amount,NumberFormat money,Color color)=>Expanded(child:Container(padding:const EdgeInsets.all(18),decoration:BoxDecoration(color:Colors.white,borderRadius:BorderRadius.circular(14),border:Border.all(color:WindowsDesktopShell.border)),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text(label,style:const TextStyle(color:WindowsDesktopShell.muted,fontSize:10,fontWeight:FontWeight.w800,letterSpacing:1)),const SizedBox(height:9),Text('₹ ${money.format(amount)}',maxLines:1,overflow:TextOverflow.ellipsis,style:TextStyle(color:color,fontSize:21,fontWeight:FontWeight.w800))])));
   Widget _empty(IconData icon,String title,String subtitle)=>Center(child:Column(mainAxisAlignment:MainAxisAlignment.center,children:[Icon(icon,size:42,color:WindowsDesktopShell.gold),const SizedBox(height:12),Text(title,style:const TextStyle(color:WindowsDesktopShell.ink,fontSize:17,fontWeight:FontWeight.w800)),const SizedBox(height:6),Text(subtitle,textAlign:TextAlign.center,style:const TextStyle(color:WindowsDesktopShell.muted,fontSize:12))]));
 }
