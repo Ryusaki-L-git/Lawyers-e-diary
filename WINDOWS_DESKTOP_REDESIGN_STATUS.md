@@ -31,6 +31,12 @@ Branch: windows-desktop-redesign
 - lib/windows/windows_profile_screen.dart: desktop legal profile backed by the signed-in user's Firestore profile, with existing edit flow.
 - lib/windows/windows_settings_screen.dart: desktop settings hub for account, cloud storage, plans, and support.
 - lib/windows/windows_notifications_screen.dart: honest empty state; does not show the old hard-coded demo alerts as if they were real notifications.
+- lib/windows/windows_transfer_case_screen.dart: desktop cloud-case transfer workflow with an explicit case selection and receiving lawyer from the LED ID directory; local-only cases are not offered as cloud transfer candidates.
+- lib/windows/windows_cloud_storage_screen.dart: desktop subscription/storage status view; explicitly distinguishes a stored sync timestamp from a real synchronization job.
+- lib/windows/windows_upgrade_screen.dart: desktop plan comparison and upgrade request information; does not invent prices or process payments.
+- lib/windows/windows_support_screen.dart: desktop knowledge center, support-ticket submission and live ticket history using SupportService.
+- lib/windows/windows_app_settings_screen.dart: desktop account/settings hub that routes to existing service-backed pages without pretending unsaved preferences persist.
+- lib/services/firestore_service.dart: case-transfer failures now propagate to the caller so transfer UI can show failure instead of swallowing it.
 - lib/login_screen.dart: a separate Windows two-panel sign-in design with LED branding, email/password authentication, sign-up/help links; existing mobile sign-in layout remains for other platforms.
 - lib/main.dart: existing named routes are preserved; Windows route entries are wrapped in the desktop shell and /home selects the new Windows home. Android and other platforms continue to use the existing Home screen and route widgets.
 - lib/widgets/app_bottom_navigation.dart: existing bottom navigation is hidden on Windows; it remains unchanged on other platforms.
