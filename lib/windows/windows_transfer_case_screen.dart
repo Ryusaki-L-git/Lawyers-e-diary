@@ -4,8 +4,7 @@ import '../services/firestore_service.dart';
 import 'windows_desktop_shell.dart';
 
 class WindowsTransferCaseScreen extends StatefulWidget {
-  const WindowsTransferCaseScreen({super.key, this.caseItem});
-  final CaseModel? caseItem;
+  const WindowsTransferCaseScreen({super.key});
   @override State<WindowsTransferCaseScreen> createState() => _WindowsTransferCaseScreenState();
 }
 class _WindowsTransferCaseScreenState extends State<WindowsTransferCaseScreen> {
@@ -15,7 +14,7 @@ class _WindowsTransferCaseScreenState extends State<WindowsTransferCaseScreen> {
   String _memberId = '';
   String _memberName = '';
   bool _busy = false;
-  @override void initState() { super.initState(); _selectedCase = widget.caseItem; }
+
   @override void dispose() { _search.dispose(); super.dispose(); }
   @override Widget build(BuildContext context) => Scaffold(backgroundColor: WindowsDesktopShell.canvas, body: SafeArea(child: Padding(padding: const EdgeInsets.fromLTRB(30,25,30,30), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
     const Text('TEAM CASE ALLOCATION', style: TextStyle(color: WindowsDesktopShell.muted,fontSize:10,fontWeight:FontWeight.w800,letterSpacing:1.5)),
@@ -27,7 +26,7 @@ class _WindowsTransferCaseScreenState extends State<WindowsTransferCaseScreen> {
         if (_selectedCase != null) Container(width:double.infinity,padding:const EdgeInsets.all(14),decoration:BoxDecoration(color:const Color(0xFFE9EEE9),borderRadius:BorderRadius.circular(10)),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
           Text(_selectedCase!.caseTitle,style:const TextStyle(color:WindowsDesktopShell.forest,fontWeight:FontWeight.w800,fontSize:13)),
           const SizedBox(height:4), Text(_selectedCase!.caseNumber + ' · ' + _selectedCase!.clientName,style:const TextStyle(color:WindowsDesktopShell.muted,fontSize:11)),
-          Align(alignment:Alignment.centerRight,child:TextButton(onPressed:widget.caseItem==null?()=>setState(()=>_selectedCase=null):null,child:const Text('Change case'))),
+          Align(alignment:Alignment.centerRight,child:TextButton(onPressed:()=>setState(()=>_selectedCase=null),child:const Text('Change case'))),
         ])) else ...[
           TextField(controller:_search,onChanged:(_)=>setState((){}),decoration:const InputDecoration(prefixIcon:Icon(Icons.search_rounded),hintText:'Search accessible cloud cases')),
           const SizedBox(height:10),
