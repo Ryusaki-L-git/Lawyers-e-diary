@@ -48,6 +48,7 @@ import 'windows/windows_search_cases_screen.dart';
 import 'windows/windows_notifications_screen.dart';
 import 'windows/windows_case_management_screen.dart';
 import 'windows/windows_deleted_cases_screen.dart';
+import 'windows/windows_support_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -100,7 +101,9 @@ class MyApp extends StatelessWidget {
         '/clients': (context) => defaultTargetPlatform == TargetPlatform.windows
             ? const WindowsDesktopShell(activeRoute: '/clients', child: WindowsClientsScreen())
             : const ClientListScreen(),
-        '/support': (context) => _platformRoute('/support', const HelpSupportScreen()),
+        '/support': (context) => defaultTargetPlatform == TargetPlatform.windows
+            ? const WindowsDesktopShell(activeRoute: '/support', child: WindowsSupportScreen())
+            : const HelpSupportScreen(),
         '/team': (context) => defaultTargetPlatform == TargetPlatform.windows
             ? const WindowsDesktopShell(activeRoute: '/team', child: WindowsTeamScreen())
             : const TeamEntryScreen(),
