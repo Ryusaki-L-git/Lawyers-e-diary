@@ -21,6 +21,7 @@ Branch: windows-desktop-redesign
 - lib/windows/windows_add_case_screen.dart: desktop case registration form using the existing local-first CaseRepository.
 - lib/windows/windows_search_cases_screen.dart: desktop search/filter/sort over the authenticated user's local case register.
 - lib/windows/windows_case_management_screen.dart: live local-docket operational summary and shortcuts.
+- lib/windows/windows_deleted_cases_screen.dart: local deleted-case register with review and restore actions.
 - lib/windows/windows_cause_list_screen.dart: date-specific cause list backed by the local-first case repository.
 - lib/windows/windows_clients_screen.dart: desktop client directory with live user-scoped search/type filtering and existing client create/detail flows.
 - lib/windows/windows_reminders_screen.dart: desktop reminder table with pending/completed filters and existing complete/delete/create operations.
@@ -33,7 +34,9 @@ Branch: windows-desktop-redesign
 - lib/login_screen.dart: a separate Windows two-panel sign-in design with LED branding, email/password authentication, sign-up/help links; existing mobile sign-in layout remains for other platforms.
 - lib/main.dart: existing named routes are preserved; Windows route entries are wrapped in the desktop shell and /home selects the new Windows home. Android and other platforms continue to use the existing Home screen and route widgets.
 - lib/widgets/app_bottom_navigation.dart: existing bottom navigation is hidden on Windows; it remains unchanged on other platforms.
-- lib/login_screen.dart: Google Sign-In UI is hidden on Windows, leaving email/password as the initial Windows sign-in method while retaining Google Sign-In on Android.
+- lib/login_screen.dart: Google Sign-In UI is hidden on Windows, leaving email/password as the initial Windows sign-in method while retaining Google Sign-In on Android; Windows also has a password-reset email action.
+- lib/signup_screen.dart: dedicated Windows account-creation layout using the existing account-creation transaction; the original mobile signup layout and Google Sign-In remain on non-Windows platforms.
+- lib/main.dart: /completed_cases and /starred use the desktop case register's built-in filters; /deleted_cases uses the local deleted-case view.
 
 ## Current limitations — not yet production-ready
 
@@ -46,11 +49,11 @@ Branch: windows-desktop-redesign
 
 ## Next implementation order
 
-1. Build a Windows-specific signup and password-recovery experience while preserving Android flows.
-2. Redesign remaining case workflows: completed/deleted/starred/transferred cases, and case-management subflows.
-3. Replace reused mobile support, cloud-storage, upgrade, and secondary settings screens with desktop-specific layouts where their real workflows support it.
-4. Make nested create/edit/detail flows retain the desktop shell consistently and review all route transitions.
-5. Connect a persistent notification feed only after a real notification model/service exists; the current Windows page intentionally avoids fabricated alerts.
-6. Improve JURIS case-context handoff only through the existing authorized backend contract; do not bypass access checks.
+1. Finish the desktop transfer-case workflow and review case status transitions against the local-first repository model.
+2. Replace reused mobile support, cloud-storage, upgrade, and remaining secondary screens with desktop layouts where their real workflows support it.
+3. Make nested create/edit/detail flows retain the desktop shell consistently and review all route transitions.
+4. Connect a persistent notification feed only after a real notification model/service exists; the current Windows page intentionally avoids fabricated alerts.
+5. Improve JURIS case-context handoff only through the existing authorized backend contract; do not bypass access checks.
+6. Review empty/loading/error states and keyboard/focus behavior across all desktop pages.
 7. The user will run dart format, flutter analyze, flutter test, and flutter build windows locally; address findings from that run.
 8. Package the verified Release build for installation only after local checks and Firebase configuration are complete.
