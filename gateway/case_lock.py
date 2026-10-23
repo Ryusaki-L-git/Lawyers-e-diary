@@ -26,7 +26,10 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
-from .admission import AdmissionResult
+if __package__:
+    from .admission import AdmissionResult
+else:
+    from admission import AdmissionResult
 
 logger = logging.getLogger("ecourts_gateway")
 

@@ -49,25 +49,46 @@ import uuid
 from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.responses import JSONResponse
 
-from .admission import AdmissionStatus
-from .auth import LedUser, current_led_user
-from .case_lock import acquire_case_lock, release_case_lock
-from .config import load_settings
-from .firestore_authz import AuthorizationError, read_case_and_authorize, reauthorize_and_update
-from .presence import (
-    InvalidSessionId,
-    count_unique_active_users,
-    heartbeat_session,
-    register_session,
-)
-from .led_id import allocate_led_id
-from .provider import EcourtsProvider, EcourtsProviderError
-from .rate_limiter import (
-    admit_case_request,
-    admit_global_request,
-    admit_user_request,
-    compute_global_capacity,
-)
+if __package__:
+    from .admission import AdmissionStatus
+    from .auth import LedUser, current_led_user
+    from .case_lock import acquire_case_lock, release_case_lock
+    from .config import load_settings
+    from .firestore_authz import AuthorizationError, read_case_and_authorize, reauthorize_and_update
+    from .presence import (
+        InvalidSessionId,
+        count_unique_active_users,
+        heartbeat_session,
+        register_session,
+    )
+    from .led_id import allocate_led_id
+    from .provider import EcourtsProvider, EcourtsProviderError
+    from .rate_limiter import (
+        admit_case_request,
+        admit_global_request,
+        admit_user_request,
+        compute_global_capacity,
+    )
+else:
+    from admission import AdmissionStatus
+    from auth import LedUser, current_led_user
+    from case_lock import acquire_case_lock, release_case_lock
+    from config import load_settings
+    from firestore_authz import AuthorizationError, read_case_and_authorize, reauthorize_and_update
+    from presence import (
+        InvalidSessionId,
+        count_unique_active_users,
+        heartbeat_session,
+        register_session,
+    )
+    from led_id import allocate_led_id
+    from provider import EcourtsProvider, EcourtsProviderError
+    from rate_limiter import (
+        admit_case_request,
+        admit_global_request,
+        admit_user_request,
+        compute_global_capacity,
+    )
 
 logger = logging.getLogger("ecourts_gateway")
 logging.basicConfig(level=logging.INFO)

@@ -1,7 +1,11 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "led-ecourts-gateway"
 version = "1.0.0"
-description = "LED eCourts gateway — FastAPI Cloud deployment"
+description = "LED eCourts gateway - FastAPI Cloud deployment"
 requires-python = ">=3.12"
 dependencies = [
     "fastapi[standard]>=0.115.0,<1.0",
@@ -10,6 +14,9 @@ dependencies = [
     "google-cloud-firestore>=2.21.0,<3.0",
     "httpx>=0.27.0,<1.0",
 ]
+
+[tool.setuptools]
+py-modules = ["admission", "auth", "case_lock", "config", "firestore_authz", "led_id", "main", "presence", "provider", "rate_limiter"]
 
 [tool.fastapi]
 entrypoint = "main:app"
