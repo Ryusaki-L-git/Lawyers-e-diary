@@ -66,3 +66,15 @@ service-account*.json
 # Kilo tool state
 .kilo/
 .open/
+
+# Kilo tool state and artifacts
+.open
+C
+
+# IDE and tool state
+.vscode/
+.open
+C
+
+# VS Code workspace files
+*.code-workspace
