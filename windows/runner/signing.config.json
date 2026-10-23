@@ -1,0 +1,26 @@
+# Code Signing Configuration for Lawyers E-Diary MSIX
+# This file defines the signing identity for MSIX packaging.
+# Copy this to signing.config.json and update with your certificate details.
+
+{
+  "certificate": {
+    "path": "C:\\Users\\Lawyers-e-diary-main\\windows\\runner\\resources\\lawyers-e-diary.pfx",
+    "password": "",
+    "publisher": "CN=Lawyers E-Diary",
+    "validity": {
+      "notBefore": "2026-01-01T00:00:00Z",
+      "notAfter": "2031-01-01T00:00:00Z"
+    }
+  },
+  "msix": {
+    "identityName": "LawyersEDiary",
+    "identityPublisher": "CN=Lawyers E-Diary",
+    "architecture": "x64",
+    "minimumTarget": "10.0.10240.0"
+  },
+  "azureSignTool": {
+    "endpoint": "",
+    "secret": "",
+    "certificateName": ""
+  }
+}

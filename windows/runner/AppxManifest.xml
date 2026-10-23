@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  AppxManifest.xml for Lawyers E-Diary MSIX packaging.
+
+  The root element is Package in the Windows 10 foundation namespace, which
+  is the form modern MakeAppx requires for an MSIX package.
+
+  Identity must match the code-signing certificate's publisher CN.
+  Update <Identity Name="..." Publisher="CN=..." /> before signing.
+-->
+<Package xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+         xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+         IgnorableNamespaces="uap">
+
+  <!-- Identity block: Name and Publisher must match the signing certificate -->
+  <Identity Name="LawyersEDiary"
+            Publisher="CN=Lawyers E-Diary"
+            Version="1.0.0.0"
+            ProcessorArchitecture="x64" />
+
+  <Properties>
+    <DisplayName>Lawyers E-Diary</DisplayName>
+    <PublisherDisplayName>Lawyers E-Diary</PublisherDisplayName>
+    <Description>Lawyer's E-Diary - Case management and JURIS AI legal intelligence</Description>
+    <Logo>assets\icons\StoreLogo.png</Logo>
+  </Properties>
+
+  <Resources>
+    <Resource Language="en-us" />
+  </Resources>
+
+  <Dependencies>
+    <TargetDeviceFamily Name="Windows.Desktop"
+                        MinVersion="10.0.10240.0"
+                        MaxVersionTested="10.0.22621.0" />
+  </Dependencies>
+
+  <Capabilities>
+    <!--
+      A packaged Win32 desktop application runs outside the app container, so
+      the FullTrust capability is required for the
+      Windows.FullTrustApplication entry point.
+    -->
+    <rescap:Capability xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
+                        Name="runFullTrust" />
+  </Capabilities>
+
+  <Applications>
+    <!--
+      EntryPoint must be Windows.FullTrustApplication for a packaged Win32
+      desktop application. The uap:VisualElements element requires exactly
+      DisplayName, Description, BackgroundColor, Square150x150Logo and
+      Square44x44Logo; the additional tile logos belong on uap:DefaultTile.
+    -->
+    <Application Id="App"
+                 Executable="lawyers_e_diary.exe"
+                 EntryPoint="Windows.FullTrustApplication">
+      <uap:VisualElements
+          DisplayName="Lawyers E-Diary"
+          Description="Case management and JURIS AI legal intelligence"
+          BackgroundColor="#1F3D2B"
+          Square150x150Logo="assets\icons\square150x150Logo.png"
+          Square44x44Logo="assets\icons\square44x44Logo.png">
+        <uap:DefaultTile
+            Wide310x150Logo="assets\icons\wide310x150Logo.png"
+            Square71x71Logo="assets\icons\square71x71Logo.png"
+            Square310x310Logo="assets\icons\square310x310Logo.png" />
+      </uap:VisualElements>
+    </Application>
+  </Applications>
+
+</Package>

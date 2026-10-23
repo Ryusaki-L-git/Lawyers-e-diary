@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  MakeAppxConfig.xml for Lawyers E-Diary MSIX packaging.
+  Used by MakeAppx tool to create the .appx/.msix package.
+-->
+<MakeAppxConfig PackRoot="C:\Users\Lawyers-e-diary-main\build\windows\x64\Release"
+               Root="C:\Users\Lawyers-e-diary-main\windows\runner"
+               PublicKey="0x24D60A4A4F4F4F4F4F4F4F4F4F4F4F4F4F4F4F4F"
+               Publisher="CN=Lawyers E-Diary">
+  <File Source="lawyers_e_diary.exe" Target="lawyers_e_diary.exe" />
+  <File Source="flutter_windows.dll" Target="flutter_windows.dll" />
+  <File Source="icudtl.dat" Target="icudtl.dat" />
+  <File Source="AppxManifest.xml" Target="AppxManifest.xml" />
+  <File Source="resources\app_icon.ico" Target="resources\app_icon.ico" />
+</MakeAppxConfig>

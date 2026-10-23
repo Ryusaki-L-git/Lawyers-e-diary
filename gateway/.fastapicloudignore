@@ -1,0 +1,9 @@
+# Files excluded from FastAPI Cloud deployment upload
+tests/
+.env
+.env.*
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+venv/
