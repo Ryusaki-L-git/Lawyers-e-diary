@@ -371,6 +371,41 @@ abstract final class AppTheme {
       centerTitle: false,
     ),
     dividerColor: AppPalette.borderLight,
+    inputDecorationTheme: InputDecorationTheme(
+      filled: true,
+      fillColor: AppPalette.canvas,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+      hintStyle: const TextStyle(color: AppPalette.textMuted, fontSize: 13),
+      labelStyle: const TextStyle(color: AppPalette.textMuted, fontSize: 13),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.all(Radius.circular(12)),
+        borderSide: BorderSide(color: AppPalette.borderLight),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.all(Radius.circular(12)),
+        borderSide: BorderSide(color: AppPalette.borderLight),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.all(Radius.circular(12)),
+        borderSide: BorderSide(color: AppPalette.accentGold, width: 1.5),
+      ),
+      errorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.all(Radius.circular(12)),
+        borderSide: BorderSide(color: AppPalette.statusDanger),
+      ),
+      focusedErrorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.all(Radius.circular(12)),
+        borderSide: BorderSide(color: AppPalette.statusDanger, width: 1.5),
+      ),
+    ),
+    tooltipTheme: const TooltipThemeData(
+      waitDuration: Duration(milliseconds: 450),
+      decoration: BoxDecoration(
+        color: AppPalette.primaryGreen,
+        borderRadius: BorderRadius.all(Radius.circular(8)),
+      ),
+      textStyle: TextStyle(color: Colors.white, fontSize: 11),
+    ),
     dialogTheme: const DialogThemeData(
       backgroundColor: AppPalette.cardBackground,
       surfaceTintColor: Colors.transparent,
@@ -397,21 +432,21 @@ abstract final class AppTheme {
       color: AppPalette.textPrimary,
     ),
     headlineMedium: TextStyle(
-      fontFamily: 'Georgia',
+      fontFamily: 'Palatino Linotype',
       fontSize: 27,
       height: 1.2,
       fontWeight: FontWeight.w700,
       color: AppPalette.textPrimary,
     ),
     headlineSmall: TextStyle(
-      fontFamily: 'Georgia',
+      fontFamily: 'Palatino Linotype',
       fontSize: 22,
       height: 1.2,
       fontWeight: FontWeight.w700,
       color: AppPalette.textPrimary,
     ),
     titleLarge: TextStyle(
-      fontFamily: 'Georgia',
+      fontFamily: 'Palatino Linotype',
       fontSize: 18,
       fontWeight: FontWeight.w700,
       color: AppPalette.textPrimary,
