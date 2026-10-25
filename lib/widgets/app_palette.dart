@@ -346,6 +346,13 @@ abstract final class AppTheme {
   static final windows = ThemeData(
     useMaterial3: true,
     fontFamily: AppTypography.body,
+    pageTransitionsTheme: const PageTransitionsTheme(
+      builders: <TargetPlatform, PageTransitionsBuilder>{
+        TargetPlatform.windows: FadeUpwardsPageTransitionsBuilder(),
+        TargetPlatform.macOS: FadeUpwardsPageTransitionsBuilder(),
+        TargetPlatform.linux: FadeUpwardsPageTransitionsBuilder(),
+      },
+    ),
     scaffoldBackgroundColor: AppPalette.canvas,
     colorScheme:
         ColorScheme.fromSeed(
