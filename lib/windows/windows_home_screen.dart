@@ -167,13 +167,37 @@ class _WindowsHomeScreenState extends State<WindowsHomeScreen> {
                         title:
                             '$greeting, ${name.isEmpty ? 'Counsel' : name}',
                         subtitle: 'Your practice, clearly in view.',
-                        actions: FilledButton.icon(
-                          onPressed: () => Navigator.of(
-                            context,
-                          ).pushNamed('/add_case'),
-                          icon: const Icon(Icons.add_rounded, size: 18),
-                          label: const Text('New case'),
-                          style: WindowsButtonStyles.primary(),
+                        actions: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              tooltip: 'Notifications',
+                              onPressed: () => Navigator.of(
+                                context,
+                              ).pushNamed('/notifications'),
+                              icon: const Icon(Icons.notifications_none_rounded),
+                              style: IconButton.styleFrom(
+                                foregroundColor: AppPalette.primaryGreen,
+                                backgroundColor: AppPalette.cardBackground,
+                                side: const BorderSide(
+                                  color: AppPalette.borderLight,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(11),
+                                ),
+                                minimumSize: const Size(44, 44),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            FilledButton.icon(
+                              onPressed: () => Navigator.of(
+                                context,
+                              ).pushNamed('/add_case'),
+                              icon: const Icon(Icons.add_rounded, size: 18),
+                              label: const Text('New case'),
+                              style: WindowsButtonStyles.primary(),
+                            ),
+                          ],
                         ),
                       ),
                       const SizedBox(height: 22),
@@ -187,6 +211,10 @@ class _WindowsHomeScreenState extends State<WindowsHomeScreen> {
                           context,
                         ).pushNamed('/calendar'),
                       ),
+                      const SizedBox(height: 18),
+                      const WindowsSectionHeading('Quick actions'),
+                      const SizedBox(height: 12),
+                      const _PrimaryQuickActions(),
                       const SizedBox(height: 22),
                       if (snapshot.hasError)
                         _ErrorNotice(
@@ -263,7 +291,7 @@ class _WindowsHomeScreenState extends State<WindowsHomeScreen> {
                             snapshot.connectionState == ConnectionState.waiting,
                       ),
                       const SizedBox(height: 26),
-                      const WindowsSectionHeading('Quick access'),
+                      const WindowsSectionHeading('Explore your workspace'),
                       const SizedBox(height: 13),
                       const _QuickAccessRow(),
                     ],
@@ -965,6 +993,136 @@ class _ErrorNotice extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// High-frequency actions surfaced directly on the Windows workspace.
+/// Each action routes to the existing screen; no duplicate business logic is
+/// introduced here.
+class _PrimaryQuickActions extends StatelessWidget {
+  const _PrimaryQuickActions();
+
+  @override
+  Widget build(BuildContext context) {
+    const actions = <(String, IconData, String)>[
+      ('Cases', Icons.folder_open_outlined, '/cases'),
+      ('Calendar', Icons.calendar_month_outlined, '/calendar'),
+      ('Reminders', Icons.notifications_none_rounded, '/reminders'),
+      ('Fees', Icons.account_balance_wallet_outlined, '/fee'),
+      ('Starred', Icons.star_outline_rounded, '/starred'),
+      ('Team', Icons.groups_2_outlined, '/team'),
+    ];
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < 760;
+        final itemWidth = compact
+            ? (constraints.maxWidth - 12) / 2
+            : (constraints.maxWidth - 5 * 12) / 6;
+        return Wrap(
+          spacing: 12,
+          runSpacing: 12,
+          children: [
+            for (final action in actions)
+              SizedBox(
+                width: itemWidth,
+                child: _QuickActionTile(
+                  title: action.$1,
+                  icon: action.$2,
+                  onTap: () => Navigator.of(context).pushNamed(action.$3),
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _QuickActionTile extends StatefulWidget {
+  const _QuickActionTile({
+    required this.title,
+    required this.icon,
+    required this.onTap,
+  });
+
+  final String title;
+  final IconData icon;
+  final VoidCallback onTap;
+
+  @override
+  State<_QuickActionTile> createState() => _QuickActionTileState();
+}
+
+class _QuickActionTileState extends State<_QuickActionTile> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
+        curve: Curves.easeOutCubic,
+        transform: Matrix4.translationValues(0, _hovered ? -2 : 0, 0),
+        decoration: BoxDecoration(
+          color: AppPalette.cardBackground,
+          borderRadius: BorderRadius.circular(15),
+          border: Border.all(
+            color: _hovered ? AppPalette.accentGold : AppPalette.borderLight,
+          ),
+          boxShadow: _hovered
+              ? const [
+                  BoxShadow(
+                    color: Color(0x0D1F3D2B),
+                    blurRadius: 16,
+                    offset: Offset(0, 5),
+                  ),
+                ]
+              : const [],
+        ),
+        child: Material(
+          color: Colors.transparent,
+          borderRadius: BorderRadius.circular(15),
+          child: InkWell(
+            onTap: widget.onTap,
+            borderRadius: BorderRadius.circular(15),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 15),
+              child: Row(
+                children: [
+                  Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: AppPalette.statusTile,
+                      borderRadius: BorderRadius.circular(11),
+                    ),
+                    child: Icon(widget.icon, color: AppPalette.primaryGreen, size: 19),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      widget.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: AppPalette.textPrimary,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  const Icon(Icons.arrow_outward_rounded,
+                      size: 14, color: AppPalette.textMuted),
+                ],
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }

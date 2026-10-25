@@ -138,6 +138,7 @@ abstract final class AppTypography {
     if (kIsWeb) return 'serif';
     switch (defaultTargetPlatform) {
       case TargetPlatform.windows:
+        return 'Palatino Linotype';
       case TargetPlatform.macOS:
         return 'Georgia';
       case TargetPlatform.android:
@@ -149,7 +150,10 @@ abstract final class AppTypography {
   }
 
   /// Clean sans-serif family used for interface text, labels and tables.
-  static const body = 'sans-serif';
+  static String get body {
+    if (defaultTargetPlatform == TargetPlatform.windows) return 'Segoe UI';
+    return 'sans-serif';
+  }
 }
 
 /// Component-level tokens shared by the primary action button and the text
@@ -341,6 +345,18 @@ abstract final class AppTheme {
   /// teal palette.
   static final windows = ThemeData(
     useMaterial3: true,
+    fontFamily: AppTypography.body,
+    hoverColor: AppPalette.statusTile,
+    focusColor: AppPalette.accentGold.withValues(alpha: 0.12),
+    splashColor: AppPalette.accentGold.withValues(alpha: 0.12),
+    highlightColor: AppPalette.accentGold.withValues(alpha: 0.06),
+    pageTransitionsTheme: const PageTransitionsTheme(
+      builders: <TargetPlatform, PageTransitionsBuilder>{
+        TargetPlatform.windows: FadeUpwardsPageTransitionsBuilder(),
+        TargetPlatform.macOS: FadeUpwardsPageTransitionsBuilder(),
+        TargetPlatform.linux: FadeUpwardsPageTransitionsBuilder(),
+      },
+    ),
     scaffoldBackgroundColor: AppPalette.canvas,
     colorScheme:
         ColorScheme.fromSeed(
@@ -366,6 +382,41 @@ abstract final class AppTheme {
       centerTitle: false,
     ),
     dividerColor: AppPalette.borderLight,
+    inputDecorationTheme: InputDecorationTheme(
+      filled: true,
+      fillColor: AppPalette.canvas,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+      hintStyle: const TextStyle(color: AppPalette.textMuted, fontSize: 13),
+      labelStyle: const TextStyle(color: AppPalette.textMuted, fontSize: 13),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.all(Radius.circular(12)),
+        borderSide: BorderSide(color: AppPalette.borderLight),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.all(Radius.circular(12)),
+        borderSide: BorderSide(color: AppPalette.borderLight),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.all(Radius.circular(12)),
+        borderSide: BorderSide(color: AppPalette.accentGold, width: 1.5),
+      ),
+      errorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.all(Radius.circular(12)),
+        borderSide: BorderSide(color: AppPalette.statusDanger),
+      ),
+      focusedErrorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.all(Radius.circular(12)),
+        borderSide: BorderSide(color: AppPalette.statusDanger, width: 1.5),
+      ),
+    ),
+    tooltipTheme: const TooltipThemeData(
+      waitDuration: Duration(milliseconds: 450),
+      decoration: BoxDecoration(
+        color: AppPalette.primaryGreen,
+        borderRadius: BorderRadius.all(Radius.circular(8)),
+      ),
+      textStyle: TextStyle(color: Colors.white, fontSize: 11),
+    ),
     dialogTheme: const DialogThemeData(
       backgroundColor: AppPalette.cardBackground,
       surfaceTintColor: Colors.transparent,
@@ -386,27 +437,27 @@ abstract final class AppTheme {
 
   static final _editorialTextTheme = const TextTheme(
     displaySmall: TextStyle(
-      fontFamily: 'Georgia',
+      fontFamily: 'Palatino Linotype',
       fontSize: 34,
       fontWeight: FontWeight.w700,
       color: AppPalette.textPrimary,
     ),
     headlineMedium: TextStyle(
-      fontFamily: 'Georgia',
+      fontFamily: 'Palatino Linotype',
       fontSize: 27,
       height: 1.2,
       fontWeight: FontWeight.w700,
       color: AppPalette.textPrimary,
     ),
     headlineSmall: TextStyle(
-      fontFamily: 'Georgia',
+      fontFamily: 'Palatino Linotype',
       fontSize: 22,
       height: 1.2,
       fontWeight: FontWeight.w700,
       color: AppPalette.textPrimary,
     ),
     titleLarge: TextStyle(
-      fontFamily: 'Georgia',
+      fontFamily: 'Palatino Linotype',
       fontSize: 18,
       fontWeight: FontWeight.w700,
       color: AppPalette.textPrimary,
