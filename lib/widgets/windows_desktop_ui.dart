@@ -127,8 +127,15 @@ class WindowsPanel extends StatelessWidget {
       padding: padding,
       decoration: BoxDecoration(
         color: AppPalette.cardBackground,
-        borderRadius: BorderRadius.circular(15),
+        borderRadius: BorderRadius.circular(17),
         border: Border.all(color: AppPalette.borderLight),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x071A1A1A),
+            blurRadius: 18,
+            offset: Offset(0, 5),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
