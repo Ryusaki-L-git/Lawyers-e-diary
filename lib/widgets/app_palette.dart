@@ -138,8 +138,9 @@ abstract final class AppTypography {
     if (kIsWeb) return 'serif';
     switch (defaultTargetPlatform) {
       case TargetPlatform.windows:
-      case TargetPlatform.macOS:
         return 'Palatino Linotype';
+      case TargetPlatform.macOS:
+        return 'Georgia';
       case TargetPlatform.android:
       case TargetPlatform.iOS:
       case TargetPlatform.linux:
