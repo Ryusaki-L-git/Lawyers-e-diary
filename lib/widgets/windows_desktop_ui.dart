@@ -65,7 +65,8 @@ class WindowsPageHeader extends StatelessWidget {
           style: TextStyle(
             fontFamily: AppTypography.heading,
             color: AppPalette.primaryGreen,
-            fontSize: 28,
+            fontSize: 30,
+            height: 1.12,
             fontWeight: FontWeight.w700,
           ),
         ),
@@ -83,20 +84,45 @@ class WindowsPageHeader extends StatelessWidget {
       return titleBlock;
     }
 
-    final header = Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        if (leading != null) ...[leading!, const SizedBox(width: 8)],
-        Expanded(child: titleBlock),
-        if (actions != null) ...[const SizedBox(width: 14), actions!],
-      ],
-    );
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < 680;
+        final header = compact
+            ? Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (leading != null) ...[
+                        leading!,
+                        const SizedBox(width: 8),
+                      ],
+                      Expanded(child: titleBlock),
+                    ],
+                  ),
+                  if (actions != null) ...[
+                    const SizedBox(height: 14),
+                    Align(alignment: Alignment.centerLeft, child: actions!),
+                  ],
+                ],
+              )
+            : Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  if (leading != null) ...[leading!, const SizedBox(width: 8)],
+                  Expanded(child: titleBlock),
+                  if (actions != null) ...[const SizedBox(width: 14), actions!],
+                ],
+              );
 
-    if (trailing == null) return header;
+        if (trailing == null) return header;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [header, const SizedBox(height: 16), trailing!],
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [header, const SizedBox(height: 16), trailing!],
+        );
+      },
     );
   }
 }
@@ -730,7 +756,7 @@ class WindowsSectionHeading extends StatelessWidget {
         color: AppPalette.textMuted,
         fontSize: 10,
         fontWeight: FontWeight.w800,
-        letterSpacing: 1.5,
+        letterSpacing: 1.7,
       ),
     );
 
