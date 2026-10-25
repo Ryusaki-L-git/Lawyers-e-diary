@@ -167,13 +167,37 @@ class _WindowsHomeScreenState extends State<WindowsHomeScreen> {
                         title:
                             '$greeting, ${name.isEmpty ? 'Counsel' : name}',
                         subtitle: 'Your practice, clearly in view.',
-                        actions: FilledButton.icon(
-                          onPressed: () => Navigator.of(
-                            context,
-                          ).pushNamed('/add_case'),
-                          icon: const Icon(Icons.add_rounded, size: 18),
-                          label: const Text('New case'),
-                          style: WindowsButtonStyles.primary(),
+                        actions: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              tooltip: 'Notifications',
+                              onPressed: () => Navigator.of(
+                                context,
+                              ).pushNamed('/notifications'),
+                              icon: const Icon(Icons.notifications_none_rounded),
+                              style: IconButton.styleFrom(
+                                foregroundColor: AppPalette.primaryGreen,
+                                backgroundColor: AppPalette.cardBackground,
+                                side: const BorderSide(
+                                  color: AppPalette.borderLight,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(11),
+                                ),
+                                minimumSize: const Size(44, 44),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            FilledButton.icon(
+                              onPressed: () => Navigator.of(
+                                context,
+                              ).pushNamed('/add_case'),
+                              icon: const Icon(Icons.add_rounded, size: 18),
+                              label: const Text('New case'),
+                              style: WindowsButtonStyles.primary(),
+                            ),
+                          ],
                         ),
                       ),
                       const SizedBox(height: 22),
