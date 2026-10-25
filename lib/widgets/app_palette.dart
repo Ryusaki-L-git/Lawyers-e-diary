@@ -344,6 +344,7 @@ abstract final class AppTheme {
   /// teal palette.
   static final windows = ThemeData(
     useMaterial3: true,
+    fontFamily: AppTypography.body,
     scaffoldBackgroundColor: AppPalette.canvas,
     colorScheme:
         ColorScheme.fromSeed(
