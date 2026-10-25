@@ -346,6 +346,10 @@ abstract final class AppTheme {
   static final windows = ThemeData(
     useMaterial3: true,
     fontFamily: AppTypography.body,
+    hoverColor: AppPalette.statusTile,
+    focusColor: AppPalette.accentGold.withValues(alpha: 0.12),
+    splashColor: AppPalette.accentGold.withValues(alpha: 0.12),
+    highlightColor: AppPalette.accentGold.withValues(alpha: 0.06),
     pageTransitionsTheme: const PageTransitionsTheme(
       builders: <TargetPlatform, PageTransitionsBuilder>{
         TargetPlatform.windows: FadeUpwardsPageTransitionsBuilder(),
