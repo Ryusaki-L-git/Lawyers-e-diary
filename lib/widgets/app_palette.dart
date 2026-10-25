@@ -139,7 +139,7 @@ abstract final class AppTypography {
     switch (defaultTargetPlatform) {
       case TargetPlatform.windows:
       case TargetPlatform.macOS:
-        return 'Georgia';
+        return 'Palatino Linotype';
       case TargetPlatform.android:
       case TargetPlatform.iOS:
       case TargetPlatform.linux:
@@ -149,7 +149,10 @@ abstract final class AppTypography {
   }
 
   /// Clean sans-serif family used for interface text, labels and tables.
-  static const body = 'sans-serif';
+  static String get body {
+    if (defaultTargetPlatform == TargetPlatform.windows) return 'Segoe UI';
+    return 'sans-serif';
+  }
 }
 
 /// Component-level tokens shared by the primary action button and the text
@@ -386,7 +389,7 @@ abstract final class AppTheme {
 
   static final _editorialTextTheme = const TextTheme(
     displaySmall: TextStyle(
-      fontFamily: 'Georgia',
+      fontFamily: 'Palatino Linotype',
       fontSize: 34,
       fontWeight: FontWeight.w700,
       color: AppPalette.textPrimary,
