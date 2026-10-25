@@ -524,21 +524,24 @@ class _SidebarItem extends StatelessWidget {
             return Tooltip(
               message: collapsed ? item.label : '',
               child: Material(
-                color: selected
-                    ? AppPalette.navSelected
-                    : Colors.transparent,
+                color: Colors.transparent,
                 borderRadius: BorderRadius.circular(11),
                 child: InkWell(
                   onTap: onTap,
                   borderRadius: BorderRadius.circular(11),
                   hoverColor: const Color(0x1AFFFFFF),
-                  child: Container(
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 180),
+                    curve: Curves.easeOutCubic,
                     height: 43,
                     padding: EdgeInsets.symmetric(
                       horizontal: collapsed ? 0 : 12,
                     ),
                     alignment: collapsed ? Alignment.center : null,
                     decoration: BoxDecoration(
+                      color: selected
+                          ? AppPalette.navSelected
+                          : Colors.transparent,
                       borderRadius: BorderRadius.circular(11),
                       border: Border.all(
                         color: focused
