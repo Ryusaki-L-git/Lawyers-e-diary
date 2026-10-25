@@ -376,6 +376,21 @@ class _CommandPanel extends StatelessWidget {
                   ],
                 ),
               ),
+              if (!stacked) ...[
+                const SizedBox(width: 12),
+                ExcludeSemantics(
+                  child: Opacity(
+                    opacity: 0.16,
+                    child: Image.asset(
+                      'assets/images/Statue.png',
+                      width: 92,
+                      height: 92,
+                      fit: BoxFit.contain,
+                      errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                    ),
+                  ),
+                ),
+              ],
             ],
           );
 
