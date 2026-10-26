@@ -4,6 +4,7 @@ import '../../services/token_service.dart';
 import '../../widgets/app_palette.dart';
 import '../../widgets/platform_app_bar.dart';
 import '../../widgets/windows_desktop_ui.dart';
+import '../../templates/animations/loading_effects.dart';
 
 /// Displays the prepaid case-token balance held against the signed-in user.
 class TokenBalanceScreen extends StatefulWidget {
@@ -82,11 +83,7 @@ class _TokenBalanceScreenState extends State<TokenBalanceScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               if (_loading)
-                const Center(
-                  child: CircularProgressIndicator(
-                    color: AppPalette.primaryGreen,
-                  ),
-                )
+                const TemplateLoadingPlaceholder()
               else if (_error != null)
                 WindowsMessageState(
                   icon: Icons.error_outline_rounded,
