@@ -89,7 +89,7 @@ class _WindowsJurisScreenState extends State<WindowsJurisScreen> {
       title: const Text('Recent JURIS conversations'),
       content: SizedBox(width: 420, height: 460, child: _history.isEmpty
         ? const Center(child: Text('Your conversations will appear here as you research.'))
-        : ListView.separated(itemCount: _history.length, separatorBuilder: (_, __) => const Divider(height: 1), itemBuilder: (_, index) {
+        : ListView.separated(itemCount: _history.length, separatorBuilder: (_, _) => const Divider(height: 1), itemBuilder: (_, index) {
             final item = _history[index];
             return ListTile(leading: const Icon(Icons.forum_outlined, color: AppPalette.primaryGreen), title: Text(item.title, maxLines: 2, overflow: TextOverflow.ellipsis), subtitle: Text('${item.messages.where((m) => m.user).length} prompts'), onTap: () { Navigator.of(dialogContext).pop(); _openConversation(item); }, trailing: IconButton(tooltip: 'Delete conversation', icon: const Icon(Icons.delete_outline_rounded), onPressed: () { Navigator.of(dialogContext).pop(); _deleteConversation(item); }));
           })),
