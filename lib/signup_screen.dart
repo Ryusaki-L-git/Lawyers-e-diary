@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/services.dart';
 
-import 'ld_logo.dart';
 import 'templates/transactions/auth_transactions.dart';
 
 class SignupScreen extends StatefulWidget {
@@ -207,7 +206,6 @@ class _SignupScreenState extends State<SignupScreen> {
 
   Widget _buildWindowsSignup() {
     const forest = Color(0xFF1F3D2B);
-    const gold = Color(0xFFCCA046);
     const ivory = Color(0xFFF7F5F2);
     const muted = Color(0xFF6B665E);
     return Scaffold(
