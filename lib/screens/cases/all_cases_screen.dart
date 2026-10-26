@@ -32,7 +32,7 @@ class _AllCasesScreenState extends State<AllCasesScreen> {
   Timer? _debounce;
 
   String _activeChip = 'All';
-  CaseFilterCriteria _filterCriteria = const CaseFilterCriteria();
+  CaseFilterCriteria _filterCriteria = const CaseFilterCriteria(datePeriod: 'Today');
 
   final Set<String> _selectedCaseIds = {};
   List<CaseModel> _latestCases = [];
@@ -230,8 +230,7 @@ class _AllCasesScreenState extends State<AllCasesScreen> {
                             onTap: () {
                               setState(() {
                                 _activeChip = chip;
-                                _filterCriteria =
-                                    const CaseFilterCriteria(); // reset filters
+                                _filterCriteria = const CaseFilterCriteria(datePeriod: 'Today'); // preserve today's default
                               });
                             },
                             child: Container(
