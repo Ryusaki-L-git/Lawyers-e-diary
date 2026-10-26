@@ -69,7 +69,7 @@ class _WindowsJurisScreenState extends State<WindowsJurisScreen> {
   Future<void> _persistCurrentConversation() async {
     final prompts = _messages.where((m) => m.user); if (prompts.isEmpty) return;
     final title = (_currentTitle ?? prompts.first.text).trim();
-    final item = _JurisConversation(id: _sessionId, title: title.isEmpty ? 'Legal research' : title, updatedAt: DateTime.now().toIso8601String(), messages: _messages.map((m) => _JurisStoredMessage(m.user, m.text)).toList(), caseId: widget.caseId, caseTitle: widget.caseTitle);
+    final item = _JurisConversation(id: _sessionId, title: title.isEmpty ? 'Legal research' : title, updatedAt: DateTime.now().toIso8601String(), messages: _messages.map((m) => _JurisStoredMessage(m.user, m.text)).toList(), caseId: _activeCaseId, caseTitle: _activeCaseTitle);
     final index = _history.indexWhere((entry) => entry.id == _sessionId); if (index >= 0) { _history[index] = item; } else { _history.insert(0, item); }
     _history.sort((a, b) => b.updatedAt.compareTo(a.updatedAt)); if (_history.length > 40) _history.removeRange(40, _history.length);
     try { final prefs = await SharedPreferences.getInstance(); await prefs.setString(_historyKey, jsonEncode(_history.map((entry) => entry.toJson()).toList())); } catch (_) {}
@@ -137,6 +137,7 @@ class _WindowsJurisScreenState extends State<WindowsJurisScreen> {
   }
 
   Future<void> _send() async {
+    if (_pendingConfirmation != null) return;
     final text = _controller.text.trim();
     if (text.isEmpty) return;
     await _sendPrompt(text);
@@ -146,7 +147,7 @@ class _WindowsJurisScreenState extends State<WindowsJurisScreen> {
   /// pre-filled. Used by the suggestion prompts, which previously invoked
   /// [_send] with an empty composer and therefore sent nothing.
   Future<void> _sendPrompt(String text) async {
-    if (_busy) return;
+    if (_busy || _pendingConfirmation != null) return;
     final trimmed = text.trim();
     if (trimmed.isEmpty) return;
     setState(() {
