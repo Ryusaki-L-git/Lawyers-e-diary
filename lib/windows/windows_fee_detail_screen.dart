@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../models/fee_model.dart';
 import '../services/firestore_service.dart';
 import '../widgets/app_palette.dart';
+import '../widgets/windows_desktop_ui.dart';
 import 'windows_desktop_shell.dart';
 import 'windows_record_payment_screen.dart';
 
@@ -197,70 +198,36 @@ class _WindowsFeeDetailScreenState extends State<WindowsFeeDetailScreen> {
 
   Widget _header(bool settled) {
     final fee = _fee;
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        IconButton(
-          onPressed: () => Navigator.of(context).pop(),
-          icon: const Icon(Icons.arrow_back_rounded),
-          tooltip: 'Back to fees',
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'PRACTICE FINANCES',
-                style: TextStyle(
-                  color: AppPalette.textMuted,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 1.5,
-                ),
-              ),
-              const SizedBox(height: 7),
-              Text(
-                fee.clientName,
-                style: TextStyle(
-                  fontFamily: AppTypography.heading,
-                  color: AppPalette.primaryGreen,
-                  fontSize: 28,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(height: 5),
-              Text(
-                fee.caseTitle,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: AppPalette.textMuted,
-                  fontSize: 13,
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(width: 14),
-        if (!settled)
-          FilledButton.icon(
-            onPressed: _openRecordPayment,
-            icon: const Icon(Icons.payments_rounded, size: 19),
-            label: const Text('Record payment'),
-            style: FilledButton.styleFrom(
-              backgroundColor: AppPalette.primaryGreen,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 15),
+    return WindowsPageHeader(
+      eyebrow: 'PRACTICE FINANCES',
+      title: fee.clientName,
+      subtitle: fee.caseTitle,
+      leading: IconButton(
+        onPressed: () => Navigator.of(context).pop(),
+        icon: const Icon(Icons.arrow_back_rounded),
+        tooltip: 'Back to fees',
+      ),
+      actions: Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        alignment: WrapAlignment.end,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          if (!settled)
+            FilledButton.icon(
+              onPressed: _openRecordPayment,
+              icon: const Icon(Icons.payments_rounded, size: 18),
+              label: const Text('Record payment'),
+              style: WindowsButtonStyles.primary(),
             ),
+          IconButton(
+            onPressed: _deleteFee,
+            icon: const Icon(Icons.delete_outline_rounded),
+            color: AppPalette.statusDanger,
+            tooltip: 'Delete record',
           ),
-        IconButton(
-          onPressed: _deleteFee,
-          icon: const Icon(Icons.delete_outline_rounded),
-          color: AppPalette.statusDanger,
-          tooltip: 'Delete record',
-        ),
-      ],
+        ],
+      ),
     );
   }
 
