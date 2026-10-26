@@ -350,51 +350,30 @@ class _SignupScreenState extends State<SignupScreen> {
                         ],
                       ),
                     );
-                    final brand = Container(
-                      padding: const EdgeInsets.all(38),
-                      decoration: const BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [forest, Color(0xFF13291C)],
+                    final brand = ClipRect(
+                      child: SizedBox(
+                        width: double.infinity,
+                        child: Image.asset(
+                          'assets/images/login.png',
+                          fit: BoxFit.cover,
+                          alignment: Alignment.center,
+                          errorBuilder: (context, error, stackTrace) =>
+                              Container(
+                            color: const Color(0xFF101827),
+                            alignment: Alignment.center,
+                            padding: const EdgeInsets.all(24),
+                            child: const Text(
+                              "LAWYER'S E-DIARY",
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                color: Color(0xFFCCA046),
+                                fontSize: 22,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 2,
+                              ),
+                            ),
+                          ),
                         ),
-                      ),
-                      child: const Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.balance_rounded, color: gold, size: 38),
-                          SizedBox(height: 22),
-                          Text(
-                            "LAWYER'S E-DIARY",
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: 2,
-                            ),
-                          ),
-                          SizedBox(height: 20),
-                          Text(
-                            'A more considered way to manage legal work.',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontFamily: 'Georgia',
-                              fontSize: 29,
-                              fontWeight: FontWeight.w700,
-                              height: 1.2,
-                            ),
-                          ),
-                          SizedBox(height: 14),
-                          Text(
-                            'Cases, hearing dates, client records and legal workflows — brought together in one focused desktop workspace.',
-                            style: TextStyle(
-                              color: Color(0xFFD8E1D9),
-                              fontSize: 13,
-                              height: 1.6,
-                            ),
-                          ),
-                        ],
                       ),
                     );
                     if (compact) return Column(children: [brand, form]);
@@ -564,7 +543,7 @@ class _SignupScreenState extends State<SignupScreen> {
                           : Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                GoogleLogo(size: 28),
+                                Image.asset('assets/images/google logo.png', width: 24, height: 24, fit: BoxFit.contain),
                                 SizedBox(width: 8),
                                 Text(
                                   'Continue with Google',

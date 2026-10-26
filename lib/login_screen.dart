@@ -349,127 +349,29 @@ class _LoginScreenState extends State<LoginScreen>
   }
 
   Widget _windowsBrandPanel({required bool compact}) {
-    const gold = Color(0xFFCCA046);
-    return Container(
-      width: double.infinity,
-      padding: EdgeInsets.all(compact ? 25 : 44),
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF1F3D2B), Color(0xFF13291C)],
+    return ClipRect(
+      child: SizedBox(
+        width: double.infinity,
+        child: Image.asset(
+          'assets/images/login.png',
+          fit: BoxFit.cover,
+          alignment: Alignment.center,
+          errorBuilder: (context, error, stackTrace) => Container(
+            color: const Color(0xFF101827),
+            alignment: Alignment.center,
+            padding: const EdgeInsets.all(24),
+            child: const Text(
+              "LAWYER'S E-DIARY",
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Color(0xFFCCA046),
+                fontSize: 22,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 2,
+              ),
+            ),
+          ),
         ),
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  color: const Color(0x22FFFFFF),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: const Color(0x66CCA046)),
-                ),
-                child: const Icon(Icons.balance_rounded, color: gold, size: 27),
-              ),
-              const SizedBox(width: 13),
-              const Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    "LAWYER'S",
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 1.4,
-                    ),
-                  ),
-                  SizedBox(height: 4),
-                  Text(
-                    'E-DIARY',
-                    style: TextStyle(
-                      color: gold,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 2.7,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-          SizedBox(height: compact ? 24 : 62),
-          const Text(
-            'A clearer view of your practice.',
-            style: TextStyle(
-              color: Colors.white,
-              fontFamily: 'Georgia',
-              fontSize: 30,
-              height: 1.2,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 14),
-          const Text(
-            'Your cases, hearing dates and daily legal work — organized in one focused workspace.',
-            style: TextStyle(
-              color: Color(0xFFD8E1D9),
-              fontSize: 14,
-              height: 1.65,
-            ),
-          ),
-          const SizedBox(height: 30),
-          for (final feature in const [
-            (Icons.folder_open_outlined, 'A docket built around your cases'),
-            (Icons.calendar_month_outlined, 'Hearings and dates in clear view'),
-            (Icons.shield_outlined, 'Sign in to your own workspace'),
-          ])
-            Padding(
-              padding: const EdgeInsets.only(bottom: 15),
-              child: Row(
-                children: [
-                  Container(
-                    width: 34,
-                    height: 34,
-                    decoration: BoxDecoration(
-                      color: const Color(0x1FFFFFFF),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Icon(feature.$1, color: gold, size: 18),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      feature.$2,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          if (!compact) const SizedBox(height: 38),
-          const Row(
-            children: [
-              Icon(Icons.lock_outline_rounded, size: 15, color: gold),
-              SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  'Private workspace · Built for legal practice',
-                  style: TextStyle(color: Color(0xFFB9C7BD), fontSize: 10),
-                ),
-              ),
-            ],
-          ),
-        ],
       ),
     );
   }
@@ -690,7 +592,7 @@ class _LoginScreenState extends State<LoginScreen>
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            GoogleLogo(size: 28),
+                            Image.asset('assets/images/google logo.png', width: 24, height: 24, fit: BoxFit.contain),
                             const SizedBox(width: 8),
                             const Text(
                               'Continue with Google',
