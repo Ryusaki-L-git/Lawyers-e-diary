@@ -241,17 +241,35 @@ class _WindowsDesktopShellState extends State<WindowsDesktopShell> {
   Widget _buildRail({required bool collapsed}) {
     return Container(
       color: WindowsDesktopShell.forest,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+      child: Stack(
+        fit: StackFit.expand,
         children: [
-          _buildBrand(collapsed: collapsed),
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 20),
-            child: Divider(color: Color(0x33FFFFFF), height: 1),
+          Positioned.fill(
+            child: Image.asset(
+              'assets/images/led_pillar_sidebar.png',
+              fit: BoxFit.cover,
+              alignment: Alignment.bottomCenter,
+              errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+            ),
           ),
-          const SizedBox(height: 15),
-          Expanded(child: _buildNavigation(collapsed: collapsed)),
-          _buildFooter(collapsed: collapsed),
+          Positioned.fill(
+            child: ColoredBox(
+              color: WindowsDesktopShell.forest.withValues(alpha: 0.86),
+            ),
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _buildBrand(collapsed: collapsed),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 20),
+                child: Divider(color: Color(0x33FFFFFF), height: 1),
+              ),
+              const SizedBox(height: 15),
+              Expanded(child: _buildNavigation(collapsed: collapsed)),
+              _buildFooter(collapsed: collapsed),
+            ],
+          ),
         ],
       ),
     );
