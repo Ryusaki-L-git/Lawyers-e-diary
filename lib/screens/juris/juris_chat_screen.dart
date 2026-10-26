@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
@@ -17,7 +18,8 @@ class _JurisChatScreenState extends State<JurisChatScreen> {
   final _scrollController = ScrollController();
   final _service = JurisService();
   final _tokenService = TokenService();
-  final _sessionId = '-';
+  late final String _sessionId =
+      '${DateTime.now().microsecondsSinceEpoch}-${math.Random().nextInt(1 << 32)}';
   final List<_ChatEntry> _entries = [
     const _ChatEntry(
       false,
@@ -97,6 +99,7 @@ class _JurisChatScreenState extends State<JurisChatScreen> {
         message: message,
         sessionId: _sessionId,
         confirmedActionIds: confirmedActionIds,
+        model: _selectedModel,
       );
       if (!mounted) {
         return;
@@ -132,7 +135,9 @@ class _JurisChatScreenState extends State<JurisChatScreen> {
       }
       setState(() {
         _pendingConfirmation = null;
-        _entries.add(_ChatEntry(false, 'I could not complete that request. '));
+        _entries.add(
+          _ChatEntry(false, 'I could not complete that request. $error'),
+        );
       });
     } finally {
       if (mounted) {
@@ -444,12 +449,12 @@ class _JurisChatScreenState extends State<JurisChatScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Tool: ',
+                  'Tool: ${pc.tool}',
                   style: const TextStyle(fontWeight: FontWeight.w600),
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  'Action ID: ',
+                  'Action ID: ${pc.actionId}',
                   style: const TextStyle(
                     fontSize: 11,
                     color: AppPalette.textMuted,
