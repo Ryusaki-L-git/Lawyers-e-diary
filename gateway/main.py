@@ -146,6 +146,154 @@ async def allocate_led_id_endpoint(
     return result
 
 
+@app.get("/v1/services/catalogue")
+async def service_catalogue(user: LedUser = Depends(current_led_user)):
+    """Return the LED-owned service catalogue without exposing provider credentials.
+
+    Only Smart Refresh is implemented by this gateway today. Other listed
+    provider services are explicitly marked unavailable until their own
+    server-side operation and billing contract are implemented.
+    """
+    services = [
+        {
+            "serviceId": "case_detail",
+            "displayName": "Case Detail",
+            "description": "Retrieve available details for a CNR already saved in your LED docket.",
+            "providerCostRupees": 1.50,
+            "tokenPrice": 5.0,
+            "billingUnit": "per case detail request",
+            "available": False,
+        },
+        {
+            "serviceId": "smart_refresh",
+            "displayName": "Smart Refresh",
+            "description": "Refresh an existing authorized docket case from the provider.",
+            "providerCostRupees": 0.15,
+            "tokenPrice": 0.5,
+            "billingUnit": "per refresh",
+            "available": True,
+        },
+        {
+            "serviceId": "cause_list_search",
+            "displayName": "Cause List Search",
+            "description": "Search cause-list entries using supported provider criteria.",
+            "providerCostRupees": 3.00,
+            "tokenPrice": 9.0,
+            "billingUnit": "per search",
+            "available": False,
+        },
+        {
+            "serviceId": "cnr_cause_list_check",
+            "displayName": "CNR Cause List Check",
+            "description": "Check cause-list status for a CNR.",
+            "providerCostRupees": 0.30,
+            "tokenPrice": 1.0,
+            "billingUnit": "per CNR",
+            "available": False,
+        },
+        {
+            "serviceId": "order_download",
+            "displayName": "Order Download (PDF)",
+            "description": "Retrieve an available order as a PDF.",
+            "providerCostRupees": 3.75,
+            "tokenPrice": 11.0,
+            "billingUnit": "per order PDF",
+            "available": False,
+        },
+        {
+            "serviceId": "order_markdown_pdf",
+            "displayName": "Order Markdown & PDF",
+            "description": "Retrieve an order in Markdown and PDF formats.",
+            "providerCostRupees": 5.25,
+            "tokenPrice": 15.0,
+            "billingUnit": "per order",
+            "available": False,
+        },
+        {
+            "serviceId": "order_ai_summary",
+            "displayName": "Order + AI Summary",
+            "description": "Retrieve an order and generate its AI summary.",
+            "providerCostRupees": 7.50,
+            "tokenPrice": 22.0,
+            "billingUnit": "per order",
+            "available": False,
+        },
+        {
+            "serviceId": "bulk_case_refresh",
+            "displayName": "Bulk Case Refresh",
+            "description": "Refresh multiple authorized docket cases.",
+            "providerCostRupees": 0.15,
+            "tokenPrice": 0.5,
+            "billingUnit": "per CNR",
+            "available": False,
+        },
+        {
+            "serviceId": "legal_check",
+            "displayName": "Legal Check",
+            "description": "Run a legal check on an accepted case job.",
+            "providerCostRupees": 99.0,
+            "tokenPrice": 199.0,
+            "billingUnit": "per accepted job",
+            "available": False,
+        },
+        {
+            "serviceId": "case_provisions",
+            "displayName": "Case Provisions",
+            "description": "Find statutory provisions associated with a case.",
+            "providerCostRupees": 0.15,
+            "tokenPrice": 0.5,
+            "billingUnit": "per distinct section returned",
+            "available": False,
+        },
+        {
+            "serviceId": "act_section",
+            "displayName": "Act Section",
+            "description": "Retrieve a section from an Act.",
+            "providerCostRupees": 0.15,
+            "tokenPrice": 0.5,
+            "billingUnit": "per section",
+            "available": False,
+        },
+        {
+            "serviceId": "act_sections_batch",
+            "displayName": "Act Sections (batch)",
+            "description": "Retrieve multiple Act sections in a batch.",
+            "providerCostRupees": 0.15,
+            "tokenPrice": 0.5,
+            "billingUnit": "per distinct section returned",
+            "available": False,
+        },
+        {
+            "serviceId": "section_equivalents",
+            "displayName": "Section Equivalents",
+            "description": "Resolve equivalent statutory sections.",
+            "providerCostRupees": 0.15,
+            "tokenPrice": 0.5,
+            "billingUnit": "per successful call",
+            "available": False,
+        },
+        {
+            "serviceId": "resolve_act_name",
+            "displayName": "Resolve Act Name",
+            "description": "Resolve an Act name to a recognized match.",
+            "providerCostRupees": 0.15,
+            "tokenPrice": 0.5,
+            "billingUnit": "per match returned",
+            "available": False,
+        },
+        {
+            "serviceId": "search_sections",
+            "displayName": "Search Sections",
+            "description": "Search statutory sections.",
+            "providerCostRupees": 0.15,
+            "tokenPrice": 0.5,
+            "billingUnit": "per call",
+            "available": False,
+        },
+    ]
+    return services
+
+
 @app.post("/v1/presence/session")
 async def register_presence_session(
     user: LedUser = Depends(current_led_user),
