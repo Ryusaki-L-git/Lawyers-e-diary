@@ -20,6 +20,7 @@ class JurisService {
     String? activeCaseId,
     String? activeCaseTitle,
     List<String>? confirmedActionIds,
+    String? model,
   }) async {
     final trimmed = message.trim();
     if (trimmed.isEmpty) {
@@ -67,6 +68,12 @@ class JurisService {
         'message': trimmed,
         'session_id': sessionId,
         'client_version': 'led-flutter',
+        if (model != null && model.trim().isNotEmpty)
+          'ai': {
+            'provider': 'gemini',
+            'model': model.trim(),
+            'mode': 'managed',
+          },
         'context': {
           'current_screen': activeCaseId == null
               ? 'legal_research'
@@ -105,7 +112,9 @@ class JurisService {
       );
     }
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw JurisServiceException('JURIS is temporarily unavailable (HTTP ).');
+      throw JurisServiceException(
+        'JURIS is temporarily unavailable (HTTP ${response.statusCode}).',
+      );
     }
     final reply = (data['reply'] as String?)?.trim() ?? '';
     if (reply.isEmpty) {
