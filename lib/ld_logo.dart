@@ -108,13 +108,19 @@ class LawFirmMark extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: width,
-      child: AspectRatio(
-        aspectRatio: 1,
-        child: CustomPaint(
-          painter: _LawFirmMarkPainter(gold: gold, ink: ink),
-          child: Semantics(label: "Lawyer's E-Diary legal mark", image: true),
+    return Semantics(
+      label: "Lawyer's E-Diary logo",
+      image: true,
+      child: Image.asset(
+        'assets/images/master logo.png',
+        width: width,
+        fit: BoxFit.contain,
+        errorBuilder: (_, _, _) => SizedBox(
+          width: width,
+          child: const Icon(
+            Icons.account_balance_outlined,
+            color: Color(0xFFCCA046),
+          ),
         ),
       ),
     );

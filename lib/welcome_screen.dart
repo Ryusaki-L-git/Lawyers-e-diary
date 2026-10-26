@@ -7,6 +7,7 @@ import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -639,8 +640,154 @@ class _WelcomeScreenState extends State<WelcomeScreen>
     );
   }
 
+
+  Widget _buildWindowsWelcome() {
+    return Theme(
+      data: ThemeData(
+        useMaterial3: true,
+        colorScheme: _welcomeColorScheme,
+        scaffoldBackgroundColor: _WelcomePalette.background,
+        textTheme: Theme.of(context).textTheme.apply(
+          bodyColor: _WelcomePalette.ink,
+          displayColor: _WelcomePalette.ink,
+        ),
+      ),
+      child: Scaffold(
+        backgroundColor: _WelcomePalette.background,
+        body: SafeArea(
+          child: LayoutBuilder(builder: (context, constraints) {
+            final imageWidth = math.min(constraints.maxWidth, constraints.maxHeight * 1.5);
+            final imageHeight = imageWidth / 1.5;
+            final imageLeft = (constraints.maxWidth - imageWidth) / 2;
+            final imageTop = (constraints.maxHeight - imageHeight) / 2;
+            return Stack(children: [
+              Positioned(
+                left: imageLeft, top: imageTop, width: imageWidth, height: imageHeight,
+                child: Image.asset(
+                  'assets/images/Lawyer’s E-Diary rtu Profile Welcome Screen.png',
+                  fit: BoxFit.fill,
+                  errorBuilder: (_, _, _) => const ColoredBox(
+                    color: _WelcomePalette.background,
+                    child: Center(child: Text('Welcome artwork could not be loaded.')),
+                  ),
+                ),
+              ),
+              Positioned(
+                left: imageLeft + imageWidth * 0.437,
+                top: imageTop + imageHeight * 0.309,
+                width: imageWidth * 0.525,
+                height: imageHeight * 0.589,
+                child: AbsorbPointer(absorbing: _isSaving, child: _buildWindowsProfileForm()),
+              ),
+              if (_isSaving) const _LoadingOverlay(),
+            ]);
+          }),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildWindowsProfileForm() {
+    Widget nameField() => _buildStaggeredEntry(2, _ProfileTextField(
+      controller: _nameController, focusNode: _nameFocusNode,
+      label: 'Full name *', hintText: 'Enter your full name',
+      icon: Icons.person_outline_rounded, textInputAction: TextInputAction.next,
+      textCapitalization: TextCapitalization.words,
+      autofillHints: const [AutofillHints.name], inputFormatters: [_nameInputFormatter],
+      validator: _validateName, onEditingComplete: () => _requestFocus(_addressFocusNode),
+    ));
+    Widget dobField() => _buildStaggeredEntry(5, _ProfileTextField(
+      formFieldKey: _dateOfBirthFieldKey, controller: _dateOfBirthController,
+      focusNode: _dateOfBirthFocusNode, label: 'Date of birth *',
+      hintText: 'DD/MM/YYYY', icon: Icons.cake_outlined,
+      suffixIcon: const Icon(Icons.calendar_month_rounded, size: 18, color: _WelcomePalette.muted),
+      readOnly: true, validator: _validateDateOfBirth,
+      onTap: () => unawaited(_pickDateOfBirth()),
+    ));
+    Widget addressField() => _buildStaggeredEntry(3, _ProfileTextField(
+      controller: _addressController, focusNode: _addressFocusNode,
+      label: 'Residential address', hintText: 'Your residential address',
+      icon: Icons.home_outlined, textInputAction: TextInputAction.next,
+      textCapitalization: TextCapitalization.words,
+      autofillHints: const [AutofillHints.fullStreetAddress],
+      onEditingComplete: () => _requestFocus(_courtAddressFocusNode),
+    ));
+    Widget courtField() => _buildStaggeredEntry(4, _ProfileTextField(
+      controller: _courtAddressController, focusNode: _courtAddressFocusNode,
+      label: 'Court address', hintText: 'Your primary court',
+      icon: Icons.account_balance_outlined, textInputAction: TextInputAction.next,
+      textCapitalization: TextCapitalization.words,
+      onEditingComplete: () => unawaited(_pickDateOfBirth()),
+    ));
+    Widget degreesField() => _buildStaggeredEntry(6, _ProfileTextField(
+      controller: _degreesController, focusNode: _degreesFocusNode,
+      label: 'Degrees', hintText: 'For example, LL.B., LL.M.',
+      icon: Icons.school_outlined, textInputAction: TextInputAction.next,
+      textCapitalization: TextCapitalization.words, validator: _validateDegrees,
+      onEditingComplete: () => _requestFocus(_advocateTypeFocusNode),
+    ));
+    Widget advocateField() => _buildStaggeredEntry(7, _ProfileDropdownField(
+      focusNode: _advocateTypeFocusNode, value: _advocateType,
+      label: 'Advocate type', hintText: 'Choose your practice profile',
+      icon: Icons.workspace_premium_outlined, items: _advocateTypes,
+      onChanged: _onAdvocateTypeChanged,
+    ));
+
+    return AnimatedBuilder(
+      animation: _shakeController,
+      builder: (context, _) {
+        final progress = Curves.easeOut.transform(_shakeController.value);
+        final dx = math.sin(progress * math.pi * 6) * 5 * (1 - progress);
+        return Transform.translate(
+          offset: Offset(dx, 0),
+          child: Container(
+            height: double.infinity,
+            padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF9F5EC),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: const Color(0xFFD8D0C2), width: 0.8),
+            ),
+            child: Form(
+              key: _formKey,
+              autovalidateMode: _showValidationErrors ? AutovalidateMode.always : AutovalidateMode.onUserInteraction,
+              child: LayoutBuilder(builder: (context, constraints) {
+                final gap = constraints.maxHeight < 460 ? 5.0 : 7.0;
+                return SingleChildScrollView(
+                  keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                    Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Expanded(child: nameField()), SizedBox(width: gap), Expanded(child: dobField()),
+                    ]),
+                    SizedBox(height: gap),
+                    Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Expanded(child: addressField()), SizedBox(width: gap), Expanded(child: courtField()),
+                    ]),
+                    SizedBox(height: gap),
+                    degreesField(),
+                    SizedBox(height: gap),
+                    advocateField(),
+                    SizedBox(height: gap + 1),
+                    _buildStaggeredEntry(8, _ContinueButton(
+                      isLoading: _isSaving,
+                      onPressed: () => unawaited(_saveAndContinue()),
+                    )),
+                    const SizedBox(height: 7),
+                    const _ProfileFooter(),
+                  ]),
+                );
+              }),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    if (defaultTargetPlatform == TargetPlatform.windows) return _buildWindowsWelcome();
+
     final keyboardInset = MediaQuery.viewInsetsOf(context).bottom;
 
     return Theme(
@@ -1253,7 +1400,7 @@ class _ContinueButtonState extends State<_ContinueButton> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Text(
-                          'Save and continue',
+                          'Save profile & continue',
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w800,

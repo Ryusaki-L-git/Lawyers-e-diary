@@ -383,7 +383,7 @@ class _LoginScreenState extends State<LoginScreen>
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [
-        _entry(0, const Center(child: LawFirmMark(width: 82))),
+        _entry(0, Center(child: Image.asset('assets/images/master logo.png', width: 82, height: 82, fit: BoxFit.contain))),
         const SizedBox(height: 22),
         _entry(
           1,
@@ -510,7 +510,7 @@ class _LoginScreenState extends State<LoginScreen>
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   const SizedBox(height: 4),
-                  _entry(0, const Center(child: LawFirmMark(width: 120))),
+                  _entry(0, Center(child: Image.asset('assets/images/master logo.png', width: 120, height: 120, fit: BoxFit.contain))),
                   const SizedBox(height: 24),
                   _entry(
                     1,

@@ -476,7 +476,7 @@ class _LogoContainer extends StatelessWidget {
               ),
             ],
           ),
-          child: const LawFirmMark(width: 96),
+          child: Image.asset('assets/images/master logo.png', width: 96, height: 96, fit: BoxFit.contain),
         ),
       ),
     );
