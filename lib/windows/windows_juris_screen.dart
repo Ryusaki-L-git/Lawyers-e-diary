@@ -73,7 +73,7 @@ class _WindowsJurisScreenState extends State<WindowsJurisScreen> {
   }
   Future<void> _openConversation(_JurisConversation item) async {
     if (_busy) return; await _persistCurrentConversation(); if (!mounted) return;
-    setState(() { _sessionId = item.id; _currentTitle = item.title; _pendingConfirmation = null; _messages..clear()..addAll(item.messages.map((m) => _JurisMessage(m.user, m.text))); }); _scrollEnd();
+    setState(() { _sessionId = item.id; _currentTitle = item.title; _activeCaseId = item.caseId; _activeCaseTitle = item.caseTitle; _pendingConfirmation = null; _messages..clear()..addAll(item.messages.map((m) => _JurisMessage(m.user, m.text))); }); _scrollEnd();
   }
   Future<void> _showHistoryDialog() async {
     await showDialog<void>(context: context, builder: (dialogContext) => AlertDialog(
@@ -207,8 +207,8 @@ class _WindowsJurisScreenState extends State<WindowsJurisScreen> {
       final response = await _service.sendMessage(
         message: pc.message,
         sessionId: _sessionId,
-        activeCaseId: widget.caseId,
-        activeCaseTitle: widget.caseTitle,
+        activeCaseId: _activeCaseId,
+        activeCaseTitle: _activeCaseTitle,
         confirmedActionIds: [pc.actionId],
       );
       if (mounted) setState(() => _pendingConfirmation = null);
