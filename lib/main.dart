@@ -90,16 +90,18 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Lawyers E-Diary',
       debugShowCheckedModeBanner: false,
-      // Shared restrained transitions for Android and Windows; reduced motion is respected.
-      pageTransitionsTheme: const PageTransitionsTheme(
-        builders: <TargetPlatform, PageTransitionsBuilder>{
-          TargetPlatform.android: TemplatePlatformPageTransitionsBuilder(),
-          TargetPlatform.windows: TemplatePlatformPageTransitionsBuilder(),
-        },
-      ),
-      theme: defaultTargetPlatform == TargetPlatform.windows
-          ? AppTheme.windows
-          : AppTheme.light,
+      theme: (defaultTargetPlatform == TargetPlatform.windows
+              ? AppTheme.windows
+              : AppTheme.light)
+          .copyWith(
+            // Shared restrained transitions for Android and Windows.
+            pageTransitionsTheme: const PageTransitionsTheme(
+              builders: <TargetPlatform, PageTransitionsBuilder>{
+                TargetPlatform.android: TemplatePlatformPageTransitionsBuilder(),
+                TargetPlatform.windows: TemplatePlatformPageTransitionsBuilder(),
+              },
+            ),
+          ),
       // The desktop workspace supports click-and-drag scrolling with a
       // mouse. The default material behaviour only drags with a touch
       // device, so the behaviour is swapped only for the Windows build and
