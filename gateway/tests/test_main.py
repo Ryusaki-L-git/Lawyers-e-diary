@@ -85,15 +85,15 @@ def _headers(token="tok"):
     return {"Authorization": f"Bearer {token}"}
 
 
-def test_service_catalogue_is_authenticated_and_marks_only_refresh_available(ctx):
+def test_service_catalogue_is_authenticated_and_marks_services_unavailable_until_billing_is_ready(ctx):
     response = ctx.client.get("/v1/services/catalogue", headers=_headers())
     assert response.status_code == 200, response.text
     items = response.json()
     assert any(item["serviceId"] == "case_detail" and item["tokenPrice"] == 5.0 for item in items)
     refresh = next(item for item in items if item["serviceId"] == "smart_refresh")
     assert refresh["tokenPrice"] == 0.5
-    assert refresh["available"] is True
-    assert all(item["available"] is False for item in items if item["serviceId"] != "smart_refresh")
+    assert refresh["available"] is False
+    assert all(item["available"] is False for item in items)
 
 
 def test_service_catalogue_requires_authentication(ctx):
@@ -101,23 +101,16 @@ def test_service_catalogue_requires_authentication(ctx):
     assert response.status_code == 401
 
 
-def test_refresh_success(ctx):
+def test_refresh_fails_closed_until_authoritative_billing_is_configured(ctx):
     response = ctx.client.post(f"/v1/ecourts/cases/{CASE_ID}/refresh", headers=_headers())
-    assert response.status_code == 200, response.text
-    body = response.json()
-    assert body["caseId"] == CASE_ID
-    assert body["cnr"] == CNR
-    assert body["provider"] == "ecourtsindia"
-    assert body["ecourts_data"]["case_number"] == "C-1"
-    assert ctx.provider.called_with == CNR
+    assert response.status_code == 503, response.text
+    assert "secure token billing" in response.json()["detail"]
+    assert ctx.provider.called_with is None
     case_data = ctx.db._store.get(("cases", CASE_ID))
     assert case_data is not None
-    assert "ecourts_data" in case_data
-    assert case_data["ecourts_data"]["case_number"] == "C-1"
-    rate_docs = [k for k in ctx.db._store if k[0] == "rate_limits"]
-    assert len(rate_docs) >= 1
-    lock_docs = [k for k in ctx.db._store if k[0] == "case_locks"]
-    assert len(lock_docs) == 0
+    assert "ecourts_data" not in case_data
+    assert not [k for k in ctx.db._store if k[0] == "rate_limits"]
+    assert not [k for k in ctx.db._store if k[0] == "case_locks"]
 
 
 def test_refresh_missing_token_is_401(ctx):
@@ -182,9 +175,10 @@ def test_refresh_provider_rate_limit_maps_to_429(ctx):
     assert response.status_code == 429
 
 
-def test_refresh_cnr_race_succeeds_when_stable(ctx):
+def test_refresh_does_not_call_provider_before_billing(ctx):
     response = ctx.client.post(f"/v1/ecourts/cases/{CASE_ID}/refresh", headers=_headers())
-    assert response.status_code == 200, response.text
+    assert response.status_code == 503, response.text
+    assert ctx.provider.called_with is None
 
 
 def test_validate_case_id_rejects_traversal():
