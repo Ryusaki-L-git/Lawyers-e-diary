@@ -4,6 +4,7 @@ import '../../services/token_service.dart';
 import '../../widgets/app_palette.dart';
 import '../../widgets/platform_app_bar.dart';
 import '../../widgets/windows_desktop_ui.dart';
+import '../../templates/animations/loading_effects.dart';
 
 /// Lists the token consumption recorded against the signed-in user.
 class UsageHistoryScreen extends StatefulWidget {
@@ -77,11 +78,7 @@ class _UsageHistoryScreenState extends State<UsageHistoryScreen> {
       ),
       body: SafeArea(
         child: _loading
-            ? const Center(
-                child: CircularProgressIndicator(
-                  color: AppPalette.primaryGreen,
-                ),
-              )
+            ? const TemplateLoadingPlaceholder()
             : _error != null
             ? WindowsMessageState(
                 icon: Icons.error_outline_rounded,
