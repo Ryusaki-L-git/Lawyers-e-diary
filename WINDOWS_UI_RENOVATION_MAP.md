@@ -37,9 +37,9 @@ Branch: `feat/prestige-home-dashboard`
 | Notifications | `WindowsNotificationsScreen` | `/notifications` | Read state and action hierarchy |
 | To-do | `WindowsTodoScreen` | `/todo` | Task priority and status |
 | Support | `WindowsSupportScreen` | `/support` | Help content and support workflow |
-| Service catalogue | Existing catalogue in desktop shell | `/services` | Needs Windows-specific polish pass |
-| Token balance | Existing balance screen in desktop shell | `/token_balance` | Needs Windows-specific polish pass |
-| Usage history | Existing history screen in desktop shell | `/usage_history` | Needs Windows-specific polish pass |
+| Service catalogue | Windows-specific responsive grid using shared desktop components | `/services` | Live catalogue data, refresh, loading/error/empty states |
+| Token balance | Existing balance screen using Windows panels and status states | `/token_balance` | Verify Windows runtime and responsive sizing |
+| Usage history | Existing history screen using shared desktop cards and message states | `/usage_history` | Verify long histories and narrow-window layout |
 
 ## Shared-shell guarantees
 - Collapsible forest-green sidebar with active-route marker, tooltips, keyboard navigation and final LED logo.
