@@ -12,6 +12,7 @@ library;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
+import '../templates/animations/loading_effects.dart';
 import 'app_palette.dart';
 
 /// The standard page header for a Windows desktop surface.
@@ -887,22 +888,13 @@ class WindowsLoadingPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 44),
-      child: Center(
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 560),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const SizedBox(
-              width: 22,
-              height: 22,
-              child: CircularProgressIndicator(
-                strokeWidth: 2.4,
-                color: AppPalette.accentGold,
-              ),
-            ),
             if (label != null) ...[
-              const SizedBox(height: 14),
               Text(
                 label!,
                 style: const TextStyle(
@@ -910,6 +902,19 @@ class WindowsLoadingPanel extends StatelessWidget {
                   fontSize: 12,
                 ),
               ),
+              const SizedBox(height: 14),
+            ],
+            for (var index = 0; index < 3; index++) ...[
+              WindowsPanel(
+                padding: const EdgeInsets.all(16),
+                child: TemplateSkeletonLines(
+                  lineCount: index == 0 ? 3 : 2,
+                  lineHeight: index == 0 ? 11 : 9,
+                  spacing: 9,
+                  lastLineFraction: index == 0 ? 0.48 : 0.68,
+                ),
+              ),
+              if (index < 2) const SizedBox(height: 10),
             ],
           ],
         ),
