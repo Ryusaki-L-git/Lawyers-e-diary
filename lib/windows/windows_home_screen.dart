@@ -293,7 +293,7 @@ class _WindowsHomeScreenState extends State<WindowsHomeScreen> {
                       const SizedBox(height: 18),
                       const _StayFocusedBanner(),
                       const SizedBox(height: 26),
-                      const WindowsSectionHeading('Explore your workspace'),
+                      const WindowsSectionHeading('Your workspace'),
                       const SizedBox(height: 13),
                       const _QuickAccessRow(),
                     ],
@@ -1095,33 +1095,56 @@ class _QuickActionTileState extends State<_QuickActionTile> {
             onTap: widget.onTap,
             borderRadius: BorderRadius.circular(15),
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 15),
-              child: Row(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Container(
-                    width: 36,
-                    height: 36,
+                    width: 40,
+                    height: 40,
                     decoration: BoxDecoration(
-                      color: AppPalette.statusTile,
-                      borderRadius: BorderRadius.circular(11),
+                      color: AppPalette.primaryGreen,
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppPalette.primaryGreen.withValues(alpha: 0.12),
+                          blurRadius: 10,
+                          offset: const Offset(0, 3),
+                        ),
+                      ],
                     ),
-                    child: Icon(widget.icon, color: AppPalette.primaryGreen, size: 19),
+                    child: Icon(widget.icon, color: Colors.white, size: 20),
                   ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      widget.title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: AppPalette.textPrimary,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          widget.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: AppPalette.textPrimary,
+                            fontFamily: AppTypography.heading,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
                       ),
+                      const Icon(Icons.chevron_right_rounded,
+                          size: 17, color: AppPalette.textMuted),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    'Open workspace',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: AppPalette.textMuted,
+                      fontSize: 10,
                     ),
                   ),
-                  const Icon(Icons.arrow_outward_rounded,
-                      size: 14, color: AppPalette.textMuted),
                 ],
               ),
             ),
