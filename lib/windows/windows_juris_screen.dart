@@ -42,6 +42,14 @@ class _WindowsJurisScreenState extends State<WindowsJurisScreen> {
   TokenBalance? _balance;
   bool _loadingBalance = false;
   String? _balanceError;
+  String _selectedModel = 'gemini-3.8-flash';
+
+  static const _models = <String, String>{
+    'gemini-3.8-flash': 'Gemini 3.8',
+    'gemini-3.5-flash-lite': 'Gemini 3.5 Lite',
+    'gemini-2.5-flash-lite': 'Gemini 2.5 Lite',
+    'gemini-2.5-flash': 'Gemini 2.5',
+  };
 
   static String _newSessionId() =>
       '${DateTime.now().microsecondsSinceEpoch}-${math.Random().nextInt(1 << 32)}';
@@ -154,6 +162,7 @@ class _WindowsJurisScreenState extends State<WindowsJurisScreen> {
         sessionId: _sessionId,
         activeCaseId: _activeCaseId,
         activeCaseTitle: _activeCaseTitle,
+        model: _selectedModel,
       );
       if (mounted) setState(() => _busy = false);
       if (!mounted) return;
@@ -210,6 +219,7 @@ class _WindowsJurisScreenState extends State<WindowsJurisScreen> {
         activeCaseId: _activeCaseId,
         activeCaseTitle: _activeCaseTitle,
         confirmedActionIds: [pc.actionId],
+        model: _selectedModel,
       );
       if (mounted) setState(() => _pendingConfirmation = null);
       if (!mounted) return;
@@ -369,7 +379,36 @@ class _WindowsJurisScreenState extends State<WindowsJurisScreen> {
                     ],
                   ),
                 ),
-                const SizedBox(width: 14),
+                const SizedBox(width: 12),
+                Tooltip(
+                  message: 'AI model used for the next JURIS request',
+                  child: DropdownButton<String>(
+                    value: _models.containsKey(_selectedModel)
+                        ? _selectedModel
+                        : _models.keys.first,
+                    underline: const SizedBox.shrink(),
+                    isDense: true,
+                    items: _models.entries
+                        .map(
+                          (entry) => DropdownMenuItem(
+                            value: entry.key,
+                            child: Text(
+                              entry.value,
+                              style: const TextStyle(fontSize: 12),
+                            ),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: _busy
+                        ? null
+                        : (value) {
+                            if (value != null) {
+                              setState(() => _selectedModel = value);
+                            }
+                          },
+                  ),
+                ),
+                const SizedBox(width: 8),
                 IconButton(
                   tooltip: 'Recent conversations',
                   onPressed: _busy ? null : _showHistoryDialog,
