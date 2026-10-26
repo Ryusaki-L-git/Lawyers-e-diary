@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../templates/animations/loading_effects.dart';
 import '../../data/local/app_database.dart';
 import '../../models/case_model.dart';
 import '../../repositories/case_repository.dart';
@@ -274,11 +275,7 @@ class _AllCasesScreenState extends State<AllCasesScreen> {
                       builder: (context, snapshot) {
                         if (snapshot.connectionState ==
                             ConnectionState.waiting) {
-                          return const Center(
-                            child: CircularProgressIndicator(
-                              color: primaryGreen,
-                            ),
-                          );
+                          return const TemplateLoadingPlaceholder();
                         }
                         if (snapshot.hasError) {
                           return Center(

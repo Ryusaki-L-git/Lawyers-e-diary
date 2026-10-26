@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../../templates/animations/loading_effects.dart';
 import '../../models/reminder_model.dart';
 import '../../services/firestore_service.dart';
 import '../../widgets/app_bottom_navigation.dart';
@@ -181,7 +182,7 @@ class _RemindersListScreenState extends State<RemindersListScreen>
         stream: _stream,
         builder: (context, snap) {
           if (snap.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
+            return const TemplateLoadingPlaceholder();
           }
           final all = snap.data ?? [];
           final items = _filter(all);

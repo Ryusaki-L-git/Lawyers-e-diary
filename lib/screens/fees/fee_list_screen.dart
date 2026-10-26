@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../../templates/animations/loading_effects.dart';
 import '../../models/fee_model.dart';
 import '../../services/firestore_service.dart';
 import '../../widgets/app_bottom_navigation.dart';
@@ -49,7 +50,7 @@ class FeeListScreen extends StatelessWidget {
         stream: service.watchFees(),
         builder: (context, snap) {
           if (snap.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
+            return const TemplateLoadingPlaceholder();
           }
           final fees = snap.data ?? [];
 

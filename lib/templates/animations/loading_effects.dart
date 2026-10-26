@@ -229,3 +229,31 @@ class TemplateCompletionIcon extends StatelessWidget {
     ),
   );
 }
+
+
+/// Reusable editorial skeleton used while a screen's real data is resolving.
+class TemplateLoadingPlaceholder extends StatelessWidget {
+  const TemplateLoadingPlaceholder({super.key, this.label, this.maxWidth = 520});
+  final String? label;
+  final double maxWidth;
+  @override
+  Widget build(BuildContext context) => Center(
+    child: ConstrainedBox(
+      constraints: BoxConstraints(maxWidth: maxWidth),
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (label != null) ...[Text(label!, textAlign: TextAlign.center), const SizedBox(height: 16)],
+            for (var index = 0; index < 3; index++) ...[
+              TemplateSkeletonLines(lineCount: index == 0 ? 3 : 2, lineHeight: 10, spacing: 9, lastLineFraction: index == 0 ? 0.48 : 0.68),
+              if (index < 2) const SizedBox(height: 22),
+            ],
+          ],
+        ),
+      ),
+    ),
+  );
+}
