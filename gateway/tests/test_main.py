@@ -161,18 +161,20 @@ def test_refresh_case_not_found_is_404(ctx, make_db):
     assert response.status_code == 404
 
 
-def test_refresh_provider_not_found_maps_to_404(ctx):
+def test_refresh_provider_not_found_does_not_call_provider_before_billing(ctx):
     provider = MockProvider(error=EcourtsProviderError(404, "not found in eCourts"))
     main_mod.app.dependency_overrides[main_mod.get_provider] = lambda: provider
     response = ctx.client.post(f"/v1/ecourts/cases/{CASE_ID}/refresh", headers=_headers())
-    assert response.status_code == 404
+    assert response.status_code == 503
+    assert provider.called_with is None
 
 
-def test_refresh_provider_rate_limit_maps_to_429(ctx):
+def test_refresh_provider_rate_limit_does_not_call_provider_before_billing(ctx):
     provider = MockProvider(error=EcourtsProviderError(429, "rate limited"))
     main_mod.app.dependency_overrides[main_mod.get_provider] = lambda: provider
     response = ctx.client.post(f"/v1/ecourts/cases/{CASE_ID}/refresh", headers=_headers())
-    assert response.status_code == 429
+    assert response.status_code == 503
+    assert provider.called_with is None
 
 
 def test_refresh_does_not_call_provider_before_billing(ctx):
