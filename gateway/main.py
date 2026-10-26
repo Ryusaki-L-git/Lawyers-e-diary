@@ -171,7 +171,7 @@ async def service_catalogue(user: LedUser = Depends(current_led_user)):
             "providerCostRupees": 0.15,
             "tokenPrice": 0.5,
             "billingUnit": "per refresh",
-            "available": True,
+            "available": False,
         },
         {
             "serviceId": "cause_list_search",
@@ -360,6 +360,16 @@ async def refresh_case(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Unable to authorize this case refresh.",
         )
+
+    # SECURITY RELEASE GATE: token billing is not yet wired to the shared,
+    # server-owned JURIS ledger. The ledger currently stores integer Case Tokens,
+    # while Smart Refresh costs 0.5. Never call the paid provider until an atomic
+    # debit/refund contract and idempotency semantics are implemented.
+    logger.error("Smart Refresh blocked: authoritative token billing is not configured")
+    raise HTTPException(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        detail="Smart Refresh is temporarily unavailable while secure token billing is being completed.",
+    )
 
     # 2. Per-user admission limit (after authorization, before provider call).
     #    Only authorized, legitimate requests consume rate-limit tokens.
