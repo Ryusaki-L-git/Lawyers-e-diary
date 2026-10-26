@@ -18,7 +18,9 @@ class _JurisChatScreenState extends State<JurisChatScreen> {
   final _scrollController = ScrollController();
   final _service = JurisService();
   final _tokenService = TokenService();
-  late final String _sessionId =
+  String _sessionId = _newSessionId();
+
+  static String _newSessionId() =>
       '${DateTime.now().microsecondsSinceEpoch}-${math.Random().nextInt(1 << 32)}';
   final List<_ChatEntry> _entries = [
     const _ChatEntry(
@@ -209,6 +211,26 @@ class _JurisChatScreenState extends State<JurisChatScreen> {
             ),
           ],
         ),
+        actions: [
+          IconButton(
+            tooltip: 'New conversation',
+            onPressed: _busy
+                ? null
+                : () => setState(() {
+                    _sessionId = _newSessionId();
+                    _pendingConfirmation = null;
+                    _entries
+                      ..clear()
+                      ..add(
+                        const _ChatEntry(
+                          false,
+                          'New conversation. Ask a legal research or case-analysis question. Verify important conclusions against original sources.',
+                        ),
+                      );
+                  }),
+            icon: const Icon(Icons.add_comment_outlined),
+          ),
+        ],
       ),
       body: SafeArea(
         child: Column(
