@@ -405,6 +405,7 @@ class _JurisChatScreenState extends State<JurisChatScreen> {
                 children: [
                   Expanded(
                     child: TextField(
+                      enabled: _pendingConfirmation == null,
                       controller: _controller,
                       minLines: 1,
                       maxLines: 5,
