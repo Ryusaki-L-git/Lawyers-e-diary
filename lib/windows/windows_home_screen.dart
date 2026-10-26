@@ -347,7 +347,7 @@ class _CommandPanel extends StatelessWidget {
               'assets/images/led_hero_statue.png',
               fit: BoxFit.cover,
               alignment: Alignment.center,
-              errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+              errorBuilder: (_, _, _) => const SizedBox.shrink(),
             ),
             DecoratedBox(
               decoration: BoxDecoration(
@@ -1206,7 +1206,7 @@ class _StayFocusedBanner extends StatelessWidget {
             Image.asset(
               'assets/images/led_stay_focused.png',
               fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => Container(
+              errorBuilder: (_, _, _) => Container(
                 color: AppPalette.primaryGreen,
               ),
             ),
