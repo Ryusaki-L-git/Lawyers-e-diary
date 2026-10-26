@@ -109,7 +109,7 @@ def test_refresh_fails_closed_until_authoritative_billing_is_configured(ctx):
     case_data = ctx.db._store.get(("cases", CASE_ID))
     assert case_data is not None
     assert "ecourts_data" not in case_data
-    assert not [k for k in ctx.db._store if k[0] == "rate_limits"]
+    assert [k for k in ctx.db._store if k[0] == "rate_limits"]  # Abuse controls run before the billing gate.
     assert not [k for k in ctx.db._store if k[0] == "case_locks"]
 
 
@@ -297,7 +297,7 @@ def test_per_case_independent_by_case(ctx, make_db, monkeypatch):
     assert "Per-case refresh limit reached" in response.json()["detail"]
 
     response = ctx.client.post(f"/v1/ecourts/cases/{OTHER_CASE_ID}/refresh", headers=_headers())
-    assert response.status_code == 200, response.text
+    assert response.status_code == 503, response.text
 
 
 def test_unauthorized_request_does_not_consume_rate_limit(ctx, make_db):
