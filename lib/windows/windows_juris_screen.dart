@@ -1,7 +1,9 @@
 import 'dart:convert';
 import 'dart:math' as math;
 
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../services/juris_service.dart';
 import '../services/token_service.dart';
@@ -20,6 +22,9 @@ class _WindowsJurisScreenState extends State<WindowsJurisScreen> {
   final _scroll = ScrollController();
   final _service = JurisService();
   final _tokenService = TokenService();
+  final List<_JurisConversation> _history = [];
+  bool _historyLoaded = false;
+  String? _currentTitle;
   // The session id identifies this conversation with the JURIS backend. It is
   // regenerated whenever the user starts a new conversation so the backend
   // does not continue the previous thread.
@@ -43,6 +48,35 @@ class _WindowsJurisScreenState extends State<WindowsJurisScreen> {
   void initState() {
     super.initState();
     _loadBalance();
+    _loadHistory();
+  }
+
+  String get _historyKey => 'led_juris_history_v1_${FirebaseAuth.instance.currentUser?.uid ?? 'signed_out'}';
+  Future<void> _loadHistory() async {
+    try { final prefs = await SharedPreferences.getInstance(); final raw = prefs.getString(_historyKey); if (raw != null && raw.isNotEmpty) { final decoded = jsonDecode(raw); if (decoded is List) { _history..clear()..addAll(decoded.whereType<Map>().map((item) => _JurisConversation.fromJson(Map<String, dynamic>.from(item)))); } } } catch (_) {}
+    if (mounted) setState(() => _historyLoaded = true);
+  }
+  Future<void> _persistCurrentConversation() async {
+    final prompts = _messages.where((m) => m.user); if (prompts.isEmpty) return;
+    final title = (_currentTitle ?? prompts.first.text).trim();
+    final item = _JurisConversation(id: _sessionId, title: title.isEmpty ? 'Legal research' : title, updatedAt: DateTime.now().toIso8601String(), messages: _messages.map((m) => _JurisStoredMessage(m.user, m.text)).toList(), caseId: widget.caseId, caseTitle: widget.caseTitle);
+    final index = _history.indexWhere((entry) => entry.id == _sessionId); if (index >= 0) { _history[index] = item; } else { _history.insert(0, item); }
+    _history.sort((a, b) => b.updatedAt.compareTo(a.updatedAt)); if (_history.length > 40) _history.removeRange(40, _history.length);
+    try { final prefs = await SharedPreferences.getInstance(); await prefs.setString(_historyKey, jsonEncode(_history.map((entry) => entry.toJson()).toList())); } catch (_) {}
+    if (mounted) setState(() {});
+  }
+  Future<void> _startNewConversation() async {
+    if (_busy) return; await _persistCurrentConversation(); if (!mounted) return;
+    setState(() { _sessionId = _newSessionId(); _currentTitle = null; _pendingConfirmation = null; _messages..clear()..add(const _JurisMessage(false, 'Welcome to JURIS. Ask a legal research or case-analysis question. Verify important conclusions against the original statute, judgment, and official source.')); });
+  }
+  Future<void> _openConversation(_JurisConversation item) async {
+    if (_busy) return; await _persistCurrentConversation(); if (!mounted) return;
+    setState(() { _sessionId = item.id; _currentTitle = item.title; _pendingConfirmation = null; _messages..clear()..addAll(item.messages.map((m) => _JurisMessage(m.user, m.text))); }); _scrollEnd();
+  }
+  Future<void> _deleteConversation(_JurisConversation item) async {
+    _history.removeWhere((entry) => entry.id == item.id);
+    try { final prefs = await SharedPreferences.getInstance(); await prefs.setString(_historyKey, jsonEncode(_history.map((entry) => entry.toJson()).toList())); } catch (_) {}
+    if (item.id == _sessionId) { setState(() { _sessionId = _newSessionId(); _currentTitle = null; _pendingConfirmation = null; _messages..clear()..add(const _JurisMessage(false, 'Welcome to JURIS. Start a new legal research conversation.')); }); } else if (mounted) { setState(() {}); }
   }
 
   Future<void> _loadBalance() async {
@@ -93,6 +127,7 @@ class _WindowsJurisScreenState extends State<WindowsJurisScreen> {
     if (trimmed.isEmpty) return;
     setState(() {
       _messages.add(_JurisMessage(true, trimmed));
+      _currentTitle ??= trimmed.length > 54 ? '${trimmed.substring(0, 51)}…' : trimmed;
       _busy = true;
       _controller.clear();
     });
@@ -143,6 +178,7 @@ class _WindowsJurisScreenState extends State<WindowsJurisScreen> {
       if (mounted) {
         setState(() => _busy = false);
         _scrollEnd();
+        await _persistCurrentConversation();
       }
     }
   }
@@ -174,6 +210,7 @@ class _WindowsJurisScreenState extends State<WindowsJurisScreen> {
       if (mounted) {
         setState(() => _busy = false);
         _scrollEnd();
+        await _persistCurrentConversation();
       }
     }
   }
@@ -318,20 +355,7 @@ class _WindowsJurisScreenState extends State<WindowsJurisScreen> {
                 ),
                 const SizedBox(width: 14),
                 OutlinedButton.icon(
-                  onPressed: _busy
-                      ? null
-                      : () => setState(() {
-                          _sessionId = _newSessionId();
-                          _pendingConfirmation = null;
-                          _messages
-                            ..clear()
-                            ..add(
-                              const _JurisMessage(
-                                false,
-                                'New conversation. Ask a legal research or case-analysis question. Verify important conclusions against original sources.',
-                              ),
-                            );
-                        }),
+                  onPressed: _busy ? null : _startNewConversation,
                   icon: const Icon(Icons.add_rounded),
                   label: const Text('New conversation'),
                   style: OutlinedButton.styleFrom(
@@ -386,7 +410,8 @@ class _WindowsJurisScreenState extends State<WindowsJurisScreen> {
                   // card spans the full width instead.
                   final width = constraints.maxWidth;
                   final showRail = width >= 780;
-                  final railWidth = width >= 1040 ? 270.0 : 236.0;
+                  final showHistory = width >= 1200;
+                  final railWidth = width >= 1040 ? 250.0 : 220.0;
 
                   return Column(
                     children: [
@@ -401,6 +426,10 @@ class _WindowsJurisScreenState extends State<WindowsJurisScreen> {
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
+                            if (showHistory) ...[
+                              SizedBox(width: 220, child: _historyPanel()),
+                              const SizedBox(width: 14),
+                            ],
                             Expanded(flex: 7, child: _chatPanel()),
                             if (showRail) ...[
                               const SizedBox(width: 16),
@@ -425,6 +454,22 @@ class _WindowsJurisScreenState extends State<WindowsJurisScreen> {
         ),
       ),
     ),
+  );
+
+  Widget _historyPanel() => Container(
+    decoration: BoxDecoration(color: AppPalette.cardBackground, borderRadius: BorderRadius.circular(16), border: Border.all(color: AppPalette.borderLight)),
+    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Padding(padding: const EdgeInsets.fromLTRB(14, 14, 8, 10), child: Row(children: [const Expanded(child: Text('RECENT HISTORY', style: TextStyle(color: AppPalette.textMuted, fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 1.1))), IconButton(tooltip: 'New conversation', visualDensity: VisualDensity.compact, onPressed: _busy ? null : _startNewConversation, icon: const Icon(Icons.add_rounded, size: 19))])),
+      const Divider(height: 1, color: AppPalette.borderLight),
+      Expanded(child: !_historyLoaded ? const Center(child: SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))) : _history.isEmpty ? const Padding(padding: EdgeInsets.all(15), child: Text('Your conversations will appear here as you research.', style: TextStyle(color: AppPalette.textMuted, fontSize: 11, height: 1.5))) : ListView.builder(padding: const EdgeInsets.all(8), itemCount: _history.length, itemBuilder: (context, index) {
+        final item = _history[index]; final selected = item.id == _sessionId;
+        return Padding(padding: const EdgeInsets.only(bottom: 5), child: Material(color: selected ? AppPalette.statusTile : Colors.transparent, borderRadius: BorderRadius.circular(10), child: InkWell(borderRadius: BorderRadius.circular(10), onTap: _busy ? null : () => _openConversation(item), child: Padding(padding: const EdgeInsets.fromLTRB(10, 10, 4, 10), child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Icon(Icons.forum_outlined, size: 16, color: selected ? AppPalette.primaryGreen : AppPalette.textMuted), const SizedBox(width: 8),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(item.title, maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(color: AppPalette.textPrimary, fontSize: 11, height: 1.35, fontWeight: selected ? FontWeight.w800 : FontWeight.w600)), const SizedBox(height: 4), Text('${item.messages.where((m) => m.user).length} prompts', style: const TextStyle(color: AppPalette.textMuted, fontSize: 9))])),
+          PopupMenuButton<String>(tooltip: 'Conversation options', padding: EdgeInsets.zero, iconSize: 16, onSelected: (value) { if (value == 'delete') _deleteConversation(item); }, itemBuilder: (_) => const [PopupMenuItem(value: 'delete', child: Text('Delete history'))]),
+        ])))));
+      })),
+    ]),
   );
 
   /// The conversation panel: the transcript and the composer.
@@ -857,3 +902,17 @@ class _JurisMessage {
   final bool user;
   final String text;
 }
+
+class _JurisStoredMessage {
+  const _JurisStoredMessage(this.user, this.text);
+  final bool user; final String text;
+  Map<String, dynamic> toJson() => {'user': user, 'text': text};
+  factory _JurisStoredMessage.fromJson(Map<String, dynamic> json) => _JurisStoredMessage(json['user'] == true, json['text'] as String? ?? '');
+}
+class _JurisConversation {
+  const _JurisConversation({required this.id, required this.title, required this.updatedAt, required this.messages, this.caseId, this.caseTitle});
+  final String id; final String title; final String updatedAt; final List<_JurisStoredMessage> messages; final String? caseId; final String? caseTitle;
+  Map<String, dynamic> toJson() => {'id': id, 'title': title, 'updatedAt': updatedAt, 'messages': messages.map((m) => m.toJson()).toList(), if (caseId != null) 'caseId': caseId, if (caseTitle != null) 'caseTitle': caseTitle};
+  factory _JurisConversation.fromJson(Map<String, dynamic> json) { final raw = json['messages']; return _JurisConversation(id: json['id'] as String? ?? '', title: json['title'] as String? ?? 'Legal research', updatedAt: json['updatedAt'] as String? ?? '', messages: raw is List ? raw.whereType<Map>().map((m) => _JurisStoredMessage.fromJson(Map<String, dynamic>.from(m))).toList() : const [], caseId: json['caseId'] as String?, caseTitle: json['caseTitle'] as String?); }
+}
+
