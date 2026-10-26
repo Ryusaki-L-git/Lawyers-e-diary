@@ -361,16 +361,6 @@ async def refresh_case(
             detail="Unable to authorize this case refresh.",
         )
 
-    # SECURITY RELEASE GATE: token billing is not yet wired to the shared,
-    # server-owned JURIS ledger. The ledger currently stores integer Case Tokens,
-    # while Smart Refresh costs 0.5. Never call the paid provider until an atomic
-    # debit/refund contract and idempotency semantics are implemented.
-    logger.error("Smart Refresh blocked: authoritative token billing is not configured")
-    raise HTTPException(
-        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-        detail="Smart Refresh is temporarily unavailable while secure token billing is being completed.",
-    )
-
     # 2. Per-user admission limit (after authorization, before provider call).
     #    Only authorized, legitimate requests consume rate-limit tokens.
     admission = admit_user_request(
@@ -488,6 +478,15 @@ async def refresh_case(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail="Global capacity state is temporarily unavailable.",
             )
+
+        # SECURITY RELEASE GATE: token billing is not yet wired to the shared,
+        # server-owned JURIS ledger. Admission and abuse controls still run, but
+        # never call the paid provider until atomic debit/refund and idempotency exist.
+        logger.error("Smart Refresh blocked: authoritative token billing is not configured")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Smart Refresh is temporarily unavailable while secure token billing is being completed.",
+        )
 
         # 5. Provider call (outside the transaction).
         try:
