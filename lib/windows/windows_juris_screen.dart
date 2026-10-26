@@ -628,6 +628,7 @@ class _WindowsJurisScreenState extends State<WindowsJurisScreen> {
               children: [
                 Expanded(
                   child: TextField(
+                    enabled: _pendingConfirmation == null,
                     controller: _controller,
                     minLines: 1,
                     maxLines: 5,
@@ -657,7 +658,9 @@ class _WindowsJurisScreenState extends State<WindowsJurisScreen> {
                 ),
                 const SizedBox(width: 10),
                 FilledButton(
-                  onPressed: _busy ? null : () => _send(),
+                  onPressed: _busy || _pendingConfirmation != null
+                      ? null
+                      : () => _send(),
                   style: FilledButton.styleFrom(
                     backgroundColor: AppPalette.primaryGreen,
                     padding: const EdgeInsets.all(17),
