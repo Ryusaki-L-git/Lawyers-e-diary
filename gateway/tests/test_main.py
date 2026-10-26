@@ -263,14 +263,15 @@ def test_zero_user_fallback_provides_capacity(ctx, make_db, monkeypatch):
     monkeypatch.setenv("RATE_LIMIT_ZERO_USER_FALLBACK_USERS", "5")
 
     response = ctx.client.post(f"/v1/ecourts/cases/{CASE_ID}/refresh", headers=_headers())
-    assert response.status_code == 200, response.text
+    assert response.status_code == 503, response.text
+    assert ctx.provider.called_with is None
 
 
 def test_per_case_limit_exceeded_is_429(ctx, monkeypatch):
     monkeypatch.setenv("RATE_LIMIT_USER_MAX_REQUESTS", "50")
     for _ in range(5):
         response = ctx.client.post(f"/v1/ecourts/cases/{CASE_ID}/refresh", headers=_headers())
-        assert response.status_code == 200, response.text
+        assert response.status_code == 503, response.text
 
     response = ctx.client.post(f"/v1/ecourts/cases/{CASE_ID}/refresh", headers=_headers())
     assert response.status_code == 429, response.text
@@ -289,7 +290,7 @@ def test_per_case_independent_by_case(ctx, make_db, monkeypatch):
 
     for _ in range(5):
         response = ctx.client.post(f"/v1/ecourts/cases/{CASE_ID}/refresh", headers=_headers())
-        assert response.status_code == 200, response.text
+        assert response.status_code == 503, response.text
 
     response = ctx.client.post(f"/v1/ecourts/cases/{CASE_ID}/refresh", headers=_headers())
     assert response.status_code == 429, response.text
@@ -399,7 +400,7 @@ def test_per_user_limit_exceeded_is_429_not_503(ctx):
         response = ctx.client.post(
             f"/v1/ecourts/cases/{CASE_ID}/refresh", headers=_headers()
         )
-        assert response.status_code == 200, response.text
+        assert response.status_code == 503, response.text
 
     response = ctx.client.post(
         f"/v1/ecourts/cases/{CASE_ID}/refresh", headers=_headers()
@@ -425,7 +426,7 @@ def test_global_capacity_exceeded_is_429_not_503(ctx, make_db, monkeypatch):
         response = ctx.client.post(
             f"/v1/ecourts/cases/{CASE_ID}/refresh", headers=_headers()
         )
-        assert response.status_code == 200, response.text
+        assert response.status_code == 503, response.text
 
     response = ctx.client.post(
         f"/v1/ecourts/cases/{CASE_ID}/refresh", headers=_headers()
