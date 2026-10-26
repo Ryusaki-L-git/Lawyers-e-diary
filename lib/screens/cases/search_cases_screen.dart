@@ -12,6 +12,7 @@ import '../../widgets/case_empty_state.dart';
 import '../../widgets/case_filter_sheet.dart';
 import 'case_detail_screen.dart';
 import '../../widgets/app_palette.dart';
+import '../../templates/animations/loading_effects.dart';
 
 /// Search Cases Screen matching the Case Section blueprint.
 /// Includes 300ms debounce, recent searches, live Firestore search, and CaseBottomNavigation.
@@ -269,12 +270,7 @@ class _SearchCasesScreenState extends State<SearchCasesScreen> {
                     ),
                     builder: (context, snapshot) {
                       if (snapshot.connectionState == ConnectionState.waiting) {
-                        return const Center(
-                          child: CircularProgressIndicator(
-                            color: primaryGreen,
-                            strokeWidth: 2,
-                          ),
-                        );
+                        return const TemplateLoadingPlaceholder();
                       }
 
                       final cases = snapshot.data ?? [];
