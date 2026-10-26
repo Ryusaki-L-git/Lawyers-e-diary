@@ -85,6 +85,22 @@ def _headers(token="tok"):
     return {"Authorization": f"Bearer {token}"}
 
 
+def test_service_catalogue_is_authenticated_and_marks_only_refresh_available(ctx):
+    response = ctx.client.get("/v1/services/catalogue", headers=_headers())
+    assert response.status_code == 200, response.text
+    items = response.json()
+    assert any(item["serviceId"] == "case_detail" and item["tokenPrice"] == 5.0 for item in items)
+    refresh = next(item for item in items if item["serviceId"] == "smart_refresh")
+    assert refresh["tokenPrice"] == 0.5
+    assert refresh["available"] is True
+    assert all(item["available"] is False for item in items if item["serviceId"] != "smart_refresh")
+
+
+def test_service_catalogue_requires_authentication(ctx):
+    response = ctx.client.get("/v1/services/catalogue")
+    assert response.status_code == 401
+
+
 def test_refresh_success(ctx):
     response = ctx.client.post(f"/v1/ecourts/cases/{CASE_ID}/refresh", headers=_headers())
     assert response.status_code == 200, response.text
