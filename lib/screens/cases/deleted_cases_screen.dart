@@ -9,6 +9,7 @@ import '../../widgets/case_card.dart';
 import '../../widgets/case_empty_state.dart';
 import 'case_detail_screen.dart';
 import '../../widgets/app_palette.dart';
+import '../../templates/animations/loading_effects.dart';
 
 /// Deleted Cases Screen — soft-deleted docket with restore capability.
 /// Back button is allowed (deep screen rule).
@@ -169,12 +170,7 @@ class _DeletedCasesScreenState extends State<DeletedCasesScreen> {
                     stream: _firestoreService.watchCases(status: 'deleted'),
                     builder: (context, snapshot) {
                       if (snapshot.connectionState == ConnectionState.waiting) {
-                        return const Center(
-                          child: CircularProgressIndicator(
-                            color: primaryGreen,
-                            strokeWidth: 2,
-                          ),
-                        );
+                        return const TemplateLoadingPlaceholder();
                       }
                       if (snapshot.hasError) {
                         return Center(
