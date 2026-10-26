@@ -4,7 +4,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
-import 'ld_logo.dart';
 import 'widgets/app_palette.dart';
 
 /// The screen the application should open on launch.
