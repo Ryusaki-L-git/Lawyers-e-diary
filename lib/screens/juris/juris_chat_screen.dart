@@ -84,7 +84,7 @@ class _JurisChatScreenState extends State<JurisChatScreen> {
   }
 
   Future<void> _send() async {
-    if (_busy) {
+    if (_busy || _pendingConfirmation != null) {
       return;
     }
     final message = _controller.text.trim();
@@ -427,7 +427,7 @@ class _JurisChatScreenState extends State<JurisChatScreen> {
                   ),
                   const SizedBox(width: 8),
                   IconButton.filled(
-                    onPressed: _busy ? null : _send,
+                    onPressed: _busy || _pendingConfirmation != null ? null : _send,
                     style: IconButton.styleFrom(
                       backgroundColor: AppPalette.primaryGreen,
                       foregroundColor: Colors.white,
