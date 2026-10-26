@@ -7,7 +7,7 @@ import '../models/service_catalogue_item.dart';
 
 class ServicesCatalogueService {
   ServicesCatalogueService({String? baseUrl})
-      : _baseUrl = (baseUrl ?? const String.fromEnvironment('JURIS_BASE_URL'))
+      : _baseUrl = (baseUrl ?? const String.fromEnvironment('ECOURTS_GATEWAY_URL'))
             .trim();
 
   final String _baseUrl;
@@ -17,7 +17,7 @@ class ServicesCatalogueService {
   Future<List<ServiceCatalogueItem>> fetchCatalogue() async {
     if (_baseUrl.isEmpty) {
       throw const ServicesCatalogueException(
-        'JURIS is not configured for this build.',
+        'The LED services gateway is not configured for this build.',
       );
     }
     final user = FirebaseAuth.instance.currentUser;
@@ -30,7 +30,7 @@ class ServicesCatalogueService {
     }
 
     final base = Uri.tryParse(_baseUrl);
-    if (base == null || !base.hasScheme || !base.hasAuthority) {
+    if (base == null || !base.hasScheme || !base.hasAuthority || base.scheme != 'https') {
       throw const ServicesCatalogueException('JURIS URL is invalid.');
     }
 
