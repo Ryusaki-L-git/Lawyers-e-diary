@@ -11,6 +11,7 @@ import '../../widgets/case_empty_state.dart';
 import '../../widgets/case_filter_sheet.dart';
 import 'case_detail_screen.dart';
 import '../../widgets/app_palette.dart';
+import '../../templates/animations/loading_effects.dart';
 
 /// Completed Cases Screen matching the Case Section blueprint.
 class CompletedCasesScreen extends StatefulWidget {
@@ -122,12 +123,7 @@ class _CompletedCasesScreenState extends State<CompletedCasesScreen> {
                     ),
                     builder: (context, snapshot) {
                       if (snapshot.connectionState == ConnectionState.waiting) {
-                        return const Center(
-                          child: CircularProgressIndicator(
-                            color: primaryGreen,
-                            strokeWidth: 2,
-                          ),
-                        );
+                        return const TemplateLoadingPlaceholder();
                       }
 
                       final cases = snapshot.data ?? [];
