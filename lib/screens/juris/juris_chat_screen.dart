@@ -33,6 +33,7 @@ class _JurisChatScreenState extends State<JurisChatScreen> {
   TokenBalance? _balance;
   String? _selectedModel = 'gemini-3.8-flash';
   bool _loadingBalance = false;
+  String? _balanceError;
 
   static const _models = <String, String>{
     'gemini-3.8-flash': 'Gemini 3.8',
@@ -48,7 +49,10 @@ class _JurisChatScreenState extends State<JurisChatScreen> {
   }
 
   Future<void> _loadBalance() async {
-    setState(() => _loadingBalance = true);
+    setState(() {
+      _loadingBalance = true;
+      _balanceError = null;
+    });
     try {
       final balance = await _tokenService.fetchBalance();
       if (!mounted) {
@@ -57,12 +61,16 @@ class _JurisChatScreenState extends State<JurisChatScreen> {
       setState(() {
         _balance = balance;
         _loadingBalance = false;
+        _balanceError = null;
       });
     } catch (_) {
       if (!mounted) {
         return;
       }
-      setState(() => _loadingBalance = false);
+      setState(() {
+        _loadingBalance = false;
+        _balanceError = 'Could not load token balance.';
+      });
     }
   }
 
@@ -286,15 +294,25 @@ class _JurisChatScreenState extends State<JurisChatScreen> {
                   Text(
                     _loadingBalance
                         ? 'Loading...'
+                        : _balanceError != null
+                        ? 'Tokens unavailable'
                         : (_balance != null
                               ? 'Case Tokens: ${_balance!.caseTokensDisplay}'
                               : 'Case Tokens: --'),
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
-                      color: AppPalette.textPrimary,
+                      color: _balanceError == null
+                          ? AppPalette.textPrimary
+                          : Colors.red.shade700,
                     ),
                   ),
+                  if (_balanceError != null)
+                    IconButton(
+                      tooltip: 'Retry token balance',
+                      onPressed: _loadingBalance ? null : _loadBalance,
+                      icon: const Icon(Icons.refresh, size: 18),
+                    ),
                   const Spacer(),
                   DropdownButton<String>(
                     value: _selectedModel,
