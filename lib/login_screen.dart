@@ -4,7 +4,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/services.dart';
 
-import 'ld_logo.dart';
 import 'templates/animations/staggered_entry.dart';
 import 'templates/transactions/auth_transactions.dart';
 import 'templates/utils/app_snackbar.dart';
