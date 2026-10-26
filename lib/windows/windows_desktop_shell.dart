@@ -284,7 +284,16 @@ class _WindowsDesktopShellState extends State<WindowsDesktopShell> {
         borderRadius: BorderRadius.circular(13),
         border: Border.all(color: const Color(0x66CCA046)),
       ),
-      child: const Icon(Icons.balance_rounded, color: WindowsDesktopShell.gold, size: 24),
+      padding: const EdgeInsets.all(5),
+      child: Image.asset(
+        'assets/images/master logo.png',
+        fit: BoxFit.contain,
+        errorBuilder: (_, __, ___) => const Icon(
+          Icons.balance_rounded,
+          color: WindowsDesktopShell.gold,
+          size: 24,
+        ),
+      ),
     );
 
     if (collapsed) {
