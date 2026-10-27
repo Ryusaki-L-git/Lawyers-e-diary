@@ -136,6 +136,225 @@ class FirestoreCaseSyncDataSource implements CaseSyncDataSource {
       );
     }
 
+    // Cloud storage is an entitlement, not a client-controlled preference.
+    // Missing/unknown subscription state fails closed to CNR-only registration.
+    final userSnapshot = await _firestore.collection('users').doc(uid).get();
+    final userData = userSnapshot.data() ?? const <String, dynamic>{};
+    final subscription = userData['subscription'];
+    final tier = subscription is Map ? subscription['tier'] : null;
+    final isCloudSubscriber = tier == 'cloud_subscriber';
+
+    Map<String, dynamic> payload;
+    if (isCloudSubscriber) {
+      payload = Map<String, dynamic>.from(data)
+        ..['cloudStorageMode'] = 'full';
+    } else {
+      final rawCnr = data['cuid'] ?? data['cnrNumber'] ?? data['cnr'];
+      final cnr = rawCnr is String ? rawCnr.trim().toUpperCase() : '';
+      if (!RegExp(r'^[A-Z0-9]{16}
+      if (existing.exists) {
+        final existingData = existing.data()!;
+        if ((existingData['ownerUid'] ?? existingData['userId']) != uid) {
+          throw StateError(
+            'Firestore Case ID is already owned by another user.',
+          );
+        }
+      }
+      if (!existing.exists && expectedCloudVersion != null) {
+        throw StateError('Firestore Case changed during synchronization.');
+      }
+      if (existing.exists) {
+        final current = existing.data()!;
+        final currentVersion = (current['cloudVersion'] as num?)?.toInt() ?? 0;
+        final currentUpdatedValue =
+            current['updatedAt'] ?? current['lastUpdated'];
+        final currentUpdatedAt = currentUpdatedValue is Timestamp
+            ? currentUpdatedValue.toDate()
+            : currentUpdatedValue is DateTime
+            ? currentUpdatedValue
+            : currentUpdatedValue is String
+            ? DateTime.tryParse(currentUpdatedValue)
+            : null;
+        if (currentVersion != expectedCloudVersion ||
+            currentUpdatedAt != expectedUpdatedAt) {
+          throw StateError('Firestore Case changed during synchronization.');
+        }
+      }
+      // A CNR-only write replaces the document so previously stored private
+      // fields cannot remain in the cloud after a downgrade. Subscriber writes
+      // merge to preserve server/team-owned fields.
+      transaction.set(
+        reference,
+        payload,
+        SetOptions(merge: isCloudSubscriber),
+      );
+    });
+  }
+}
+
+class CaseSyncResult {
+  const CaseSyncResult({
+    this.uploaded = 0,
+    this.downloaded = 0,
+    this.conflicts = 0,
+    this.failed = 0,
+    this.rejected = 0,
+    this.pullError,
+  });
+
+  final int uploaded;
+  final int downloaded;
+  final int conflicts;
+  final int failed;
+  final int rejected;
+  final String? pullError;
+}
+
+class CaseSyncEngine {
+  factory CaseSyncEngine({
+    required CaseRepository repository,
+    required CaseSyncDataSource dataSource,
+  }) => CaseSyncEngine._(repository, dataSource);
+
+  CaseSyncEngine._(this._repository, this._dataSource);
+
+  final CaseRepository _repository;
+  final CaseSyncDataSource _dataSource;
+
+  Future<CaseSyncResult> sync() async {
+    _repository.currentUserId;
+    var uploaded = 0;
+    var downloaded = 0;
+    var conflicts = 0;
+    var failed = 0;
+    var rejected = 0;
+    final conflictsHandled = <String>{};
+    String? pullError;
+
+    final pending = await _repository.getPendingCaseChanges();
+    for (final change in pending) {
+      try {
+        final remote = await _dataSource.readOwnedCase(change.record.id);
+        if (remote != null &&
+            remote.data['ownerUid'] != change.record.ownerUid) {
+          rejected++;
+          continue;
+        }
+
+        if (remote != null &&
+            remote.data['cloudStorageMode'] != 'cnr_only' &&
+            remote.updatedAt != null &&
+            remote.updatedAt!.isAfter(change.record.updatedAt)) {
+          await _repository.markCaseConflict(
+            caseId: change.record.id,
+            expectedRevision: change.revision,
+            remoteData: remote.data,
+            cloudVersion: remote.cloudVersion,
+          );
+          conflictsHandled.add(change.record.id);
+          conflicts++;
+          continue;
+        }
+
+        final version = remote == null
+            ? 1
+            : remote.updatedAt != null &&
+                  change.record.updatedAt.isAfter(remote.updatedAt!)
+            ? remote.cloudVersion + 1
+            : (remote.cloudVersion == 0 ? 1 : remote.cloudVersion);
+        await _dataSource.writeOwnedCase(
+          change.record.id,
+          change.record.toCloudMap(cloudVersion: version),
+          expectedCloudVersion: remote?.cloudVersion,
+          expectedUpdatedAt: remote?.updatedAt,
+        );
+        await _repository.markCaseSynchronized(
+          caseId: change.record.id,
+          expectedRevision: change.revision,
+          expectedUpdatedAt: change.record.updatedAt,
+          cloudVersion: version,
+        );
+        uploaded++;
+      } catch (error) {
+        await _repository.markCaseSyncFailed(
+          caseId: change.record.id,
+          expectedRevision: change.revision,
+          error: error,
+        );
+        failed++;
+      }
+    }
+
+    try {
+      final remoteCases = await _dataSource.fetchOwnedCases();
+      final localRecords = await _repository.getCasesForCurrentUser();
+      final localIds = localRecords.map((record) => record.id).toSet();
+      for (final remote in remoteCases) {
+        if (conflictsHandled.contains(remote.id)) {
+          continue;
+        }
+        final uid = _repository.currentUserId;
+        if (remote.data['ownerUid'] != uid) {
+          rejected++;
+          continue;
+        }
+        // A CNR-only cloud stub must never overwrite a full local workspace.
+        // If this device has no local record, it may create a blank local
+        // registration that the advocate can complete privately.
+        if (remote.data['cloudStorageMode'] == 'cnr_only' &&
+            localIds.contains(remote.id)) {
+          continue;
+        }
+        final syncedAt = DateTime.now();
+        final record = LocalCaseRecord.fromCloudMap(
+          id: remote.id,
+          ownerUid: uid,
+          data: remote.data,
+          lastSyncedAt: syncedAt,
+          cloudVersion: remote.cloudVersion,
+        );
+        final outcome = await _repository.applyRemoteCase(
+          remoteCase: record,
+          remoteData: remote.data,
+        );
+        if (outcome == 'applied') downloaded++;
+        if (outcome == 'conflict') conflicts++;
+      }
+    } catch (error) {
+      pullError = error.toString();
+    }
+
+    return CaseSyncResult(
+      uploaded: uploaded,
+      downloaded: downloaded,
+      conflicts: conflicts,
+      failed: failed,
+      rejected: rejected,
+      pullError: pullError,
+    );
+  }
+}
+).hasMatch(cnr)) {
+        throw StateError(
+          'A valid 16-character CNR is required for CNR-only cloud registration.',
+        );
+      }
+      final createdAt = data['createdAt'] ?? DateTime.now();
+      final updatedAt = data['updatedAt'] ?? data['lastUpdated'] ?? DateTime.now();
+      payload = <String, dynamic>{
+        'ownerUid': uid,
+        'userId': uid,
+        'cuid': cnr,
+        'cnrNumber': cnr,
+        'caseNumber': cnr,
+        'createdAt': createdAt,
+        'updatedAt': updatedAt,
+        'lastUpdated': updatedAt,
+        'cloudVersion': (data['cloudVersion'] as num?)?.toInt() ?? 1,
+        'cloudStorageMode': 'cnr_only',
+      };
+    }
+
     final reference = _cases.doc(caseId);
     await _firestore.runTransaction((transaction) async {
       final existing = await transaction.get(reference);
