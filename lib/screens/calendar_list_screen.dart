@@ -263,8 +263,8 @@ class _CalendarListScreenState extends State<CalendarListScreen> {
                           const SizedBox(width: 6),
                           // List View Icon (current active view)
                           IconButton(
-                            tooltip: 'List view',
-                            onPressed: () {},
+                            tooltip: 'List view (current)',
+                            onPressed: null,
                             icon: const Icon(
                               Icons.format_list_bulleted_rounded,
                               size: 19,
