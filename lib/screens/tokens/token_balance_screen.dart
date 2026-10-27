@@ -390,7 +390,7 @@ class _TokenBalanceScreenState extends State<TokenBalanceScreen> {
                       ),
                       if (_preferenceError != null) ...[
                         const SizedBox(height: 8),
-                        Text(_preferenceError!, style: const TextStyle(color: AppPalette.error, fontSize: 12)),
+                        Text(_preferenceError!, style: const TextStyle(color: AppPalette.statusDanger, fontSize: 12)),
                       ],
                       const SizedBox(height: 12),
                       Align(
