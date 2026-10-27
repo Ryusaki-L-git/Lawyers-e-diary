@@ -14,6 +14,7 @@ from __future__ import annotations
 import logging
 import re
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from typing import Callable
 
 from fastapi import HTTPException, status
@@ -212,11 +213,10 @@ def read_case_and_authorize(
 def reauthorize_and_update(
     db, uid: str, case_id: str, expected_cnr: str, ecourts_data: dict,
     auth_email: str | None = None, email_verified: bool = False,
+    billing_reference: str | None = None,
+    refresh_started_at: datetime | None = None,
 ) -> None:
-    """Re-read the case inside a transaction, re-authorize, check CNR stability,
-    and persist ecourts_data. Mirrors the Cloud Function's transactional
-    race protection.
-    """
+    """Re-authorize and persist refreshed data with a billing idempotency marker."""
     case_ref = db.collection("cases").document(case_id)
 
     def _work(transaction):
@@ -256,6 +256,12 @@ def reauthorize_and_update(
                 "You are not authorized to access this case.",
             )
 
-        transaction.update(case_ref, {"ecourts_data": ecourts_data})
+        update_data = {"ecourts_data": ecourts_data}
+        if billing_reference:
+            update_data.update({
+                "lastSmartRefreshAt": refresh_started_at or datetime.now(timezone.utc),
+                "lastSmartRefreshBillingReference": billing_reference,
+            })
+        transaction.update(case_ref, update_data)
 
     db.run_transaction(_work)
