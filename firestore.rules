@@ -68,6 +68,10 @@ service cloud.firestore {
       return cloudSubscriber(ownerUid)
         || (ownerUid == request.auth.uid && cnrOnlyCase(data));
     }
+    
+    function registryCaseIdAfter(uid, cnr) {
+      return getAfter(/databases/$(database)/documents/users/$(uid)/case_cuid_registry/$(cnr)).data.caseId;
+    }
 
 
     // ----------------------------------------------------------------------
@@ -204,8 +208,8 @@ service cloud.firestore {
         && exists(/databases/$(database)/documents/users/$(request.auth.uid)/case_cuid_registry/$(resource.data.cuid))
         && get(/databases/$(database)/documents/users/$(request.auth.uid)/case_cuid_registry/$(resource.data.cuid)).data.caseId == caseId
         && !existsAfter(/databases/$(database)/documents/cases/$(caseId))
-        && existsAfter(/databases/$(database)/documents/cases/$(getAfter(/databases/$(database)/documents/users/$(request.auth.uid)/case_cuid_registry/$(resource.data.cuid)).data.caseId))
-        && getAfter(/databases/$(database)/documents/cases/$(getAfter(/databases/$(database)/documents/users/$(request.auth.uid)/case_cuid_registry/$(resource.data.cuid)).data.caseId)).data.cuid == resource.data.cuid;
+        && existsAfter(/databases/$(database)/documents/cases/$(registryCaseIdAfter(request.auth.uid, resource.data.cuid)))
+        && getAfter(/databases/$(database)/documents/cases/$(registryCaseIdAfter(request.auth.uid, resource.data.cuid))).data.cuid == resource.data.cuid;
 
       match /notes/{noteId} {
         allow read: if caseReadable(get(/databases/$(database)/documents/cases/$(caseId)).data)
