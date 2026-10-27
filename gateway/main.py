@@ -440,22 +440,6 @@ async def refresh_case(
             detail="Unable to authorize this case refresh.",
         )
 
-    # The provider refresh endpoint is idempotent for 15 seconds. Reuse the
-    # completed result inside that window instead of charging the same case twice.
-    last_refresh_at = access.case_data.get("lastSmartRefreshAt")
-    last_billing_reference = access.case_data.get("lastSmartRefreshBillingReference")
-    if isinstance(last_refresh_at, datetime) and last_billing_reference:
-        if last_refresh_at.tzinfo is None:
-            last_refresh_at = last_refresh_at.replace(tzinfo=timezone.utc)
-        age_seconds = (datetime.now(timezone.utc) - last_refresh_at).total_seconds()
-        if 0 <= age_seconds < 15:
-            return {
-                "caseId": case_id,
-                "cnr": access.cnr,
-                "status": "duplicate",
-                "message": "A Smart Refresh for this case completed moments ago. No additional token was charged.",
-            }
-
     # 2. Per-user admission limit (after authorization, before provider call).
     #    Only authorized, legitimate requests consume rate-limit tokens.
     admission = admit_user_request(
@@ -573,6 +557,22 @@ async def refresh_case(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail="Global capacity state is temporarily unavailable.",
             )
+
+        # Idempotency is checked only after all admission gates. Retries still
+        # count toward abuse limits, but a completed duplicate is never billed.
+        last_refresh_at = access.case_data.get("lastSmartRefreshAt")
+        last_billing_reference = access.case_data.get("lastSmartRefreshBillingReference")
+        if isinstance(last_refresh_at, datetime) and last_billing_reference:
+            if last_refresh_at.tzinfo is None:
+                last_refresh_at = last_refresh_at.replace(tzinfo=timezone.utc)
+            age_seconds = (datetime.now(timezone.utc) - last_refresh_at).total_seconds()
+            if 0 <= age_seconds < 15:
+                return {
+                    "caseId": case_id,
+                    "cnr": access.cnr,
+                    "status": "duplicate",
+                    "message": "A Smart Refresh for this case completed moments ago. No additional token was charged.",
+                }
 
         # 7. Atomically reserve 0.5 Case Token before any provider call.
         # A missing/invalid account fails closed; no refresh is performed for free.
