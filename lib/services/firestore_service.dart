@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -9,6 +11,7 @@ import '../repositories/case_repository.dart';
 import '../models/fee_model.dart';
 import '../models/reminder_model.dart';
 import '../models/todo_model.dart';
+import 'team_service.dart';
 
 class CaseStats {
   const CaseStats({
@@ -320,25 +323,100 @@ class FirestoreService {
   }
 
   /// Stream firm team members for the Cause List team switcher and transfer screen.
+  /// Stream members from teams the current advocate belongs to.
+  /// Global LED-ID directory enumeration is intentionally forbidden.
+  /// Only team owners/leaders can list all members under Firestore rules.
   Stream<List<TeamMemberModel>> getTeamMembers() {
-    // User profiles are private. The transfer/team switcher only needs the
-    // minimal public identity fields maintained in the LED ID directory.
-    return _db.collection('led_id_directory').snapshots().map((snapshot) {
-      final members = <TeamMemberModel>[];
-      for (final doc in snapshot.docs) {
-        final data = doc.data();
-        final name = data['name'] as String? ?? 'Associate Lawyer';
-        members.add(
-          TeamMemberModel(
-            id: data['uid'] as String? ?? '',
-            name: name,
-            role: data['advocateType'] as String? ?? 'Associate Advocate',
-            email: null,
-          ),
-        );
+    final uid = currentUserId;
+    if (uid == null || uid.isEmpty) return Stream.value(const []);
+
+    return Stream<List<TeamMemberModel>>.multi((controller) {
+      final memberSubscriptions = <String, StreamSubscription<List<TeamMembership>>>{};
+      final membershipSubscriptions = <String, StreamSubscription<TeamMembership?>>{};
+      final membersByTeam = <String, List<TeamMembership>>{};
+      final allowedTeamIds = <String>{};
+      var currentTeams = <dynamic>[];
+
+      void emitMembers() {
+        final byUid = <String, TeamMemberModel>{};
+        for (final teamId in allowedTeamIds) {
+          for (final member in membersByTeam[teamId] ?? const <TeamMembership>[]) {
+            if (!member.isActive || member.userId.isEmpty) continue;
+            final name = member.displayName.trim();
+            byUid[member.userId] = TeamMemberModel(
+              id: member.userId,
+              name: name.isEmpty ? 'Associate Advocate' : name,
+              role: member.role.label,
+              email: null,
+            );
+          }
+        }
+        final sorted = byUid.values.toList()
+          ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+        controller.add(sorted);
       }
 
-      return members.where((member) => member.id.isNotEmpty).toList();
+      void watchMembersFor(String teamId) {
+        if (memberSubscriptions.containsKey(teamId)) return;
+        memberSubscriptions[teamId] = TeamService.instance
+            .watchMembers(teamId)
+            .listen((members) {
+              membersByTeam[teamId] = members;
+              emitMembers();
+            }, onError: controller.addError);
+      }
+
+      Future<void> stopWatchingTeam(String teamId) async {
+        allowedTeamIds.remove(teamId);
+        membersByTeam.remove(teamId);
+        final memberSubscription = memberSubscriptions.remove(teamId);
+        if (memberSubscription != null) await memberSubscription.cancel();
+        final membershipSubscription = membershipSubscriptions.remove(teamId);
+        if (membershipSubscription != null) await membershipSubscription.cancel();
+      }
+
+      final teamsSubscription = TeamService.instance.watchUserTeams().listen((teams) async {
+        currentTeams = teams;
+        final activeIds = teams.map((team) => team.id).toSet();
+        for (final teamId in [...memberSubscriptions.keys, ...membershipSubscriptions.keys].toSet()) {
+          if (!activeIds.contains(teamId)) await stopWatchingTeam(teamId);
+        }
+        for (final team in teams) {
+          if (team.ownerId == uid) {
+            allowedTeamIds.add(team.id);
+            watchMembersFor(team.id);
+            continue;
+          }
+          if (membershipSubscriptions.containsKey(team.id)) continue;
+          membershipSubscriptions[team.id] = TeamService.instance
+              .watchMyMembership(team.id)
+              .listen((membership) async {
+                final canList = membership != null &&
+                    membership.isActive && membership.role.canManageTeam;
+                if (canList) {
+                  allowedTeamIds.add(team.id);
+                  watchMembersFor(team.id);
+                } else {
+                  allowedTeamIds.remove(team.id);
+                  membersByTeam.remove(team.id);
+                  final subscription = memberSubscriptions.remove(team.id);
+                  if (subscription != null) await subscription.cancel();
+                }
+                emitMembers();
+              }, onError: controller.addError);
+        }
+        emitMembers();
+      }, onError: controller.addError);
+
+      controller.onCancel = () async {
+        await teamsSubscription.cancel();
+        for (final subscription in memberSubscriptions.values) {
+          await subscription.cancel();
+        }
+        for (final subscription in membershipSubscriptions.values) {
+          await subscription.cancel();
+        }
+      };
     });
   }
 
@@ -389,6 +467,9 @@ class FirestoreService {
   /// Legacy compatibility wrapper. All case creation is local-first so the
   /// sync engine can enforce the CNR-only Free tier cloud policy and preserve
   /// private case fields on the user's device.
+  /// Legacy compatibility wrapper. Case creation is local-first so the sync
+  /// engine can enforce CNR-only Free-tier cloud storage and keep private
+  /// case details on the advocate's device.
   Future<String?> addCase({
     required String caseTitle,
     required String clientName,
