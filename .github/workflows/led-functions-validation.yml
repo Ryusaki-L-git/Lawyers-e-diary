@@ -1,0 +1,29 @@
+name: LED Functions validation
+
+on:
+  pull_request:
+    branches: [master]
+    paths:
+      - "functions/**"
+      - "firestore.rules"
+      - ".github/workflows/led-functions-validation.yml"
+  push:
+    branches: ["**"]
+    paths:
+      - "functions/**"
+      - "firestore.rules"
+      - ".github/workflows/led-functions-validation.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Validate Cloud Functions JavaScript syntax
+        run: node --check functions/index.js
