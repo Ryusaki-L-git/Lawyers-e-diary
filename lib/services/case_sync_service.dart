@@ -152,6 +152,7 @@ class FirestoreCaseSyncDataSource implements CaseSyncDataSource {
     final subscription = userData['subscription'];
     final isCloudSubscriber =
         subscription is Map && subscription['tier'] == 'cloud_subscriber';
+    final ownerLedId = userData['ledId'];
 
     final rawCnr = data['cuid'] ?? data['cnrNumber'] ?? data['cnr'];
     final cnr = rawCnr is String ? rawCnr.trim().toUpperCase() : '';
@@ -181,6 +182,10 @@ class FirestoreCaseSyncDataSource implements CaseSyncDataSource {
         'cloudVersion': (data['cloudVersion'] as num?)?.toInt() ?? 1,
         'cloudStorageMode': 'cnr_only',
       };
+    }
+
+    if (ownerLedId is String && ownerLedId.trim().isNotEmpty) {
+      payload['ownerLedId'] = ownerLedId.trim();
     }
 
     final reference = _cases.doc(caseId);
