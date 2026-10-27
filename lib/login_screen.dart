@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -8,6 +10,7 @@ import 'ld_logo.dart';
 import 'templates/animations/staggered_entry.dart';
 import 'templates/transactions/auth_transactions.dart';
 import 'templates/utils/app_snackbar.dart';
+import 'services/led_id_allocation_service.dart';
 import 'templates/widgets/app_button.dart';
 import 'templates/widgets/app_text_field.dart';
 
@@ -57,9 +60,20 @@ class _LoginScreenState extends State<LoginScreen>
           .collection('users')
           .doc(user.uid)
           .get();
-      destination = profile.data()?['profileCompleted'] == true
-          ? '/home'
-          : '/welcome';
+      final profileData = profile.data() ?? <String, dynamic>{};
+      final profileName = profileData['name'];
+      final hasSavedRequiredDetails =
+          profileName is String &&
+          profileName.trim().isNotEmpty &&
+          profileData['dob'] != null;
+      final profileCompleted =
+          profileData['profileCompleted'] == true || hasSavedRequiredDetails;
+      final existingLedId = profileData['ledId'];
+      if (profileCompleted &&
+          (existingLedId is! String || existingLedId.trim().isEmpty)) {
+        unawaited(LedIdAllocationService().allocateWithRetries(user));
+      }
+      destination = profileCompleted ? '/home' : '/welcome';
     } catch (_) {
       // Keep the user on the profile setup path if the completion flag
       // cannot be read; do not silently skip required onboarding.
