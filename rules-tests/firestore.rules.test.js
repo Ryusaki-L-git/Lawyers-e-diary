@@ -89,6 +89,36 @@ test("CNR registry can be created atomically only for its matching owned case", 
   await assertSucceeds(batch.commit());
 });
 
+test("a CNR-only transfer stub can be re-keyed atomically to a pending local record", async () => {
+  const db = testEnv.authenticatedContext("user-a").firestore();
+  await createRegisteredCase(db, "transfer-stub", freeStub("user-a", "transfer-stub"));
+  const batch = writeBatch(db);
+  batch.delete(doc(db, "cases/transfer-stub"));
+  batch.set(doc(db, "cases/local-case"), freeStub("user-a", "local-case"));
+  batch.update(doc(db, `users/user-a/case_cuid_registry/${CNR}`), {
+    uid: "user-a", cuid: CNR, caseId: "local-case", updatedAt: now(),
+  });
+  await assertSucceeds(batch.commit());
+  await assertFails(getDoc(doc(db, "cases/transfer-stub")));
+  await assertSucceeds(getDoc(doc(db, "cases/local-case")));
+});
+
+test("a full cloud record cannot be replaced by a different case ID", async () => {
+  const db = testEnv.authenticatedContext("user-subscriber").firestore();
+  await createRegisteredCase(db, "full-case", {
+    ownerUid: "user-subscriber", userId: "user-subscriber", cuid: CNR,
+    cnrNumber: CNR, caseNumber: CNR, cloudStorageMode: "full",
+    caseTitle: "Private subscriber case", clientName: "Client A",
+  });
+  const batch = writeBatch(db);
+  batch.delete(doc(db, "cases/full-case"));
+  batch.set(doc(db, "cases/other-case"), freeStub("user-subscriber", "other-case"));
+  batch.update(doc(db, `users/user-subscriber/case_cuid_registry/${CNR}`), {
+    uid: "user-subscriber", cuid: CNR, caseId: "other-case", updatedAt: now(),
+  });
+  await assertFails(batch.commit());
+});
+
 test("CNR registry cannot point to a missing or foreign case", async () => {
   const db = testEnv.authenticatedContext("user-a").firestore();
   await assertFails(setDoc(doc(db, `users/user-a/case_cuid_registry/${CNR}`), {
