@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 
 import 'ld_logo.dart';
 import 'widgets/app_palette.dart';
+import 'services/led_id_allocation_service.dart';
 
 /// The screen the application should open on launch.
 enum StartupDestination {
@@ -182,7 +183,20 @@ class _SplashScreenState extends State<SplashScreen>
               .get()
               .timeout(const Duration(seconds: 10));
 
-      profileCompleted = profileSnapshot.data()?['profileCompleted'] == true;
+      final profileData = profileSnapshot.data() ?? <String, dynamic>{};
+      profileCompleted = profileData['profileCompleted'] == true;
+
+      // If onboarding is complete but the server could not assign an ID
+      // earlier, retry in the background. The profile stream updates the
+      // visible ID automatically once the gateway commits it.
+      final existingLedId = profileData['ledId'];
+      final profileName = profileData['name'];
+      if (profileCompleted &&
+          (existingLedId is! String || existingLedId.trim().isEmpty) &&
+          profileName is String &&
+          profileName.trim().isNotEmpty) {
+        unawaited(LedIdAllocationService().allocateWithRetries(user));
+      }
     } catch (error) {
       debugPrint(
         'Startup: the profile could not be read; opening the app. $error',
