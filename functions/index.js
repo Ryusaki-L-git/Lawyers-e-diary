@@ -626,11 +626,31 @@ exports.transferCaseToAdvocate = onCall(
 					throw new HttpsError("not-found", "The source case was not found.");
 				}
 				const source = sourceSnap.data();
-				if (source.ownerUid !== sourceUid && source.userId !== sourceUid) {
+				const sourceOwnerUid =
+					typeof source.ownerUid === "string" ? source.ownerUid : source.userId;
+				if (sourceOwnerUid !== sourceUid) {
 					throw new HttpsError("permission-denied", "You cannot transfer this case.");
 				}
 				if (!targetUserSnap.exists) {
 					throw new HttpsError("not-found", "The recipient account was not found.");
+				}
+				const targetData = targetUserSnap.data();
+				const targetLedId =
+					typeof targetData.ledId === "string" ? targetData.ledId.trim() : "";
+				if (!/^\\d{4,}-\\d{4}$/.test(targetLedId)) {
+					throw new HttpsError(
+						"failed-precondition",
+						"The recipient must have a completed LED ID before receiving a case.",
+					);
+				}
+				const targetDirectoryRef = db.collection("led_id_directory").doc(targetLedId);
+				const targetDirectorySnap = await transaction.get(targetDirectoryRef);
+				if (
+					!targetDirectorySnap.exists ||
+					targetDirectorySnap.data()?.uid !== targetUid ||
+					targetDirectorySnap.data()?.profileCompleted !== true
+				) {
+					throw new HttpsError("permission-denied", "The recipient LED ID could not be verified.");
 				}
 				const cnr = storedCnr(source);
 				const targetCases = db.collection("cases")
@@ -642,7 +662,6 @@ exports.transferCaseToAdvocate = onCall(
 					return { caseId: existing.docs[0].id, created: false, cuid: cnr };
 				}
 
-				const targetData = targetUserSnap.data();
 				const targetName =
 					typeof targetData.name === "string" && targetData.name.trim()
 						? targetData.name.trim()
