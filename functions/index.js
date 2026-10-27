@@ -7,6 +7,7 @@ const { HttpsError, onCall } = require("firebase-functions/v2/https");
 const logger = require("firebase-functions/logger");
 const { isValidCounterValue } = require("./counter_validation");
 const { buildCnrOnlyCaseRecord } = require("./case_record_policy");
+const { isDirectCaseOwner } = require("./case_authorization_policy");
 
 if (getApps().length === 0) {
 	initializeApp();
@@ -154,8 +155,9 @@ async function readAuthorizationDocuments(
 }
 
 function isAuthorizedCaseUser(uid, caseData, teamSnapshot, memberSnapshots) {
-	// Direct case owner / legacy owner access.
-	if (caseData.ownerUid === uid || caseData.userId === uid) {
+	// ownerUid is canonical whenever present. A stale legacy userId
+	// must not grant access to another advocate's original private record.
+	if (isDirectCaseOwner(uid, caseData)) {
 		return true;
 	}
 
