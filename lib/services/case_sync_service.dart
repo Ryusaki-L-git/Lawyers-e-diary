@@ -393,7 +393,7 @@ class CaseSyncEngine {
     }
 
     final pending = await _repository.getPendingCaseChanges();
-    for (final change of pending) {
+    for (final change in pending) {
       try {
         final remote = await _dataSource.readOwnedCase(change.record.id);
         if (remote != null &&
