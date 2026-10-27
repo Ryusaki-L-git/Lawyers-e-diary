@@ -311,14 +311,24 @@ class FirestoreService {
         return;
       }
 
-      await _db.collection('users').doc(uid).set({
+      final userReference = _db.collection('users').doc(uid);
+      final existing = await userReference.get();
+      final profileUpdate = <String, dynamic>{
         'name': name,
         'email': email,
         'phone': phone,
         'courtAddress': courtAddress,
         'officeAddress': officeAddress,
-        'createdAt': FieldValue.serverTimestamp(),
-      });
+        'updatedAt': FieldValue.serverTimestamp(),
+      };
+      if (!existing.exists || existing.data()?['createdAt'] == null) {
+        profileUpdate['createdAt'] = FieldValue.serverTimestamp();
+      }
+
+      // Merge is essential: the gateway owns LED ID/profile completion and
+      // the server owns subscription entitlements. A profile save must never
+      // erase those protected fields.
+      await userReference.set(profileUpdate, SetOptions(merge: true));
     } catch (e) {
       debugPrint("Error saving user data: $e");
       rethrow;
