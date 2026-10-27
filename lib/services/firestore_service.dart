@@ -283,7 +283,876 @@ class FirestoreService {
     }
   }
 
-  /// Stream firm team members for the Cause List team switcher and transfer screen.
+  /// Look up one recipient by their known LED ID without enumerating the
+  /// global directory. The directory contains only minimal public identity data.
+  Future<TeamMemberModel?> lookupTeamMemberByLedId(String ledId) async {
+    final normalizedId = ledId.trim();
+    if (!RegExp(r'^\\d{4,}-\\d{4}
+    // User profiles are private. The transfer/team switcher only needs the
+    // minimal public identity fields maintained in the LED ID directory.
+    return _db.collection('led_id_directory').snapshots().map((snapshot) {
+      final members = <TeamMemberModel>[];
+      for (final doc in snapshot.docs) {
+        final data = doc.data();
+        final name = data['name'] as String? ?? 'Associate Lawyer';
+        members.add(
+          TeamMemberModel(
+            id: data['uid'] as String? ?? '',
+            name: name,
+            role: data['advocateType'] as String? ?? 'Associate Advocate',
+            email: null,
+          ),
+        );
+      }
+
+      return members.where((member) => member.id.isNotEmpty).toList();
+    });
+  }
+
+  /// ================================
+  /// SAVE USER DATA (after signup)
+  /// ================================
+  Future<void> saveUserData({
+    required String name,
+    required String email,
+    required String phone,
+    required String courtAddress,
+    required String officeAddress,
+  }) async {
+    try {
+      String? uid = _auth.currentUser?.uid;
+      if (uid == null) {
+        debugPrint("User not logged in");
+        return;
+      }
+
+      final userReference = _db.collection('users').doc(uid);
+      final existing = await userReference.get();
+      final profileUpdate = <String, dynamic>{
+        'name': name,
+        'email': email,
+        'phone': phone,
+        'courtAddress': courtAddress,
+        'officeAddress': officeAddress,
+        'updatedAt': FieldValue.serverTimestamp(),
+      };
+      if (!existing.exists || existing.data()?['createdAt'] == null) {
+        profileUpdate['createdAt'] = FieldValue.serverTimestamp();
+      }
+
+      // Merge is essential: the gateway owns LED ID/profile completion and
+      // the server owns subscription entitlements. A profile save must never
+      // erase those protected fields.
+      await userReference.set(profileUpdate, SetOptions(merge: true));
+    } catch (e) {
+      debugPrint("Error saving user data: $e");
+      rethrow;
+    }
+  }
+
+  /// ================================
+  /// ADD NEW CASE (returns caseId)
+  /// ================================
+  Future<String?> addCase({
+    required String caseTitle,
+    required String clientName,
+    required String courtName,
+    required String cnrNumber,
+    required String status,
+    String? opponentName,
+    String? caseType,
+    DateTime? nextHearingDate,
+    String? clientPhone,
+    String? initialNote,
+  }) async {
+    try {
+      String? uid = _auth.currentUser?.uid;
+      if (uid == null) {
+        debugPrint("User not logged in");
+        return null;
+      }
+
+      final normalizedCnr = cnrNumber.trim().toUpperCase();
+      if (!RegExp(r'^[A-Z0-9]{16}
+        'status': status.toLowerCase(),
+        'opponentName': opponentName ?? '',
+        'caseType': caseType ?? 'Civil Case',
+        'handledBy': _auth.currentUser?.displayName ?? 'Advocate',
+        'clientPhone': clientPhone,
+        'isStarred': false,
+        'documents': <dynamic>[],
+        'notes': (initialNote != null && initialNote.trim().isNotEmpty)
+            ? <String>[initialNote.trim()]
+            : <String>[],
+        'createdAt': FieldValue.serverTimestamp(),
+        'lastUpdated': FieldValue.serverTimestamp(),
+      };
+
+      if (nextHearingDate != null) {
+        caseData['nextHearingDate'] = Timestamp.fromDate(nextHearingDate);
+      }
+
+      DocumentReference doc = await _db.collection('cases').add(caseData);
+
+      return doc.id;
+    } catch (e) {
+      debugPrint("Error adding case: $e");
+      return null;
+    }
+  }
+
+  /// =======================================
+  /// ADD NOTE INSIDE A CASE
+  /// =======================================
+  Future<void> addNote({
+    required String caseId,
+    required String text,
+    required DateTime nextHearingDate,
+  }) async {
+    try {
+      await _db.collection('cases').doc(caseId).collection('notes').add({
+        'text': text,
+        'date': FieldValue.serverTimestamp(),
+        'nextHearingDate': Timestamp.fromDate(nextHearingDate),
+      });
+    } catch (e) {
+      debugPrint("Error adding note: $e");
+      rethrow;
+    }
+  }
+
+  // â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
+  // REMINDERS â€” Phase 1
+  // â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
+
+  /// Live stream of all reminders for the current user, ordered by dueDateTime.
+  /// Pass [showCompleted] = true to include completed reminders.
+  Stream<List<ReminderModel>> watchReminders({bool showCompleted = false}) {
+    final uid = currentUserId;
+    if (uid == null) return const Stream.empty();
+
+    Query<Map<String, dynamic>> query = _db
+        .collection('reminders')
+        .where('userId', isEqualTo: uid)
+        .orderBy('dueDateTime');
+
+    if (!showCompleted) {
+      query = query.where('isCompleted', isEqualTo: false);
+    }
+
+    return query.snapshots().map(
+      (snap) => snap.docs.map((d) => ReminderModel.fromFirestore(d)).toList(),
+    );
+  }
+
+  /// Adds a new reminder for the current user. Returns the new document ID.
+  Future<String?> addReminder({
+    required String title,
+    required DateTime dueDateTime,
+    String? description,
+    String? caseId,
+    String? caseTitle,
+    String? clientName,
+    ReminderRepeat repeatRule = ReminderRepeat.none,
+  }) async {
+    final uid = currentUserId;
+    if (uid == null) {
+      debugPrint('addReminder: No user signed in');
+      return null;
+    }
+    try {
+      final data = ReminderModel(
+        id: '',
+        userId: uid,
+        title: title,
+        dueDateTime: dueDateTime,
+        description: description,
+        caseId: caseId,
+        caseTitle: caseTitle,
+        clientName: clientName,
+        repeatRule: repeatRule,
+      ).toMap();
+
+      final ref = await _db.collection('reminders').add(data);
+      return ref.id;
+    } catch (e) {
+      debugPrint('Error adding reminder: $e');
+      return null;
+    }
+  }
+
+  /// Toggles the `isCompleted` field on a reminder.
+  ///
+  /// Throws when the write fails so the caller can tell the user that the
+  /// reminder was not updated.
+  Future<void> toggleReminderDone(String reminderId, bool currentValue) async {
+    try {
+      await _db.collection('reminders').doc(reminderId).update({
+        'isCompleted': !currentValue,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      debugPrint('Error toggling reminder: $e');
+      rethrow;
+    }
+  }
+
+  /// Permanently deletes a reminder document.
+  Future<void> deleteReminder(String reminderId) async {
+    try {
+      await _db.collection('reminders').doc(reminderId).delete();
+    } catch (e) {
+      debugPrint('Error deleting reminder: $e');
+      rethrow;
+    }
+  }
+
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // TO-DO ITEMS
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  /// Live stream of the current user's to-do items.
+  ///
+  /// Pass [showCompleted] = true to include tasks that have been completed.
+  /// The query mirrors the reminder query so both lists behave the same way.
+  Stream<List<TodoModel>> watchTodos({bool showCompleted = false}) {
+    final uid = currentUserId;
+    if (uid == null) return const Stream.empty();
+
+    Query<Map<String, dynamic>> query = _db
+        .collection('todos')
+        .where('userId', isEqualTo: uid)
+        .orderBy('createdAt', descending: true);
+
+    if (!showCompleted) {
+      query = query.where('isCompleted', isEqualTo: false);
+    }
+
+    return query.snapshots().map(
+      (snap) => snap.docs.map((d) => TodoModel.fromFirestore(d)).toList(),
+    );
+  }
+
+  /// Adds a to-do item for the current user. Returns the new document ID.
+  Future<String?> addTodo({
+    required String title,
+    String? description,
+    String? caseId,
+    String? caseTitle,
+    TodoPriority priority = TodoPriority.normal,
+    DateTime? dueDateTime,
+  }) async {
+    final uid = currentUserId;
+    if (uid == null) {
+      debugPrint('addTodo: No user signed in');
+      return null;
+    }
+    try {
+      final data = TodoModel(
+        id: '',
+        userId: uid,
+        title: title,
+        description: description,
+        caseId: caseId,
+        caseTitle: caseTitle,
+        priority: priority,
+        dueDateTime: dueDateTime,
+      ).toMap();
+
+      final ref = await _db.collection('todos').add(data);
+      return ref.id;
+    } catch (e) {
+      debugPrint('Error adding todo: $e');
+      return null;
+    }
+  }
+
+  /// Marks a to-do item as completed or reopens it.
+  ///
+  /// Throws when the update fails so the caller can keep the checkbox in a
+  /// truthful state rather than showing a change that was not persisted.
+  Future<void> setTodoCompleted(String todoId, bool isCompleted) async {
+    try {
+      await _db.collection('todos').doc(todoId).update({
+        'isCompleted': isCompleted,
+        'completedAt': isCompleted
+            ? FieldValue.serverTimestamp()
+            : FieldValue.delete(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      debugPrint('Error updating todo: $e');
+      rethrow;
+    }
+  }
+
+  /// Permanently deletes a to-do document.
+  Future<void> deleteTodo(String todoId) async {
+    try {
+      await _db.collection('todos').doc(todoId).delete();
+    } catch (e) {
+      debugPrint('Error deleting todo: $e');
+      rethrow;
+    }
+  }
+
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // FEE CALCULATOR — Phase 2
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  /// Live stream of all fee records for the current user, newest first.
+  Stream<List<FeeModel>> watchFees() {
+    final uid = currentUserId;
+    if (uid == null) return const Stream.empty();
+
+    return _db
+        .collection('fees')
+        .where('userId', isEqualTo: uid)
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map(
+          (snap) => snap.docs.map((d) => FeeModel.fromFirestore(d)).toList(),
+        );
+  }
+
+  /// Creates a new fee record. Returns the new document ID.
+  Future<String?> addFee({
+    required String clientName,
+    required String caseTitle,
+    required List<FeeLineItem> services,
+    String? caseId,
+    double? agreedTotal,
+    String? notes,
+  }) async {
+    final uid = currentUserId;
+    if (uid == null) {
+      debugPrint('addFee: No user signed in');
+      return null;
+    }
+    try {
+      final total =
+          agreedTotal ?? services.fold<double>(0.0, (s, i) => s + i.subtotal);
+      final ref = await _db
+          .collection('fees')
+          .add(
+            FeeModel(
+              id: '',
+              userId: uid,
+              clientName: clientName,
+              caseTitle: caseTitle,
+              caseId: caseId,
+              services: services,
+              agreedTotal: total,
+              notes: notes,
+            ).toMap(),
+          );
+      return ref.id;
+    } catch (e) {
+      debugPrint('Error adding fee: $e');
+      return null;
+    }
+  }
+
+  /// Records a payment against a fee, updating collected total and status.
+  ///
+  /// Throws when the write fails so the caller can report the failure
+  /// honestly instead of presenting a payment that was never stored.
+  Future<void> recordFeePayment({
+    required String feeId,
+    required double amount,
+    required double newCollectedTotal,
+    required double agreedTotal,
+    String paymentMode = 'Cash',
+    String? receiptNumber,
+  }) async {
+    try {
+      final batch = _db.batch();
+      final txRef = _db
+          .collection('fees')
+          .doc(feeId)
+          .collection('transactions')
+          .doc();
+      batch.set(txRef, {
+        'amount': amount,
+        'paymentDate': FieldValue.serverTimestamp(),
+        'paymentMode': paymentMode,
+        // ignore: use_null_aware_elements
+        if (receiptNumber != null) 'receiptNumber': receiptNumber,
+      });
+      final newPending = (agreedTotal - newCollectedTotal).clamp(
+        0.0,
+        double.infinity,
+      );
+      final newStatus = newPending <= 0
+          ? FeeStatus.settled.value
+          : FeeStatus.partiallyPaid.value;
+      batch.update(_db.collection('fees').doc(feeId), {
+        'collectedTotal': newCollectedTotal,
+        'pendingTotal': newPending,
+        'status': newStatus,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+      await batch.commit();
+    } catch (e) {
+      debugPrint('Error recording fee payment: $e');
+      rethrow;
+    }
+  }
+
+  /// Fetches all payment transactions for a specific fee.
+  ///
+  /// Throws when the read fails so the caller can distinguish an empty
+  /// ledger from a failed load.
+  Future<List<FeeTransaction>> fetchFeeTransactions(String feeId) async {
+    try {
+      final snap = await _db
+          .collection('fees')
+          .doc(feeId)
+          .collection('transactions')
+          .orderBy('paymentDate', descending: true)
+          .get();
+      return snap.docs
+          .map((d) => FeeTransaction.fromMap(d.id, d.data()))
+          .toList();
+    } catch (e) {
+      debugPrint('Error fetching fee transactions: $e');
+      rethrow;
+    }
+  }
+
+  /// Deletes a fee record and all its subcollection transactions.
+  Future<void> deleteFee(String feeId) async {
+    try {
+      final txSnap = await _db
+          .collection('fees')
+          .doc(feeId)
+          .collection('transactions')
+          .get();
+      final batch = _db.batch();
+      for (final doc in txSnap.docs) {
+        batch.delete(doc.reference);
+      }
+      batch.delete(_db.collection('fees').doc(feeId));
+      await batch.commit();
+    } catch (e) {
+      debugPrint('Error deleting fee: $e');
+    }
+  }
+}
+).hasMatch(normalizedCnr)) {
+        throw ArgumentError.value(
+          cnrNumber,
+          'cnrNumber',
+          'A valid 16-character CNR number is required.',
+        );
+      }
+
+      final Map<String, dynamic> caseData = {
+        // The Firestore document ID remains per-record and unique. The CUID
+        // is shared identity only; it must never be used to merge advocates'
+        // private case workspaces.
+        'ownerUid': uid,
+        'userId': uid,
+        'cuid': normalizedCnr,
+        'caseTitle': caseTitle,
+        'clientName': clientName,
+        'courtName': courtName,
+        'cnrNumber': normalizedCnr,
+        'status': status.toLowerCase(),
+        'opponentName': opponentName ?? '',
+        'caseType': caseType ?? 'Civil Case',
+        'handledBy': _auth.currentUser?.displayName ?? 'Advocate',
+        'clientPhone': clientPhone,
+        'isStarred': false,
+        'documents': <dynamic>[],
+        'notes': (initialNote != null && initialNote.trim().isNotEmpty)
+            ? <String>[initialNote.trim()]
+            : <String>[],
+        'createdAt': FieldValue.serverTimestamp(),
+        'lastUpdated': FieldValue.serverTimestamp(),
+      };
+
+      if (nextHearingDate != null) {
+        caseData['nextHearingDate'] = Timestamp.fromDate(nextHearingDate);
+      }
+
+      DocumentReference doc = await _db.collection('cases').add(caseData);
+
+      return doc.id;
+    } catch (e) {
+      debugPrint("Error adding case: $e");
+      return null;
+    }
+  }
+
+  /// =======================================
+  /// ADD NOTE INSIDE A CASE
+  /// =======================================
+  Future<void> addNote({
+    required String caseId,
+    required String text,
+    required DateTime nextHearingDate,
+  }) async {
+    try {
+      await _db.collection('cases').doc(caseId).collection('notes').add({
+        'text': text,
+        'date': FieldValue.serverTimestamp(),
+        'nextHearingDate': Timestamp.fromDate(nextHearingDate),
+      });
+    } catch (e) {
+      debugPrint("Error adding note: $e");
+      rethrow;
+    }
+  }
+
+  // â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
+  // REMINDERS â€” Phase 1
+  // â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
+
+  /// Live stream of all reminders for the current user, ordered by dueDateTime.
+  /// Pass [showCompleted] = true to include completed reminders.
+  Stream<List<ReminderModel>> watchReminders({bool showCompleted = false}) {
+    final uid = currentUserId;
+    if (uid == null) return const Stream.empty();
+
+    Query<Map<String, dynamic>> query = _db
+        .collection('reminders')
+        .where('userId', isEqualTo: uid)
+        .orderBy('dueDateTime');
+
+    if (!showCompleted) {
+      query = query.where('isCompleted', isEqualTo: false);
+    }
+
+    return query.snapshots().map(
+      (snap) => snap.docs.map((d) => ReminderModel.fromFirestore(d)).toList(),
+    );
+  }
+
+  /// Adds a new reminder for the current user. Returns the new document ID.
+  Future<String?> addReminder({
+    required String title,
+    required DateTime dueDateTime,
+    String? description,
+    String? caseId,
+    String? caseTitle,
+    String? clientName,
+    ReminderRepeat repeatRule = ReminderRepeat.none,
+  }) async {
+    final uid = currentUserId;
+    if (uid == null) {
+      debugPrint('addReminder: No user signed in');
+      return null;
+    }
+    try {
+      final data = ReminderModel(
+        id: '',
+        userId: uid,
+        title: title,
+        dueDateTime: dueDateTime,
+        description: description,
+        caseId: caseId,
+        caseTitle: caseTitle,
+        clientName: clientName,
+        repeatRule: repeatRule,
+      ).toMap();
+
+      final ref = await _db.collection('reminders').add(data);
+      return ref.id;
+    } catch (e) {
+      debugPrint('Error adding reminder: $e');
+      return null;
+    }
+  }
+
+  /// Toggles the `isCompleted` field on a reminder.
+  ///
+  /// Throws when the write fails so the caller can tell the user that the
+  /// reminder was not updated.
+  Future<void> toggleReminderDone(String reminderId, bool currentValue) async {
+    try {
+      await _db.collection('reminders').doc(reminderId).update({
+        'isCompleted': !currentValue,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      debugPrint('Error toggling reminder: $e');
+      rethrow;
+    }
+  }
+
+  /// Permanently deletes a reminder document.
+  Future<void> deleteReminder(String reminderId) async {
+    try {
+      await _db.collection('reminders').doc(reminderId).delete();
+    } catch (e) {
+      debugPrint('Error deleting reminder: $e');
+      rethrow;
+    }
+  }
+
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // TO-DO ITEMS
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  /// Live stream of the current user's to-do items.
+  ///
+  /// Pass [showCompleted] = true to include tasks that have been completed.
+  /// The query mirrors the reminder query so both lists behave the same way.
+  Stream<List<TodoModel>> watchTodos({bool showCompleted = false}) {
+    final uid = currentUserId;
+    if (uid == null) return const Stream.empty();
+
+    Query<Map<String, dynamic>> query = _db
+        .collection('todos')
+        .where('userId', isEqualTo: uid)
+        .orderBy('createdAt', descending: true);
+
+    if (!showCompleted) {
+      query = query.where('isCompleted', isEqualTo: false);
+    }
+
+    return query.snapshots().map(
+      (snap) => snap.docs.map((d) => TodoModel.fromFirestore(d)).toList(),
+    );
+  }
+
+  /// Adds a to-do item for the current user. Returns the new document ID.
+  Future<String?> addTodo({
+    required String title,
+    String? description,
+    String? caseId,
+    String? caseTitle,
+    TodoPriority priority = TodoPriority.normal,
+    DateTime? dueDateTime,
+  }) async {
+    final uid = currentUserId;
+    if (uid == null) {
+      debugPrint('addTodo: No user signed in');
+      return null;
+    }
+    try {
+      final data = TodoModel(
+        id: '',
+        userId: uid,
+        title: title,
+        description: description,
+        caseId: caseId,
+        caseTitle: caseTitle,
+        priority: priority,
+        dueDateTime: dueDateTime,
+      ).toMap();
+
+      final ref = await _db.collection('todos').add(data);
+      return ref.id;
+    } catch (e) {
+      debugPrint('Error adding todo: $e');
+      return null;
+    }
+  }
+
+  /// Marks a to-do item as completed or reopens it.
+  ///
+  /// Throws when the update fails so the caller can keep the checkbox in a
+  /// truthful state rather than showing a change that was not persisted.
+  Future<void> setTodoCompleted(String todoId, bool isCompleted) async {
+    try {
+      await _db.collection('todos').doc(todoId).update({
+        'isCompleted': isCompleted,
+        'completedAt': isCompleted
+            ? FieldValue.serverTimestamp()
+            : FieldValue.delete(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      debugPrint('Error updating todo: $e');
+      rethrow;
+    }
+  }
+
+  /// Permanently deletes a to-do document.
+  Future<void> deleteTodo(String todoId) async {
+    try {
+      await _db.collection('todos').doc(todoId).delete();
+    } catch (e) {
+      debugPrint('Error deleting todo: $e');
+      rethrow;
+    }
+  }
+
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // FEE CALCULATOR — Phase 2
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  /// Live stream of all fee records for the current user, newest first.
+  Stream<List<FeeModel>> watchFees() {
+    final uid = currentUserId;
+    if (uid == null) return const Stream.empty();
+
+    return _db
+        .collection('fees')
+        .where('userId', isEqualTo: uid)
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map(
+          (snap) => snap.docs.map((d) => FeeModel.fromFirestore(d)).toList(),
+        );
+  }
+
+  /// Creates a new fee record. Returns the new document ID.
+  Future<String?> addFee({
+    required String clientName,
+    required String caseTitle,
+    required List<FeeLineItem> services,
+    String? caseId,
+    double? agreedTotal,
+    String? notes,
+  }) async {
+    final uid = currentUserId;
+    if (uid == null) {
+      debugPrint('addFee: No user signed in');
+      return null;
+    }
+    try {
+      final total =
+          agreedTotal ?? services.fold<double>(0.0, (s, i) => s + i.subtotal);
+      final ref = await _db
+          .collection('fees')
+          .add(
+            FeeModel(
+              id: '',
+              userId: uid,
+              clientName: clientName,
+              caseTitle: caseTitle,
+              caseId: caseId,
+              services: services,
+              agreedTotal: total,
+              notes: notes,
+            ).toMap(),
+          );
+      return ref.id;
+    } catch (e) {
+      debugPrint('Error adding fee: $e');
+      return null;
+    }
+  }
+
+  /// Records a payment against a fee, updating collected total and status.
+  ///
+  /// Throws when the write fails so the caller can report the failure
+  /// honestly instead of presenting a payment that was never stored.
+  Future<void> recordFeePayment({
+    required String feeId,
+    required double amount,
+    required double newCollectedTotal,
+    required double agreedTotal,
+    String paymentMode = 'Cash',
+    String? receiptNumber,
+  }) async {
+    try {
+      final batch = _db.batch();
+      final txRef = _db
+          .collection('fees')
+          .doc(feeId)
+          .collection('transactions')
+          .doc();
+      batch.set(txRef, {
+        'amount': amount,
+        'paymentDate': FieldValue.serverTimestamp(),
+        'paymentMode': paymentMode,
+        // ignore: use_null_aware_elements
+        if (receiptNumber != null) 'receiptNumber': receiptNumber,
+      });
+      final newPending = (agreedTotal - newCollectedTotal).clamp(
+        0.0,
+        double.infinity,
+      );
+      final newStatus = newPending <= 0
+          ? FeeStatus.settled.value
+          : FeeStatus.partiallyPaid.value;
+      batch.update(_db.collection('fees').doc(feeId), {
+        'collectedTotal': newCollectedTotal,
+        'pendingTotal': newPending,
+        'status': newStatus,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+      await batch.commit();
+    } catch (e) {
+      debugPrint('Error recording fee payment: $e');
+      rethrow;
+    }
+  }
+
+  /// Fetches all payment transactions for a specific fee.
+  ///
+  /// Throws when the read fails so the caller can distinguish an empty
+  /// ledger from a failed load.
+  Future<List<FeeTransaction>> fetchFeeTransactions(String feeId) async {
+    try {
+      final snap = await _db
+          .collection('fees')
+          .doc(feeId)
+          .collection('transactions')
+          .orderBy('paymentDate', descending: true)
+          .get();
+      return snap.docs
+          .map((d) => FeeTransaction.fromMap(d.id, d.data()))
+          .toList();
+    } catch (e) {
+      debugPrint('Error fetching fee transactions: $e');
+      rethrow;
+    }
+  }
+
+  /// Deletes a fee record and all its subcollection transactions.
+  Future<void> deleteFee(String feeId) async {
+    try {
+      final txSnap = await _db
+          .collection('fees')
+          .doc(feeId)
+          .collection('transactions')
+          .get();
+      final batch = _db.batch();
+      for (final doc in txSnap.docs) {
+        batch.delete(doc.reference);
+      }
+      batch.delete(_db.collection('fees').doc(feeId));
+      await batch.commit();
+    } catch (e) {
+      debugPrint('Error deleting fee: $e');
+    }
+  }
+}
+).hasMatch(normalizedId)) {
+      throw ArgumentError.value(ledId, 'ledId', 'Enter a valid LED ID.');
+    }
+    final snapshot = await _db
+        .collection('led_id_directory')
+        .doc(normalizedId)
+        .get();
+    if (!snapshot.exists) return null;
+    final data = snapshot.data() ?? const <String, dynamic>{};
+    final uid = data['uid'];
+    final name = data['name'];
+    if (uid is! String ||
+        uid.isEmpty ||
+        name is! String ||
+        name.trim().isEmpty ||
+        data['profileCompleted'] != true) {
+      return null;
+    }
+    if (uid == currentUserId) {
+      throw ArgumentError.value(ledId, 'ledId', 'You cannot transfer a case to yourself.');
+    }
+    return TeamMemberModel(
+      id: uid,
+      name: name.trim(),
+      role: data['advocateType'] as String? ?? 'Advocate',
+    );
+  }
+
+  /// Stream firm team members for legacy callers. Global enumeration is
+  /// denied by Firestore rules; new transfer flows must use direct LED-ID lookup.
   Stream<List<TeamMemberModel>> getTeamMembers() {
     // User profiles are private. The transfer/team switcher only needs the
     // minimal public identity fields maintained in the LED ID directory.
