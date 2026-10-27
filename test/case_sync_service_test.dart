@@ -145,6 +145,43 @@ void main() {
     },
   );
 
+  test('same CNR creates independent records for different advocates', () async {
+    final firstId = await repository.createCase(
+      caseTitle: 'Advocate A case',
+      caseNumber: 'ABCD1234EFGH5678',
+      clientName: 'Private client A',
+      opponentName: 'Private opponent A',
+      courtName: 'District Court',
+      caseType: 'Civil',
+      status: 'active',
+      handledBy: 'Advocate A',
+    );
+    final secondRepository = CaseRepository(
+      database: database,
+      identity: const TestAuthIdentity('user-b'),
+    );
+    final secondId = await secondRepository.createCase(
+      caseTitle: 'Advocate B case',
+      caseNumber: 'abcd1234efgh5678',
+      clientName: 'Private client B',
+      opponentName: 'Private opponent B',
+      courtName: 'District Court',
+      caseType: 'Civil',
+      status: 'active',
+      handledBy: 'Advocate B',
+    );
+
+    expect(firstId, isNot(secondId));
+    final firstCases = await repository.getCasesForCurrentUser();
+    final secondCases = await secondRepository.getCasesForCurrentUser();
+    expect(firstCases, hasLength(1));
+    expect(secondCases, hasLength(1));
+    expect(firstCases.single.cuid, 'ABCD1234EFGH5678');
+    expect(secondCases.single.cuid, 'ABCD1234EFGH5678');
+    expect(firstCases.single.clientName, 'Private client A');
+    expect(secondCases.single.clientName, 'Private client B');
+  });
+
   test('new local cases reject missing or malformed CNR values', () async {
     await expectLater(
       repository.createCase(
