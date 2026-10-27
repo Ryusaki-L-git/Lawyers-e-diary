@@ -31,8 +31,6 @@ void main() {
   testWidgets('Windows login lays out without infinite-height constraints', (
     tester,
   ) async {
-    debugDefaultTargetPlatformOverride = TargetPlatform.windows;
-    addTearDown(() => debugDefaultTargetPlatformOverride = null);
     tester.view.physicalSize = const Size(1280, 800);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
@@ -41,7 +39,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(tester.takeException(), isNull);
-  });
+  }, variant: TargetPlatformVariant(TargetPlatform.windows));
 
   group('WindowsDesktopShell responsive rail', () {
     testWidgets('shows full labels on a wide window', (tester) async {
