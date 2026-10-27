@@ -4,6 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../data/local/app_database.dart';
 import '../models/case_model.dart';
 import '../repositories/case_repository.dart';
+import '../services/ecourts_service.dart';
 import '../widgets/app_palette.dart';
 import '../widgets/windows_desktop_ui.dart';
 
@@ -24,7 +25,83 @@ class WindowsCaseDetailScreen extends StatefulWidget {
 class _WindowsCaseDetailScreenState extends State<WindowsCaseDetailScreen> {
   late bool _starred = widget.caseItem.isStarred;
   bool _busy = false;
+  bool _smartRefreshing = false;
   final _repository = CaseRepository(database: AppDatabase.instance);
+  final _ecourtsService = EcourtsService();
+
+  @override
+  void dispose() {
+    _ecourtsService.dispose();
+    super.dispose();
+  }
+
+  Future<void> _smartRefresh() async {
+    if (_smartRefreshing) return;
+    setState(() => _smartRefreshing = true);
+    try {
+      // Windows stores cases locally first. Never send a local-only docket ID
+      // to the backend: Smart Refresh is allowed only after that case has
+      // synchronized to the authenticated user's Firestore case record.
+      final local = await _repository.getCaseById(widget.caseItem.id);
+      if (local == null ||
+          local.syncState != 'synced' ||
+          local.cloudId == null ||
+          local.cloudId!.trim().isEmpty) {
+        throw const EcourtsServiceException(
+          'This case is still local-only. Synchronize cases from the Workspace, '
+          'then reopen this case before using Smart Refresh.',
+        );
+      }
+
+      final result = await _ecourtsService.smartRefresh(
+        caseId: local.cloudId!,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(result.message)),
+      );
+    } on InsufficientCaseTokensException catch (error) {
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('Not enough Case Tokens'),
+          content: Text(
+            'Smart Refresh costs ${error.required.toStringAsFixed(2)} Case Tokens. '
+            'Your current balance is ${error.available.toStringAsFixed(2)}. '
+            'No refresh was performed.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Not now'),
+            ),
+            OutlinedButton(
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+                Navigator.of(context).pushNamed('/token_balance');
+              },
+              child: const Text('View Balance'),
+            ),
+            FilledButton(
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+                Navigator.of(context).pushNamed('/upgrade'),
+              },
+              child: const Text('Buy Plans / Tokens'),
+            ),
+          ],
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Smart Refresh: $error')),
+      );
+    } finally {
+      if (mounted) setState(() => _smartRefreshing = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -58,6 +135,21 @@ class _WindowsCaseDetailScreenState extends State<WindowsCaseDetailScreen> {
                         color: AppPalette.accentGold,
                       ),
                       label: Text(_starred ? 'Starred' : 'Star case'),
+                      style: WindowsButtonStyles.secondary(),
+                    ),
+                    const SizedBox(width: 10),
+                    OutlinedButton.icon(
+                      onPressed: _smartRefreshing ? null : _smartRefresh,
+                      icon: _smartRefreshing
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.sync_rounded, size: 18),
+                      label: Text(
+                        _smartRefreshing ? 'Refreshing…' : 'Smart Refresh',
+                      ),
                       style: WindowsButtonStyles.secondary(),
                     ),
                     const SizedBox(width: 10),
