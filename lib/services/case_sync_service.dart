@@ -32,6 +32,7 @@ class RemoteCaseDocument {
 }
 
 abstract interface class CaseSyncDataSource {
+  Future<bool> isCloudSubscriber();
   Future<RemoteCaseDocument?> readOwnedCase(String caseId);
   Future<List<RemoteCaseDocument>> fetchOwnedCases();
   Future<void> writeOwnedCase(
@@ -62,6 +63,14 @@ class FirestoreCaseSyncDataSource implements CaseSyncDataSource {
 
   CollectionReference<Map<String, dynamic>> get _cases =>
       _firestore.collection('cases');
+
+  @override
+  Future<bool> isCloudSubscriber() async {
+    final snapshot = await _firestore.collection('users').doc(_uid).get();
+    final data = snapshot.data() ?? const <String, dynamic>{};
+    final subscription = data['subscription'];
+    return subscription is Map && subscription['tier'] == 'cloud_subscriber';
+  }
 
   @override
   Future<RemoteCaseDocument?> readOwnedCase(String caseId) async {
@@ -253,6 +262,19 @@ class CaseSyncEngine {
     var rejected = 0;
     final conflictsHandled = <String>{};
     String? pullError;
+
+    // Promote existing CNR-only cloud registrations only after the server
+    // confirms a Cloud Subscriber entitlement. Private data remains local for
+    // Free accounts.
+    if (await _dataSource.isCloudSubscriber()) {
+      final localRecords = await _repository.getCasesForCurrentUser();
+      for (final record in localRecords) {
+        final remote = await _dataSource.readOwnedCase(record.id);
+        if (remote?.data['cloudStorageMode'] == 'cnr_only') {
+          await _repository.saveCase(record);
+        }
+      }
+    }
 
     final pending = await _repository.getPendingCaseChanges();
     for (final change in pending) {
