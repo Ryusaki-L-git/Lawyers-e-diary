@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
@@ -227,20 +228,31 @@ class FirestoreService {
     }
   }
 
-  /// Transfers case ownership/handler to another lawyer.
+  /// Creates an independent case registration for another advocate.
+  ///
+  /// The source record is intentionally preserved. The trusted callable
+  /// creates a recipient-owned record with the same CUID/CNR and does not
+  /// copy private notes, client details, fees, reminders, or documents.
   Future<void> transferCase({
     required String caseId,
     required String targetLawyerName,
     required String targetLawyerId,
   }) async {
     try {
-      await _db.collection('cases').doc(caseId).update({
-        'handledBy': targetLawyerName,
-        'userId': targetLawyerId,
-        'lastUpdated': FieldValue.serverTimestamp(),
-      });
+      if (_auth.currentUser == null) {
+        throw StateError('Sign in before transferring a case.');
+      }
+      await FirebaseFunctions.instanceFor(region: 'us-central1')
+          .httpsCallable('transferCaseToAdvocate')
+          .call(<String, dynamic>{
+            'caseId': caseId,
+            'targetLawyerId': targetLawyerId,
+            // Kept in the method signature for existing callers; the trusted
+            // function resolves the recipient name from their own profile.
+            'targetLawyerName': targetLawyerName,
+          });
     } catch (e) {
-      debugPrint('Error transferring case: $e');
+      debugPrint('Error creating recipient case registration: $e');
       rethrow;
     }
   }
