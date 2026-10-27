@@ -112,6 +112,19 @@ def test_refresh_missing_token_is_401(ctx):
     response = ctx.client.post(f"/v1/ecourts/cases/{CASE_ID}/refresh")
     assert response.status_code == 401
 
+def test_refresh_requires_half_token_balance(ctx, make_db):
+    db = make_db({
+        ("cases", CASE_ID): {"ownerUid": OWNER_UID, "cnrNumber": CNR},
+        ("users", OWNER_UID): {"subscription": {"tier": "cloud_subscriber"}},
+        (f"_server_token_accounts/{OWNER_UID}/balances", "case"): {"balance": 0},
+    })
+    main_mod.app.dependency_overrides[main_mod.get_db] = lambda: db
+    response = ctx.client.post(f"/v1/ecourts/cases/{CASE_ID}/refresh", headers=_headers())
+    assert response.status_code == 402
+    assert response.json()["detail"]["required"] == 0.5
+    assert ctx.provider.called_with is None
+
+
 
 def test_refresh_invalid_token_is_401(ctx, monkeypatch):
     import firebase_admin.auth
