@@ -685,7 +685,8 @@ exports.transferCaseToAdvocate = onCall(
 					.limit(1);
 				const legacyTargetCases = db.collection("cases")
 					.where("userId", "==", targetUid)
-					.where("cnrNumber", "==", cnr);
+					.where("cnrNumber", "==", cnr)
+					.limit(50);
 				const [existing, legacyExisting] = await Promise.all([
 					transaction.get(targetCases),
 					transaction.get(legacyTargetCases),
@@ -717,7 +718,7 @@ exports.transferCaseToAdvocate = onCall(
 				});
 				transaction.create(recipientCaseRef, recipientRecord);
 				transaction.create(registryRef, { uid: targetUid, cuid: cnr, caseId: recipientCaseRef.id, updatedAt: new Date() });
-								return { caseId: recipientCaseRef.id, created: true, cuid: cnr };
+				return { caseId: recipientCaseRef.id, created: true, cuid: cnr };
 			});
 		} catch (error) {
 			if (error instanceof HttpsError) throw error;
