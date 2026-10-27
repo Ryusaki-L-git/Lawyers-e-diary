@@ -18,6 +18,7 @@ come from secrets only.
 from __future__ import annotations
 
 import logging
+import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
@@ -107,7 +108,6 @@ class EcourtsProvider:
                     for _ in range(20):
                         if completed:
                             break
-                        import time
                         time.sleep(2)
                         status_response = client.post(
                             f"{base}/api/partner/case/bulk-refresh-status",
