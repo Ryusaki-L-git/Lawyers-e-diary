@@ -49,10 +49,13 @@ service cloud.firestore {
     function clientEditableProfileFields() {
       return [
         'name',
+        'email',
+        'phone',
         'dob',
         'advocateType',
         'address',
         'courtAddress',
+        'officeAddress',
         'degrees',
         'createdAt',
         'updatedAt',
