@@ -65,6 +65,7 @@ if __package__:
     from .led_id import allocate_led_id
     from .token_billing import InsufficientCaseTokens, TokenBillingConflict, consume_case_tokens, refund_case_tokens
     from .provider import EcourtsProvider, EcourtsProviderError
+    from .payments import router as payments_router
     from .rate_limiter import (
         admit_case_request,
         admit_global_request,
@@ -86,6 +87,7 @@ else:
     from led_id import allocate_led_id
     from token_billing import InsufficientCaseTokens, TokenBillingConflict, consume_case_tokens, refund_case_tokens
     from provider import EcourtsProvider, EcourtsProviderError
+    from payments import router as payments_router
     from rate_limiter import (
         admit_case_request,
         admit_global_request,
@@ -96,7 +98,8 @@ else:
 logger = logging.getLogger("ecourts_gateway")
 logging.basicConfig(level=logging.INFO)
 
-app = FastAPI(title="LED eCourts Gateway", version="1.1.0")
+app = FastAPI(title="LED Gateway", version="1.2.0")
+app.include_router(payments_router)
 
 
 def get_settings():
