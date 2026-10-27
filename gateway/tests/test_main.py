@@ -69,6 +69,7 @@ def ctx(env, make_db, monkeypatch):
     store = {
         ("cases", CASE_ID): {"ownerUid": OWNER_UID, "cnrNumber": CNR},
         ("users", OWNER_UID): {"subscription": {"tier": "cloud_subscriber"}},
+        (f"_server_token_accounts/{OWNER_UID}/balances", "case"): {"balance": 10},
     }
     db = make_db(store)
     provider = MockProvider()
@@ -98,6 +99,9 @@ def test_refresh_success(ctx):
     assert case_data is not None
     assert "ecourts_data" in case_data
     assert case_data["ecourts_data"]["case_number"] == "C-1"
+    token_account = ctx.db._store[(f"_server_token_accounts/{OWNER_UID}/balances", "case")]
+    assert token_account["balanceMinorUnits"] == 950
+    assert token_account["balance"] == 9.5
     rate_docs = [k for k in ctx.db._store if k[0] == "rate_limits"]
     assert len(rate_docs) >= 1
     lock_docs = [k for k in ctx.db._store if k[0] == "case_locks"]
@@ -232,6 +236,7 @@ def test_global_cap_fail_closed_when_no_estimate(ctx, make_db, monkeypatch):
     db = make_db({
         ("cases", CASE_ID): {"ownerUid": OWNER_UID, "cnrNumber": CNR},
         ("users", OWNER_UID): {"subscription": {"tier": "cloud_subscriber"}},
+        (f"_server_token_accounts/{OWNER_UID}/balances", "case"): {"balance": 10},
     })
     main_mod.app.dependency_overrides[main_mod.get_db] = lambda: db
     monkeypatch.setenv("RATE_LIMIT_ESTIMATED_ACTIVE_USERS", "0")
@@ -245,6 +250,7 @@ def test_zero_user_fallback_provides_capacity(ctx, make_db, monkeypatch):
     db = make_db({
         ("cases", CASE_ID): {"ownerUid": OWNER_UID, "cnrNumber": CNR},
         ("users", OWNER_UID): {"subscription": {"tier": "cloud_subscriber"}},
+        (f"_server_token_accounts/{OWNER_UID}/balances", "case"): {"balance": 10},
     })
     main_mod.app.dependency_overrides[main_mod.get_db] = lambda: db
     monkeypatch.setenv("RATE_LIMIT_ESTIMATED_ACTIVE_USERS", "0")
@@ -272,6 +278,7 @@ def test_per_case_independent_by_case(ctx, make_db, monkeypatch):
         ("cases", CASE_ID): {"ownerUid": OWNER_UID, "cnrNumber": CNR},
         ("cases", OTHER_CASE_ID): {"ownerUid": OWNER_UID, "cnrNumber": CNR},
         ("users", OWNER_UID): {"subscription": {"tier": "cloud_subscriber"}},
+        (f"_server_token_accounts/{OWNER_UID}/balances", "case"): {"balance": 10},
     })
     main_mod.app.dependency_overrides[main_mod.get_db] = lambda: db
 
@@ -406,6 +413,7 @@ def test_global_capacity_exceeded_is_429_not_503(ctx, make_db, monkeypatch):
     db = make_db({
         ("cases", CASE_ID): {"ownerUid": OWNER_UID, "cnrNumber": CNR},
         ("users", OWNER_UID): {"subscription": {"tier": "cloud_subscriber"}},
+        (f"_server_token_accounts/{OWNER_UID}/balances", "case"): {"balance": 10},
     })
     main_mod.app.dependency_overrides[main_mod.get_db] = lambda: db
 
