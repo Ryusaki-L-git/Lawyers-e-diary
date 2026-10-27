@@ -155,7 +155,7 @@ def test_personal_first_falls_back_to_team_when_personal_wallet_is_empty(make_db
             "preferredTeamId": TEAM,
         }
     }
-    data[("_server_token_accounts", UID, "balances", "case")] = {"balance": 0}
+    data[(f"_server_token_accounts/{UID}/balances", "case")] = {"balance": 0}
     db = make_db(data)
     result = consume_case_tokens_with_preference(
         db, UID, amount_minor_units=50, reason="Smart Refresh",
@@ -164,4 +164,4 @@ def test_personal_first_falls_back_to_team_when_personal_wallet_is_empty(make_db
     assert result.source == "team"
     assert result.team_id == TEAM
     assert db._store[(TEAM_BALANCE_PATH, "case")]["balanceMinorUnits"] == 950
-    assert db._store[("_server_token_accounts", UID, "balances", "case")]["balance"] == 0
+    assert db._store[(f"_server_token_accounts/{UID}/balances", "case")]["balance"] == 0
