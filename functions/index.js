@@ -6,6 +6,7 @@ const { defineSecret } = require("firebase-functions/params");
 const { HttpsError, onCall } = require("firebase-functions/v2/https");
 const logger = require("firebase-functions/logger");
 const { isValidCounterValue } = require("./counter_validation");
+const { buildCnrOnlyCaseRecord } = require("./case_record_policy");
 
 if (getApps().length === 0) {
 	initializeApp();
@@ -684,37 +685,18 @@ exports.transferCaseToAdvocate = onCall(
 					return { caseId: duplicate.id, created: false, cuid: cnr };
 				}
 
-				const targetName =
-					typeof targetData.name === "string" && targetData.name.trim()
-						? targetData.name.trim()
-						: "Advocate";
+				// The recipient receives only a CNR-only cloud registration.
+				// Their private workspace is created locally and never copied from
+				// the source advocate's record.
 				const recipientCaseRef = db.collection("cases").doc();
-				// Do not copy notes, client identifiers, phone numbers, fees,
-				// reminders, drafts, or documents into another advocate's account.
-				transaction.create(recipientCaseRef, {
+				const recipientRecord = buildCnrOnlyCaseRecord({
 					ownerUid: targetUid,
 					ownerLedId: targetLedId,
-					userId: targetUid,
-					cuid: cnr,
-					cnrNumber: cnr,
-					caseNumber: cnr,
-					caseTitle: `Court case ${cnr}`,
-					clientName: "",
-					opponentName: "",
-					courtName: "",
-					caseType: "Civil Case",
-					status: "active",
-				handledBy: targetName,
-					clientPhone: null,
-					isStarred: false,
-					documents: [],
-					notes: [],
-					caseSource: "authorized_transfer",
-					createdAt: new Date(),
-					lastUpdated: new Date(),
-					cloudStorageMode: "cnr_only",
+					cnr,
+					now: new Date(),
 				});
-				return { caseId: recipientCaseRef.id, created: true, cuid: cnr };
+				transaction.create(recipientCaseRef, recipientRecord);
+								return { caseId: recipientCaseRef.id, created: true, cuid: cnr };
 			});
 		} catch (error) {
 			if (error instanceof HttpsError) throw error;
