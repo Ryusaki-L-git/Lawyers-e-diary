@@ -161,7 +161,12 @@ class FirestoreService {
   Query<Map<String, dynamic>> _accessibleCasesQuery(String uid) {
     final accessFilter = Filter.or(
       Filter('ownerUid', isEqualTo: uid),
-      Filter('userId', isEqualTo: uid),
+      // Legacy records without ownerUid remain readable by their userId,
+      // but a stale userId can never expose a record owned by someone else.
+      Filter.and(
+        Filter('userId', isEqualTo: uid),
+        Filter('ownerUid', isNull: true),
+      ),
       Filter('assignedTo', isEqualTo: uid),
       Filter('teamOwnerUid', isEqualTo: uid),
     );
