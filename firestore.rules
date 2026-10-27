@@ -84,7 +84,9 @@ service cloud.firestore {
       // The directory is written only by the trusted gateway/Admin SDK.
       // Authenticated clients may look up IDs but cannot create, claim,
       // overwrite, or reassign directory entries.
-      allow read: if signedIn();
+      // Direct lookup by a known LED ID is allowed; collection enumeration is not.
+      allow get: if signedIn();
+      allow list: if false;
       allow create, update, delete: if false;
     }
 
