@@ -42,9 +42,16 @@ class _RemindersListScreenState extends State<RemindersListScreen>
     super.dispose();
   }
 
-  Stream<List<ReminderModel>> get _stream {
-    // showCompleted true => stream all; we filter on client side
-    return _service.watchReminders(showCompleted: true);
+  // Keep one subscription while tabs or other local state changes; rebuilding
+  // the page must not repeatedly replace the Firestore stream.
+  late Stream<List<ReminderModel>> _reminderStream = _service.watchReminders(
+    showCompleted: true,
+  );
+
+  void _retryLoad() {
+    setState(() {
+      _reminderStream = _service.watchReminders(showCompleted: true);
+    });
   }
 
   List<ReminderModel> _filter(List<ReminderModel> all) {
@@ -67,7 +74,7 @@ class _RemindersListScreenState extends State<RemindersListScreen>
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Reminder saved.'),
-          backgroundColor: AppPalette.teal,
+          backgroundColor: AppPalette.primaryGreen,
           behavior: SnackBarBehavior.floating,
           duration: Duration(seconds: 2),
         ),
@@ -85,7 +92,7 @@ class _RemindersListScreenState extends State<RemindersListScreen>
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('The reminder could not be updated. Please try again.'),
-          backgroundColor: AppPalette.unread,
+          backgroundColor: AppPalette.statusDanger,
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -96,29 +103,29 @@ class _RemindersListScreenState extends State<RemindersListScreen>
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: AppPalette.surface,
+        backgroundColor: AppPalette.cardBackground,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text(
           'Delete Reminder?',
-          style: TextStyle(color: AppPalette.ink, fontWeight: FontWeight.w700),
+          style: TextStyle(color: AppPalette.textPrimary, fontWeight: FontWeight.w700),
         ),
         content: Text(
           '"${r.title}" will be permanently deleted.',
-          style: const TextStyle(color: AppPalette.mutedInk, fontSize: 14),
+          style: const TextStyle(color: AppPalette.textMuted, fontSize: 14),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
             child: const Text(
               'Cancel',
-              style: TextStyle(color: AppPalette.mutedInk),
+              style: TextStyle(color: AppPalette.textMuted),
             ),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
             child: const Text(
               'Delete',
-              style: TextStyle(color: AppPalette.unread),
+              style: TextStyle(color: AppPalette.statusDanger),
             ),
           ),
         ],
@@ -136,7 +143,7 @@ class _RemindersListScreenState extends State<RemindersListScreen>
             content: Text(
               'The reminder could not be deleted. Please try again.',
             ),
-            backgroundColor: AppPalette.unread,
+            backgroundColor: AppPalette.statusDanger,
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -147,15 +154,18 @@ class _RemindersListScreenState extends State<RemindersListScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppPalette.background,
+      backgroundColor: AppPalette.canvas,
       appBar: AppBar(
-        backgroundColor: AppPalette.background,
+        backgroundColor: AppPalette.canvas,
+        foregroundColor: AppPalette.textPrimary,
+        surfaceTintColor: Colors.transparent,
+        scrolledUnderElevation: 0,
         elevation: 0,
         automaticallyImplyLeading: false,
         title: const Text(
           'Reminders',
           style: TextStyle(
-            color: AppPalette.ink,
+            color: AppPalette.textPrimary,
             fontSize: 22,
             fontWeight: FontWeight.w800,
           ),
@@ -164,7 +174,7 @@ class _RemindersListScreenState extends State<RemindersListScreen>
           IconButton(
             icon: const Icon(
               Icons.add_circle_rounded,
-              color: AppPalette.teal,
+              color: AppPalette.primaryGreen,
               size: 28,
             ),
             onPressed: _openAdd,
@@ -178,8 +188,46 @@ class _RemindersListScreenState extends State<RemindersListScreen>
         ),
       ),
       body: StreamBuilder<List<ReminderModel>>(
-        stream: _stream,
+        stream: _reminderStream,
         builder: (context, snap) {
+          if (snap.hasError) {
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(28),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.cloud_off_outlined,
+                      size: 38,
+                      color: AppPalette.statusDanger,
+                    ),
+                    const SizedBox(height: 12),
+                    const Text(
+                      'Reminders could not be loaded',
+                      style: TextStyle(
+                        color: AppPalette.textPrimary,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 16,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    const Text(
+                      'Your reminder list is temporarily unavailable. Try again.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: AppPalette.textMuted, height: 1.4),
+                    ),
+                    const SizedBox(height: 16),
+                    OutlinedButton.icon(
+                      onPressed: _retryLoad,
+                      icon: const Icon(Icons.refresh_rounded),
+                      label: const Text('Try again'),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }
           if (snap.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
@@ -206,7 +254,7 @@ class _RemindersListScreenState extends State<RemindersListScreen>
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _openAdd,
-        backgroundColor: AppPalette.teal,
+        backgroundColor: AppPalette.primaryGreen,
         icon: const Icon(Icons.add_rounded, color: Colors.white),
         label: const Text(
           'New Reminder',
@@ -237,10 +285,10 @@ class _TabBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return TabBar(
       controller: controller,
-      indicatorColor: AppPalette.teal,
+      indicatorColor: AppPalette.primaryGreen,
       indicatorWeight: 2.5,
-      labelColor: AppPalette.teal,
-      unselectedLabelColor: AppPalette.mutedInk,
+      labelColor: AppPalette.primaryGreen,
+      unselectedLabelColor: AppPalette.textMuted,
       labelStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
       unselectedLabelStyle: const TextStyle(
         fontWeight: FontWeight.w500,
@@ -275,16 +323,16 @@ class _ReminderCard extends StatelessWidget {
     Color iconColor;
     IconData icon;
     if (isCompleted) {
-      iconBg = const Color(0xFFE2F0EC);
-      iconColor = AppPalette.teal;
+      iconBg = AppPalette.statusTile;
+      iconColor = AppPalette.primaryGreen;
       icon = Icons.check_circle_rounded;
     } else if (isOverdue) {
-      iconBg = const Color(0xFFFFE3D9);
-      iconColor = AppPalette.unread;
+      iconBg = AppPalette.statusDangerTile;
+      iconColor = AppPalette.statusDanger;
       icon = Icons.warning_amber_rounded;
     } else {
-      iconBg = const Color(0xFFE2F0EC);
-      iconColor = AppPalette.teal;
+      iconBg = AppPalette.statusTile;
+      iconColor = AppPalette.primaryGreen;
       icon = Icons.notifications_active_rounded;
     }
 
@@ -295,12 +343,12 @@ class _ReminderCard extends StatelessWidget {
         alignment: Alignment.centerRight,
         padding: const EdgeInsets.only(right: 20),
         decoration: BoxDecoration(
-          color: AppPalette.unread.withValues(alpha: 0.1),
+          color: AppPalette.statusDanger.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(16),
         ),
         child: const Icon(
           Icons.delete_outline_rounded,
-          color: AppPalette.unread,
+          color: AppPalette.statusDanger,
           size: 24,
         ),
       ),
@@ -309,7 +357,7 @@ class _ReminderCard extends StatelessWidget {
         return false; // let the stream update handle removal
       },
       child: Material(
-        color: AppPalette.surface,
+        color: AppPalette.cardBackground,
         borderRadius: BorderRadius.circular(16),
         child: InkWell(
           borderRadius: BorderRadius.circular(16),
@@ -339,8 +387,8 @@ class _ReminderCard extends StatelessWidget {
                         reminder.title,
                         style: TextStyle(
                           color: isCompleted
-                              ? AppPalette.mutedInk
-                              : AppPalette.ink,
+                              ? AppPalette.textMuted
+                              : AppPalette.textPrimary,
                           fontWeight: FontWeight.w600,
                           fontSize: 14,
                           decoration: isCompleted
@@ -354,7 +402,7 @@ class _ReminderCard extends StatelessWidget {
                         Text(
                           reminder.description!,
                           style: const TextStyle(
-                            color: AppPalette.mutedInk,
+                            color: AppPalette.textMuted,
                             fontSize: 12,
                           ),
                           maxLines: 2,
@@ -368,14 +416,14 @@ class _ReminderCard extends StatelessWidget {
                             const Icon(
                               Icons.gavel_rounded,
                               size: 12,
-                              color: AppPalette.teal,
+                              color: AppPalette.primaryGreen,
                             ),
                             const SizedBox(width: 4),
                             Flexible(
                               child: Text(
                                 reminder.caseTitle!,
                                 style: const TextStyle(
-                                  color: AppPalette.teal,
+                                  color: AppPalette.primaryGreen,
                                   fontSize: 11,
                                   fontWeight: FontWeight.w600,
                                 ),
@@ -392,8 +440,8 @@ class _ReminderCard extends StatelessWidget {
                             Icons.access_time_rounded,
                             size: 12,
                             color: isOverdue && !isCompleted
-                                ? AppPalette.unread
-                                : AppPalette.mutedInk,
+                                ? AppPalette.statusDanger
+                                : AppPalette.textMuted,
                           ),
                           const SizedBox(width: 4),
                           Text(
@@ -401,8 +449,8 @@ class _ReminderCard extends StatelessWidget {
                                 .format(reminder.dueDateTime),
                             style: TextStyle(
                               color: isOverdue && !isCompleted
-                                  ? AppPalette.unread
-                                  : AppPalette.mutedInk,
+                                  ? AppPalette.statusDanger
+                                  : AppPalette.textMuted,
                               fontSize: 11,
                               fontWeight: FontWeight.w600,
                             ),
@@ -415,13 +463,13 @@ class _ReminderCard extends StatelessWidget {
                                 vertical: 2,
                               ),
                               decoration: BoxDecoration(
-                                color: AppPalette.border,
+                                color: AppPalette.borderLight,
                                 borderRadius: BorderRadius.circular(6),
                               ),
                               child: Text(
                                 reminder.repeatRule.label,
                                 style: const TextStyle(
-                                  color: AppPalette.mutedInk,
+                                  color: AppPalette.textMuted,
                                   fontSize: 10,
                                   fontWeight: FontWeight.w600,
                                 ),
@@ -444,12 +492,12 @@ class _ReminderCard extends StatelessWidget {
                       height: 22,
                       decoration: BoxDecoration(
                         color: isCompleted
-                            ? AppPalette.teal
+                            ? AppPalette.primaryGreen
                             : Colors.transparent,
                         border: Border.all(
                           color: isCompleted
-                              ? AppPalette.teal
-                              : AppPalette.border,
+                              ? AppPalette.primaryGreen
+                              : AppPalette.borderLight,
                           width: 1.5,
                         ),
                         borderRadius: BorderRadius.circular(6),
@@ -497,12 +545,12 @@ class _EmptyState extends StatelessWidget {
               width: 72,
               height: 72,
               decoration: BoxDecoration(
-                color: const Color(0xFFE2F0EC),
+                color: AppPalette.statusTile,
                 borderRadius: BorderRadius.circular(20),
               ),
               child: const Icon(
                 Icons.notifications_none_rounded,
-                color: AppPalette.teal,
+                color: AppPalette.primaryGreen,
                 size: 36,
               ),
             ),
@@ -510,7 +558,7 @@ class _EmptyState extends StatelessWidget {
             Text(
               title,
               style: const TextStyle(
-                color: AppPalette.ink,
+                color: AppPalette.textPrimary,
                 fontSize: 17,
                 fontWeight: FontWeight.w700,
               ),
@@ -519,14 +567,14 @@ class _EmptyState extends StatelessWidget {
             Text(
               sub,
               textAlign: TextAlign.center,
-              style: const TextStyle(color: AppPalette.mutedInk, fontSize: 14),
+              style: const TextStyle(color: AppPalette.textMuted, fontSize: 14),
             ),
             if (tabIndex == 0) ...[
               const SizedBox(height: 24),
               ElevatedButton.icon(
                 onPressed: onAdd,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppPalette.teal,
+                  backgroundColor: AppPalette.primaryGreen,
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(
                     horizontal: 24,
