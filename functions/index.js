@@ -664,9 +664,21 @@ exports.transferCaseToAdvocate = onCall(
 					.where("ownerUid", "==", targetUid)
 					.where("cuid", "==", cnr)
 					.limit(1);
-				const existing = await transaction.get(targetCases);
-				if (!existing.empty) {
-					return { caseId: existing.docs[0].id, created: false, cuid: cnr };
+				const legacyTargetCases = db.collection("cases")
+					.where("userId", "==", targetUid)
+					.where("cnrNumber", "==", cnr)
+					.limit(1);
+				const [existing, legacyExisting] = await Promise.all([
+					transaction.get(targetCases),
+					transaction.get(legacyTargetCases),
+				]);
+				const duplicate = !existing.empty
+					? existing.docs[0]
+					: !legacyExisting.empty
+					? legacyExisting.docs[0]
+					: null;
+				if (duplicate) {
+					return { caseId: duplicate.id, created: false, cuid: cnr };
 				}
 
 				const targetName =
