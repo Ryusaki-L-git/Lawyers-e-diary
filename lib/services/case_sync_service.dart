@@ -189,8 +189,14 @@ class FirestoreCaseSyncDataSource implements CaseSyncDataSource {
     }
 
     final reference = _cases.doc(caseId);
+    final registryReference = _firestore
+        .collection('users')
+        .doc(uid)
+        .collection('case_cuid_registry')
+        .doc(cnr);
     await _firestore.runTransaction((transaction) async {
       final existing = await transaction.get(reference);
+      final registry = await transaction.get(registryReference);
       if (existing.exists) {
         final existingData = existing.data()!;
         if ((existingData['ownerUid'] ?? existingData['userId']) != uid) {
@@ -199,34 +205,18 @@ class FirestoreCaseSyncDataSource implements CaseSyncDataSource {
           );
         }
       }
-      if (!existing.exists && expectedCloudVersion != null) {
+      if (registry.exists && registry.data()?['caseId'] != caseId) {
+        throw StateError(
+          'This CNR is already registered in your cloud account. Sync the existing record instead of creating a duplicate.',
+        );
+      }
+      if (!registry.exists && !existing.exists && expectedCloudVersion != null) {
         throw StateError('Firestore Case changed during synchronization.');
       }
-      if (!existing.exists) {
-        // Prevent a second device from creating another cloud registration for
-        // the same CNR within this account. Other owners are intentionally not
-        // part of this lookup and keep independent records.
-        final canonicalMatches = _cases
-            .where('ownerUid', isEqualTo: uid)
-            .where('cuid', isEqualTo: cnr)
-            .limit(1);
-        final legacyMatches = _cases
-            .where('ownerUid', isEqualTo: uid)
-            .where('cnrNumber', isEqualTo: cnr)
-            .limit(1);
-        final matches = await Future.wait([
-          transaction.get(canonicalMatches),
-          transaction.get(legacyMatches),
-        ]);
-        final duplicates = matches
-            .expand((snapshot) => snapshot.docs)
-            .where((document) => document.id != caseId)
-            .toList();
-        if (duplicates.isNotEmpty) {
-          throw StateError(
-            'This CNR is already registered in your cloud account. Sync the existing record instead of creating a duplicate.',
-          );
-        }
+      if (registry.exists && !existing.exists) {
+        throw StateError(
+          'The CNR registry points to a missing case record; migration is required.',
+        );
       }
       if (existing.exists) {
         final current = existing.data()!;
@@ -243,6 +233,17 @@ class FirestoreCaseSyncDataSource implements CaseSyncDataSource {
             currentUpdatedAt != expectedUpdatedAt) {
           throw StateError('Firestore Case changed during synchronization.');
         }
+      }
+
+      // The per-user CUID registry makes create/update idempotent across
+      // devices without globally deduplicating other advocates' records.
+      if (!registry.exists) {
+        transaction.set(registryReference, <String, dynamic>{
+          'uid': uid,
+          'cuid': cnr,
+          'caseId': caseId,
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
       }
 
       // Replace Free-tier documents to remove previously stored private fields.
