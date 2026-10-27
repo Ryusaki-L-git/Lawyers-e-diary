@@ -600,6 +600,22 @@ exports.allocateLedId = onCall(
 
 // Create a separate, private-by-default case registration for the recipient.
 // CNR identifies the court case; it is not a shared workspace or permission.
+function buildCnrOnlyCaseRecord({ ownerUid, ownerLedId, cnr, now }) {
+	return {
+		ownerUid,
+		ownerLedId,
+		userId: ownerUid,
+		cuid: cnr,
+		cnrNumber: cnr,
+		caseNumber: cnr,
+		createdAt: now,
+		updatedAt: now,
+		lastUpdated: now,
+		cloudVersion: 1,
+		cloudStorageMode: "cnr_only",
+	};
+}
+
 exports.transferCaseToAdvocate = onCall(
 	{
 		region: "us-central1",
@@ -661,6 +677,19 @@ exports.transferCaseToAdvocate = onCall(
 					throw new HttpsError("permission-denied", "The recipient LED ID could not be verified.");
 				}
 				const cnr = storedCnr(source);
+				const targetRegistryRef = targetUserRef.collection("case_cuid_registry").doc(cnr);
+				const targetRegistry = await transaction.get(targetRegistryRef);
+				if (targetRegistry.exists) {
+					const registeredCaseId = targetRegistry.data()?.caseId;
+					if (typeof registeredCaseId !== "string" || !registeredCaseId) {
+						throw new HttpsError("failed-precondition", "The recipient CNR registry requires migration.");
+					}
+					const registeredCase = await transaction.get(db.collection("cases").doc(registeredCaseId));
+					if (!registeredCase.exists || registeredCase.data()?.ownerUid !== targetUid) {
+						throw new HttpsError("failed-precondition", "The recipient CNR registry points to an invalid record.");
+					}
+					return { caseId: registeredCaseId, created: false, cuid: cnr };
+				}
 				const targetCases = db.collection("cases")
 					.where("ownerUid", "==", targetUid)
 					.where("cuid", "==", cnr)
@@ -682,6 +711,12 @@ exports.transferCaseToAdvocate = onCall(
 					? existing.docs[0]
 					: legacyDuplicate ?? null;
 				if (duplicate) {
+					transaction.set(targetRegistryRef, {
+						uid: targetUid,
+						cuid: cnr,
+						caseId: duplicate.id,
+						updatedAt: new Date(),
+					});
 					return { caseId: duplicate.id, created: false, cuid: cnr };
 				}
 
@@ -696,7 +731,13 @@ exports.transferCaseToAdvocate = onCall(
 					now: new Date(),
 				});
 				transaction.create(recipientCaseRef, recipientRecord);
-								return { caseId: recipientCaseRef.id, created: true, cuid: cnr };
+				transaction.create(targetRegistryRef, {
+					uid: targetUid,
+					cuid: cnr,
+					caseId: recipientCaseRef.id,
+					updatedAt: new Date(),
+				});
+				return { caseId: recipientCaseRef.id, created: true, cuid: cnr };
 			});
 		} catch (error) {
 			if (error instanceof HttpsError) throw error;
