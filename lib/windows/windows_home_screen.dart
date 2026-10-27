@@ -82,7 +82,9 @@ class _WindowsHomeScreenState extends State<WindowsHomeScreen> {
         );
       }
     } catch (error) {
-      if (mounted && showResult) {
+      // A failed automatic sync must be visible too: otherwise a user may
+      // assume a local-only case is available to cloud-backed services.
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Case sync unavailable: $error')),
         );
