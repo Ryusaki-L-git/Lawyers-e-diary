@@ -73,23 +73,30 @@ function validateCaseId(value) {
 }
 
 function storedCnr(caseData) {
-	const value = caseData.cnrNumber ?? caseData.cnr;
-	if (typeof value !== "string" || value.trim().length === 0) {
+	const values = ["cuid", "cnrNumber", "cnr"]
+		.map((key) => caseData[key])
+		.filter((value) => typeof value === "string" && value.trim().length > 0);
+	if (values.length === 0) {
 		throw new HttpsError(
 			"failed-precondition",
 			"This case does not have a CNR number.",
 		);
 	}
-	const cnr = value.trim().toUpperCase();
-	if (!cnrPattern.test(cnr)) {
+	const normalized = values.map((value) => value.trim().toUpperCase());
+	if (normalized.some((value) => !cnrPattern.test(value))) {
 		throw new HttpsError(
 			"failed-precondition",
 			"This case does not contain a valid 16-character CNR number.",
 		);
 	}
-	return cnr;
+	if (new Set(normalized).size !== 1) {
+		throw new HttpsError(
+			"failed-precondition",
+			"The stored CUID and CNR fields do not match.",
+		);
+	}
+	return normalized[0];
 }
-
 function assertCloudPlan(userSnapshot) {
 	const subscription = userSnapshot.exists
 		? userSnapshot.data().subscription
