@@ -161,6 +161,8 @@ def test_refresh_provider_not_found_maps_to_404(ctx):
     main_mod.app.dependency_overrides[main_mod.get_provider] = lambda: provider
     response = ctx.client.post(f"/v1/ecourts/cases/{CASE_ID}/refresh", headers=_headers())
     assert response.status_code == 404
+    account = ctx.db._store[(f"_server_token_accounts/{OWNER_UID}/balances", "case")]
+    assert account["balanceMinorUnits"] == 1000
 
 
 def test_refresh_provider_rate_limit_maps_to_429(ctx):
