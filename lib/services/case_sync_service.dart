@@ -159,6 +159,15 @@ class FirestoreCaseSyncDataSource implements CaseSyncDataSource {
     if (!RegExp(r'^[A-Z0-9]{16}$').hasMatch(cnr)) {
       throw StateError('A valid 16-character CNR is required for cloud registration.');
     }
+    for (final alias in const ['cuid', 'cnrNumber', 'cnr']) {
+      final value = data[alias];
+      if (value is String && value.trim().isNotEmpty &&
+          value.trim().toUpperCase() != cnr) {
+        throw StateError(
+          'The stored CUID and CNR fields do not match. Resolve this case before syncing.',
+        );
+      }
+    }
 
     Map<String, dynamic> payload;
     if (isCloudSubscriber) {
