@@ -52,10 +52,14 @@ service cloud.firestore {
 
     // Free-tier cloud registration contains only the CNR/CUID and the
     // minimum ownership/sync fields. Client/private case data stays local.
+    // A Free user's cloud case document is deliberately a CNR-only stub.
+    // The private workspace (notes, clients, documents, fees, reminders) stays local.
     function cnrOnlyCase(data) {
       return data.cloudStorageMode == 'cnr_only'
         && data.cuid is string
         && data.cuid.matches('^[A-Z0-9]{16}$')
+        && data.cnrNumber == data.cuid
+        && data.caseNumber == data.cuid
         && data.keys().hasOnly([
           'ownerUid',
           'ownerLedId',
@@ -72,7 +76,7 @@ service cloud.firestore {
     }
 
     function caseStorageAllowed(data, ownerUid) {
-      return cloudSubscriber(ownerUid) || cnrOnlyCase(data);
+      return cloudSubscriber(ownerUid) || (ownerUid == request.auth.uid && cnrOnlyCase(data));
     }
 
     // ----------------------------------------------------------------------
