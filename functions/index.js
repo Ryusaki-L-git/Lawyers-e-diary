@@ -678,6 +678,7 @@ exports.transferCaseToAdvocate = onCall(
 				// reminders, drafts, or documents into another advocate's account.
 				transaction.create(recipientCaseRef, {
 					ownerUid: targetUid,
+					ownerLedId: targetLedId,
 					userId: targetUid,
 					cuid: cnr,
 					cnrNumber: cnr,
