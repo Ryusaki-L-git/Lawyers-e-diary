@@ -561,6 +561,19 @@ class CaseRepository {
         'A valid 16-character CNR number is required.',
       );
     }
+    // Within one advocate's account, a CNR identifies a single active
+    // registration. Other advocates remain fully independent because ownerUid
+    // scopes this lookup.
+    final existingRows = await (database.select(database.localCases)
+          ..where((tbl) => tbl.ownerUid.equals(uid)))
+        .get();
+    for (final row in existingRows) {
+      final storedCnr = (row.cnr ?? row.caseNumber).trim().toUpperCase();
+      if (!row.isDeleted && storedCnr == normalizedCnr) {
+        return row.id;
+      }
+    }
+
     final now = DateTime.now();
     final caseModel = CaseModel(
       // Each advocate gets an independent local record, even when another
