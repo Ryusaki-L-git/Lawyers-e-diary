@@ -45,6 +45,7 @@ from __future__ import annotations
 
 import logging
 import uuid
+from datetime import datetime, timezone
 
 from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.responses import JSONResponse
@@ -439,6 +440,22 @@ async def refresh_case(
             detail="Unable to authorize this case refresh.",
         )
 
+    # The provider refresh endpoint is idempotent for 15 seconds. Reuse the
+    # completed result inside that window instead of charging the same case twice.
+    last_refresh_at = access.case_data.get("lastSmartRefreshAt")
+    last_billing_reference = access.case_data.get("lastSmartRefreshBillingReference")
+    if isinstance(last_refresh_at, datetime) and last_billing_reference:
+        if last_refresh_at.tzinfo is None:
+            last_refresh_at = last_refresh_at.replace(tzinfo=timezone.utc)
+        age_seconds = (datetime.now(timezone.utc) - last_refresh_at).total_seconds()
+        if 0 <= age_seconds < 15:
+            return {
+                "caseId": case_id,
+                "cnr": access.cnr,
+                "status": "duplicate",
+                "message": "A Smart Refresh for this case completed moments ago. No additional token was charged.",
+            }
+
     # 2. Per-user admission limit (after authorization, before provider call).
     #    Only authorized, legitimate requests consume rate-limit tokens.
     admission = admit_user_request(
@@ -600,6 +617,8 @@ async def refresh_case(
                 reauthorize_and_update(
                     db, user.uid, case_id, access.cnr, ecourts_data,
                     auth_email=user.email, email_verified=user.email_verified,
+                    billing_reference=billing_reference,
+                    refresh_started_at=refresh_started_at,
                 )
             except AuthorizationError:
                 raise
