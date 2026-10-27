@@ -3,7 +3,7 @@ from __future__ import annotations
 import hashlib
 import hmac
 
-from payments import PACKS, _verify_order_signature, _verify_webhook_signature
+from gateway.payments import PACKS, _verify_order_signature, _verify_webhook_signature
 
 
 def test_payment_packs_are_server_owned_and_match_one_rupee_per_unit():
