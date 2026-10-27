@@ -200,6 +200,9 @@ class _ServicesCatalogueScreenState extends State<ServicesCatalogueScreen> {
                                         border: Border.all(color: AppPalette.borderLight),
                                       ),
                                       child: ListTile(
+                                        onTap: item.available
+                                            ? () => Navigator.of(context).pushNamed('/cases')
+                                            : null,
                                         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                                         leading: Container(
                                           width: 42,
