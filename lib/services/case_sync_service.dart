@@ -32,6 +32,7 @@ class RemoteCaseDocument {
 }
 
 abstract interface class CaseSyncDataSource {
+  Future<bool> isCloudSubscriber();
   Future<RemoteCaseDocument?> readOwnedCase(String caseId);
   Future<List<RemoteCaseDocument>> fetchOwnedCases();
   Future<void> writeOwnedCase(
@@ -62,6 +63,14 @@ class FirestoreCaseSyncDataSource implements CaseSyncDataSource {
 
   CollectionReference<Map<String, dynamic>> get _cases =>
       _firestore.collection('cases');
+
+  @override
+  Future<bool> isCloudSubscriber() async {
+    final snapshot = await _firestore.collection('users').doc(_uid).get();
+    final data = snapshot.data() ?? const <String, dynamic>{};
+    final subscription = data['subscription'];
+    return subscription is Map && subscription['tier'] == 'cloud_subscriber';
+  }
 
   @override
   Future<RemoteCaseDocument?> readOwnedCase(String caseId) async {
@@ -136,9 +145,70 @@ class FirestoreCaseSyncDataSource implements CaseSyncDataSource {
       );
     }
 
+    // Entitlement is read from the server-owned user document. Missing or
+    // unknown subscription state fails closed to CNR-only cloud registration.
+    final userSnapshot = await _firestore.collection('users').doc(uid).get();
+    final userData = userSnapshot.data() ?? const <String, dynamic>{};
+    final subscription = userData['subscription'];
+    final isCloudSubscriber =
+        subscription is Map && subscription['tier'] == 'cloud_subscriber';
+    final ownerLedId = userData['ledId'];
+
+    final rawCnr = data['cuid'] ?? data['cnrNumber'] ?? data['cnr'];
+    final cnr = rawCnr is String ? rawCnr.trim().toUpperCase() : '';
+    if (!RegExp(r'^[A-Z0-9]{16}$').hasMatch(cnr)) {
+      throw StateError('A valid 16-character CNR is required for cloud registration.');
+    }
+    for (final alias in const ['cuid', 'cnrNumber', 'cnr']) {
+      final value = data[alias];
+      if (value is String && value.trim().isNotEmpty &&
+          value.trim().toUpperCase() != cnr) {
+        throw StateError(
+          'The stored CUID and CNR fields do not match. Resolve this case before syncing.',
+        );
+      }
+    }
+
+    Map<String, dynamic> payload;
+    if (isCloudSubscriber) {
+      payload = Map<String, dynamic>.from(data)
+        ..['cuid'] = cnr
+        ..['cnrNumber'] = cnr
+        ..['caseNumber'] = cnr
+        ..['cloudStorageMode'] = 'full';
+    } else {
+      final createdAt = data['createdAt'] ?? DateTime.now();
+      final updatedAt = data['updatedAt'] ?? data['lastUpdated'] ?? DateTime.now();
+      payload = <String, dynamic>{
+        'ownerUid': uid,
+        'userId': uid,
+        'cuid': cnr,
+        'cnrNumber': cnr,
+        'caseNumber': cnr,
+        'createdAt': createdAt,
+        'updatedAt': updatedAt,
+        'lastUpdated': updatedAt,
+        'cloudVersion': (data['cloudVersion'] as num?)?.toInt() ?? 1,
+        'cloudStorageMode': 'cnr_only',
+      };
+    }
+
+    if (ownerLedId is String && ownerLedId.trim().isNotEmpty) {
+      payload['ownerLedId'] = ownerLedId.trim();
+    }
+
     final reference = _cases.doc(caseId);
+    final registryReference = _firestore
+        .collection('users')
+        .doc(uid)
+        .collection('case_cuid_registry')
+        .doc(cnr);
     await _firestore.runTransaction((transaction) async {
       final existing = await transaction.get(reference);
+      final registry = await transaction.get(registryReference);
+      DocumentReference<Map<String, dynamic>>? replaceStubReference;
+      var replacingCnrOnlyStub = false;
+
       if (existing.exists) {
         final existingData = existing.data()!;
         if ((existingData['ownerUid'] ?? existingData['userId']) != uid) {
@@ -147,14 +217,61 @@ class FirestoreCaseSyncDataSource implements CaseSyncDataSource {
           );
         }
       }
-      if (!existing.exists && expectedCloudVersion != null) {
+
+      final registeredCaseId = registry.data()?['caseId'];
+      if (registry.exists && registeredCaseId != caseId) {
+        if (registeredCaseId is! String || registeredCaseId.isEmpty) {
+          throw StateError(
+            'The CNR registry requires migration before this case can sync.',
+          );
+        }
+        if (existing.exists) {
+          throw StateError(
+            'Two cloud case records already exist for this CNR. Resolve the duplicate without merging private data.',
+          );
+        }
+
+        final registeredReference = _cases.doc(registeredCaseId);
+        replaceStubReference = registeredReference;
+        final registeredSnapshot = await transaction.get(registeredReference);
+        if (!registeredSnapshot.exists) {
+          throw StateError(
+            'The CNR registry points to a missing case record; migration is required.',
+          );
+        }
+        final registeredData = registeredSnapshot.data()!;
+        final registeredRawCnr = registeredData['cuid'] ??
+            registeredData['cnrNumber'] ??
+            registeredData['cnr'];
+        final registeredCnr = registeredRawCnr is String
+            ? registeredRawCnr.trim().toUpperCase()
+            : '';
+        if ((registeredData['ownerUid'] ?? registeredData['userId']) != uid ||
+            registeredCnr != cnr ||
+            registeredData['cloudStorageMode'] != 'cnr_only') {
+          throw StateError(
+            'This CNR already has a non-stub cloud record in your account. Resolve the duplicate without overwriting private data.',
+          );
+        }
+        // A transfer may have created a CNR-only cloud stub before this
+        // device's private local case synced. Re-key that empty stub to the
+        // local case ID, preserving the local private workspace.
+        replacingCnrOnlyStub = true;
+      }
+
+      if (!registry.exists && !existing.exists && expectedCloudVersion != null) {
         throw StateError('Firestore Case changed during synchronization.');
       }
+      if (registry.exists && !existing.exists && !replacingCnrOnlyStub) {
+        throw StateError(
+          'The CNR registry points to a missing case record; migration is required.',
+        );
+      }
+
       if (existing.exists) {
         final current = existing.data()!;
         final currentVersion = (current['cloudVersion'] as num?)?.toInt() ?? 0;
-        final currentUpdatedValue =
-            current['updatedAt'] ?? current['lastUpdated'];
+        final currentUpdatedValue = current['updatedAt'] ?? current['lastUpdated'];
         final currentUpdatedAt = currentUpdatedValue is Timestamp
             ? currentUpdatedValue.toDate()
             : currentUpdatedValue is DateTime
@@ -167,12 +284,42 @@ class FirestoreCaseSyncDataSource implements CaseSyncDataSource {
           throw StateError('Firestore Case changed during synchronization.');
         }
       }
-      // Team assignment fields are maintained by TeamService. Merge the
-      // owner's local payload so a normal case sync cannot erase them.
-      transaction.set(reference, data, SetOptions(merge: true));
+
+      // Create or move the per-user CNR registry in the same transaction as
+      // the case write. A move is permitted only when replacing an empty CNR
+      // stub, never a full case record.
+      if (!registry.exists) {
+        transaction.set(registryReference, <String, dynamic>{
+          'uid': uid,
+          'cuid': cnr,
+          'caseId': caseId,
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+      } else if (replacingCnrOnlyStub) {
+        transaction.set(
+          registryReference,
+          <String, dynamic>{
+            'uid': uid,
+            'cuid': cnr,
+            'caseId': caseId,
+            'updatedAt': FieldValue.serverTimestamp(),
+          },
+          SetOptions(merge: true),
+        );
+        transaction.delete(replaceStubReference!);
+      }
+
+      // Replace Free-tier documents to remove previously stored private fields.
+      // Subscriber writes merge to preserve server/team-owned fields.
+      transaction.set(
+        reference,
+        payload,
+        SetOptions(merge: isCloudSubscriber),
+      );
     });
   }
-}
+
+  }
 
 class CaseSyncResult {
   const CaseSyncResult({
@@ -213,6 +360,38 @@ class CaseSyncEngine {
     final conflictsHandled = <String>{};
     String? pullError;
 
+    final isCloudSubscriber = await _dataSource.isCloudSubscriber();
+    if (isCloudSubscriber) {
+      // Promote existing CNR-only registrations using this advocate's local
+      // workspace after the server confirms Cloud Subscriber entitlement.
+      final localRecords = await _repository.getCasesForCurrentUser();
+      for (final record in localRecords) {
+        final remote = await _dataSource.readOwnedCase(record.id);
+        if (remote?.data['cloudStorageMode'] == 'cnr_only') {
+          await _repository.saveCase(record);
+        }
+      }
+    } else {
+      // Scrub private fields from legacy/full cloud documents after a downgrade
+      // or first Free-tier sync. Local records are untouched. Invalid legacy
+      // CNRs are skipped and reported for a deliberate migration rather than
+      // risking deletion of a record that cannot be identified safely.
+      final remoteCases = await _dataSource.fetchOwnedCases();
+      for (final remote in remoteCases) {
+        if (remote.data['cloudStorageMode'] == 'cnr_only') continue;
+        try {
+          await _dataSource.writeOwnedCase(
+            remote.id,
+            remote.data,
+            expectedCloudVersion: remote.cloudVersion,
+            expectedUpdatedAt: remote.updatedAt,
+          );
+        } catch (_) {
+          failed++;
+        }
+      }
+    }
+
     final pending = await _repository.getPendingCaseChanges();
     for (final change in pending) {
       try {
@@ -223,7 +402,23 @@ class CaseSyncEngine {
           continue;
         }
 
+        // Free accounts may keep private case details locally, but a
+        // cloud CNR-only stub must never be promoted by a queued local edit.
+        // Acknowledge the local queue entry without uploading private data.
         if (remote != null &&
+            remote.data['cloudStorageMode'] == 'cnr_only' &&
+            !isCloudSubscriber) {
+          await _repository.markCaseSynchronized(
+            caseId: change.record.id,
+            expectedRevision: change.revision,
+            expectedUpdatedAt: change.record.updatedAt,
+            cloudVersion: remote.cloudVersion,
+          );
+          continue;
+        }
+
+        if (remote != null &&
+            remote.data['cloudStorageMode'] != 'cnr_only' &&
             remote.updatedAt != null &&
             remote.updatedAt!.isAfter(change.record.updatedAt)) {
           await _repository.markCaseConflict(
@@ -268,6 +463,8 @@ class CaseSyncEngine {
 
     try {
       final remoteCases = await _dataSource.fetchOwnedCases();
+      final localRecords = await _repository.getCasesForCurrentUser();
+      final localIds = localRecords.map((record) => record.id).toSet();
       for (final remote in remoteCases) {
         if (conflictsHandled.contains(remote.id)) {
           continue;
@@ -275,6 +472,11 @@ class CaseSyncEngine {
         final uid = _repository.currentUserId;
         if (remote.data['ownerUid'] != uid) {
           rejected++;
+          continue;
+        }
+        // Never let a cloud-only CNR stub overwrite a full local workspace.
+        if (remote.data['cloudStorageMode'] == 'cnr_only' &&
+            localIds.contains(remote.id)) {
           continue;
         }
         final syncedAt = DateTime.now();

@@ -12,7 +12,11 @@ class FakeCaseSyncDataSource implements CaseSyncDataSource {
   final Map<String, Map<String, dynamic>> documents = {};
   bool failWrites = false;
   bool returnForeignDocuments = false;
+  bool cloudSubscriber = true;
   int writeCount = 0;
+
+  @override
+  Future<bool> isCloudSubscriber() async => cloudSubscriber;
 
   @override
   Future<RemoteCaseDocument?> readOwnedCase(String caseId) async {
@@ -79,7 +83,7 @@ LocalCaseRecord buildRecord({
   return LocalCaseRecord(
     id: id,
     ownerUid: ownerUid,
-    caseNumber: 'CNR-$id',
+    caseNumber: 'ABCD1234EFGH5678',
     caseTitle: title,
     clientName: 'Client',
     opponentName: 'Opponent',
@@ -123,7 +127,7 @@ void main() {
     () async {
       final id = await repository.createCase(
         caseTitle: 'New Case',
-        caseNumber: 'CNR-NEW',
+        caseNumber: 'ABCD1234EFGH5678',
         clientName: 'Client',
         opponentName: 'Opponent',
         courtName: 'District Court',
@@ -138,11 +142,167 @@ void main() {
       expect(result.uploaded, 1);
       expect(dataSource.documents.keys, [id]);
       expect(dataSource.documents[id]!['ownerUid'], 'user-a');
+      expect(dataSource.documents[id]!['cuid'], 'ABCD1234EFGH5678');
       expect(localBefore!.id, id);
       expect((await repository.getCaseById(id))!.syncState, 'synced');
       expect(await repository.getPendingCaseChanges(), isEmpty);
     },
   );
+
+  test('same advocate CNR reuses their existing independent record', () async {
+    final firstId = await repository.createCase(
+      caseTitle: 'Original record',
+      caseNumber: 'ABCD1234EFGH5678',
+      clientName: 'Original private client',
+      opponentName: 'Original opponent',
+      courtName: 'District Court',
+      caseType: 'Civil',
+      status: 'active',
+      handledBy: 'Advocate A',
+      notes: const ['Private original note'],
+    );
+    final duplicateId = await repository.createCase(
+      caseTitle: 'Conflicting duplicate',
+      caseNumber: 'abcd1234efgh5678',
+      clientName: 'Must not overwrite',
+      opponentName: 'Must not overwrite',
+      courtName: 'Other Court',
+      caseType: 'Criminal',
+      status: 'active',
+      handledBy: 'Advocate A',
+    );
+
+    expect(duplicateId, firstId);
+    final records = await repository.getCasesForCurrentUser();
+    expect(records, hasLength(1));
+    expect(records.single.caseTitle, 'Original record');
+    expect(records.single.clientName, 'Original private client');
+    expect(records.single.notes, ['Private original note']);
+  });
+
+  test('same CNR creates independent records for different advocates', () async {
+    final firstId = await repository.createCase(
+      caseTitle: 'Advocate A case',
+      caseNumber: 'ABCD1234EFGH5678',
+      clientName: 'Private client A',
+      opponentName: 'Private opponent A',
+      courtName: 'District Court',
+      caseType: 'Civil',
+      status: 'active',
+      handledBy: 'Advocate A',
+    );
+    final secondRepository = CaseRepository(
+      database: database,
+      identity: const TestAuthIdentity('user-b'),
+    );
+    final secondId = await secondRepository.createCase(
+      caseTitle: 'Advocate B case',
+      caseNumber: 'abcd1234efgh5678',
+      clientName: 'Private client B',
+      opponentName: 'Private opponent B',
+      courtName: 'District Court',
+      caseType: 'Civil',
+      status: 'active',
+      handledBy: 'Advocate B',
+    );
+
+    expect(firstId, isNot(secondId));
+    final firstCases = await repository.getCasesForCurrentUser();
+    final secondCases = await secondRepository.getCasesForCurrentUser();
+    expect(firstCases, hasLength(1));
+    expect(secondCases, hasLength(1));
+    expect(firstCases.single.caseNumber, 'ABCD1234EFGH5678');
+    expect(secondCases.single.caseNumber, 'ABCD1234EFGH5678');
+    expect(firstCases.single.clientName, 'Private client A');
+    expect(secondCases.single.clientName, 'Private client B');
+  });
+
+  test('Free sync does not promote a CNR-only cloud stub', () async {
+    final record = buildRecord(
+      id: 'case-free-stub',
+      ownerUid: 'user-a',
+      updatedAt: now,
+    );
+    await repository.saveCase(record);
+    final pending = (await repository.getPendingCaseChanges()).single;
+    await repository.markCaseSynchronized(
+      caseId: record.id,
+      expectedRevision: pending.revision,
+      expectedUpdatedAt: record.updatedAt,
+      cloudVersion: 1,
+    );
+    dataSource.cloudSubscriber = false;
+    dataSource.documents[record.id] = <String, dynamic>{
+      'ownerUid': 'user-a',
+      'userId': 'user-a',
+      'cuid': 'ABCD1234EFGH5678',
+      'cnrNumber': 'ABCD1234EFGH5678',
+      'caseNumber': 'ABCD1234EFGH5678',
+      'cloudStorageMode': 'cnr_only',
+      'cloudVersion': 1,
+      'createdAt': now,
+      'updatedAt': now,
+      'lastUpdated': now,
+    };
+
+    final result = await engine.sync();
+
+    expect(result.failed, 0);
+    expect(dataSource.writeCount, 0);
+    expect(await repository.getPendingCaseChanges(), isEmpty);
+    expect((await repository.getCaseById(record.id))!.notes, ['Initial note']);
+  });
+
+  test('Cloud Subscriber promotes own CNR-only record using local private data', () async {
+    final record = buildRecord(
+      id: 'case-cloud-promotion',
+      ownerUid: 'user-a',
+      updatedAt: now,
+    );
+    await repository.saveCase(record);
+    final pending = (await repository.getPendingCaseChanges()).single;
+    await repository.markCaseSynchronized(
+      caseId: record.id,
+      expectedRevision: pending.revision,
+      expectedUpdatedAt: record.updatedAt,
+      cloudVersion: 1,
+    );
+    dataSource.documents[record.id] = <String, dynamic>{
+      'ownerUid': 'user-a',
+      'userId': 'user-a',
+      'cuid': 'ABCD1234EFGH5678',
+      'cnrNumber': 'ABCD1234EFGH5678',
+      'caseNumber': 'ABCD1234EFGH5678',
+      'cloudStorageMode': 'cnr_only',
+      'cloudVersion': 1,
+      'createdAt': now,
+      'updatedAt': now,
+      'lastUpdated': now,
+    };
+
+    final result = await engine.sync();
+
+    expect(result.uploaded, 1);
+    expect(dataSource.writeCount, 1);
+    expect(dataSource.documents[record.id]!['notes'], ['Initial note']);
+    expect(dataSource.documents[record.id]!['clientName'], 'Client');
+  });
+
+  test('new local cases reject missing or malformed CNR values', () async {
+    await expectLater(
+      repository.createCase(
+        caseTitle: 'Invalid case',
+        caseNumber: 'not-a-cnr',
+        clientName: 'Client',
+        opponentName: 'Opponent',
+        courtName: 'District Court',
+        caseType: 'Civil',
+        status: 'active',
+        handledBy: 'Advocate',
+      ),
+      throwsArgumentError,
+    );
+  });
 
   test('local update, star, archive, and restore are uploaded', () async {
     final record = buildRecord(
@@ -175,6 +335,37 @@ void main() {
     await engine.sync();
     expect(dataSource.documents['case-actions']!['isDeleted'], isFalse);
     expect(dataSource.documents['case-actions']!['status'], 'active');
+  });
+
+  test('CNR-only transfer stub imports without private workspace data', () async {
+    dataSource.documents['recipient-case'] = <String, dynamic>{
+      'ownerUid': 'user-a',
+      'userId': 'user-a',
+      'cuid': 'ABCD1234EFGH5678',
+      'cnrNumber': 'ABCD1234EFGH5678',
+      'caseNumber': 'ABCD1234EFGH5678',
+      'cloudStorageMode': 'cnr_only',
+      'cloudVersion': 1,
+      'createdAt': now,
+      'updatedAt': now,
+      'lastUpdated': now,
+    };
+
+    final result = await engine.sync();
+    final local = await repository.getCaseById('recipient-case');
+
+    expect(result.downloaded, 1);
+    expect(local, isNotNull);
+    expect(local!.caseNumber, 'ABCD1234EFGH5678');
+    expect(local.caseTitle, 'Court case ABCD1234EFGH5678');
+    expect(local.clientName, isEmpty);
+    expect(local.clientPhone, isNull);
+    expect(local.notes, isEmpty);
+    expect(local.documents, isEmpty);
+    expect(dataSource.documents['recipient-case']!.keys.toSet(), {
+      'ownerUid', 'userId', 'cuid', 'cnrNumber', 'caseNumber',
+      'cloudStorageMode', 'cloudVersion', 'createdAt', 'updatedAt', 'lastUpdated',
+    });
   });
 
   test('remote owned Case is imported into local storage', () async {

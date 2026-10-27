@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
+
 import hashlib
 from types import SimpleNamespace
 
@@ -69,6 +71,7 @@ def ctx(env, make_db, monkeypatch):
     store = {
         ("cases", CASE_ID): {"ownerUid": OWNER_UID, "cnrNumber": CNR},
         ("users", OWNER_UID): {"subscription": {"tier": "cloud_subscriber"}},
+        (f"_server_token_accounts/{OWNER_UID}/balances", "case"): {"balance": 10},
     }
     db = make_db(store)
     provider = MockProvider()
@@ -98,6 +101,9 @@ def test_refresh_success(ctx):
     assert case_data is not None
     assert "ecourts_data" in case_data
     assert case_data["ecourts_data"]["case_number"] == "C-1"
+    token_account = ctx.db._store[(f"_server_token_accounts/{OWNER_UID}/balances", "case")]
+    assert token_account["balanceMinorUnits"] == 950
+    assert token_account["balance"] == 9.5
     rate_docs = [k for k in ctx.db._store if k[0] == "rate_limits"]
     assert len(rate_docs) >= 1
     lock_docs = [k for k in ctx.db._store if k[0] == "case_locks"]
@@ -107,6 +113,77 @@ def test_refresh_success(ctx):
 def test_refresh_missing_token_is_401(ctx):
     response = ctx.client.post(f"/v1/ecourts/cases/{CASE_ID}/refresh")
     assert response.status_code == 401
+
+def test_case_detail_service_debits_tokens_and_returns_provider_data(ctx):
+    ctx.provider.case_detail = lambda cnr: {"data": {"courtCaseData": {"cnr": cnr}}}
+
+    response = ctx.client.post(
+        "/v1/services/case_detail/execute",
+        headers=_headers(),
+        json={"case_id": CASE_ID},
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json()["serviceId"] == "case_detail"
+    assert response.json()["chargedTokens"] == 5.0
+    assert response.json()["data"]["courtCaseData"]["cnr"] == CNR
+    account = ctx.db._store[(f"_server_token_accounts/{OWNER_UID}/balances", "case")]
+    assert account["balanceMinorUnits"] == 500
+
+
+def test_case_detail_service_refunds_provider_failure(ctx):
+    def fail(_cnr):
+        raise EcourtsProviderError(404, "missing")
+    ctx.provider.case_detail = fail
+
+    response = ctx.client.post(
+        "/v1/services/case_detail/execute",
+        headers=_headers(),
+        json={"case_id": CASE_ID},
+    )
+
+    assert response.status_code == 404
+    account = ctx.db._store[(f"_server_token_accounts/{OWNER_UID}/balances", "case")]
+    assert account["balanceMinorUnits"] == 1000
+
+
+def test_refresh_repeat_within_provider_window_is_not_charged_again(ctx, make_db):
+    db = make_db({
+        ("cases", CASE_ID): {
+            "ownerUid": OWNER_UID,
+            "cnrNumber": CNR,
+            "lastSmartRefreshAt": datetime.now(timezone.utc),
+            "lastSmartRefreshBillingReference": "prior-operation",
+        },
+        ("users", OWNER_UID): {"subscription": {"tier": "cloud_subscriber"}},
+        (f"_server_token_accounts/{OWNER_UID}/balances", "case"): {"balance": 10},
+    })
+    main_mod.app.dependency_overrides[main_mod.get_db] = lambda: db
+
+    response = ctx.client.post(
+        f"/v1/ecourts/cases/{CASE_ID}/refresh",
+        headers=_headers(),
+    )
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "duplicate"
+    assert "No additional token" in response.json()["message"]
+    assert ctx.provider.called_with is None
+    assert db._store[(f"_server_token_accounts/{OWNER_UID}/balances", "case")]["balance"] == 10
+
+
+def test_refresh_requires_half_token_balance(ctx, make_db):
+    db = make_db({
+        ("cases", CASE_ID): {"ownerUid": OWNER_UID, "cnrNumber": CNR},
+        ("users", OWNER_UID): {"subscription": {"tier": "cloud_subscriber"}},
+        (f"_server_token_accounts/{OWNER_UID}/balances", "case"): {"balance": 0},
+    })
+    main_mod.app.dependency_overrides[main_mod.get_db] = lambda: db
+    response = ctx.client.post(f"/v1/ecourts/cases/{CASE_ID}/refresh", headers=_headers())
+    assert response.status_code == 402
+    assert response.json()["detail"]["required"] == 0.5
+    assert ctx.provider.called_with is None
+
 
 
 def test_refresh_invalid_token_is_401(ctx, monkeypatch):
@@ -157,6 +234,8 @@ def test_refresh_provider_not_found_maps_to_404(ctx):
     main_mod.app.dependency_overrides[main_mod.get_provider] = lambda: provider
     response = ctx.client.post(f"/v1/ecourts/cases/{CASE_ID}/refresh", headers=_headers())
     assert response.status_code == 404
+    account = ctx.db._store[(f"_server_token_accounts/{OWNER_UID}/balances", "case")]
+    assert account["balanceMinorUnits"] == 1000
 
 
 def test_refresh_provider_rate_limit_maps_to_429(ctx):
@@ -232,6 +311,7 @@ def test_global_cap_fail_closed_when_no_estimate(ctx, make_db, monkeypatch):
     db = make_db({
         ("cases", CASE_ID): {"ownerUid": OWNER_UID, "cnrNumber": CNR},
         ("users", OWNER_UID): {"subscription": {"tier": "cloud_subscriber"}},
+        (f"_server_token_accounts/{OWNER_UID}/balances", "case"): {"balance": 10},
     })
     main_mod.app.dependency_overrides[main_mod.get_db] = lambda: db
     monkeypatch.setenv("RATE_LIMIT_ESTIMATED_ACTIVE_USERS", "0")
@@ -245,6 +325,7 @@ def test_zero_user_fallback_provides_capacity(ctx, make_db, monkeypatch):
     db = make_db({
         ("cases", CASE_ID): {"ownerUid": OWNER_UID, "cnrNumber": CNR},
         ("users", OWNER_UID): {"subscription": {"tier": "cloud_subscriber"}},
+        (f"_server_token_accounts/{OWNER_UID}/balances", "case"): {"balance": 10},
     })
     main_mod.app.dependency_overrides[main_mod.get_db] = lambda: db
     monkeypatch.setenv("RATE_LIMIT_ESTIMATED_ACTIVE_USERS", "0")
@@ -272,6 +353,7 @@ def test_per_case_independent_by_case(ctx, make_db, monkeypatch):
         ("cases", CASE_ID): {"ownerUid": OWNER_UID, "cnrNumber": CNR},
         ("cases", OTHER_CASE_ID): {"ownerUid": OWNER_UID, "cnrNumber": CNR},
         ("users", OWNER_UID): {"subscription": {"tier": "cloud_subscriber"}},
+        (f"_server_token_accounts/{OWNER_UID}/balances", "case"): {"balance": 10},
     })
     main_mod.app.dependency_overrides[main_mod.get_db] = lambda: db
 
@@ -406,6 +488,7 @@ def test_global_capacity_exceeded_is_429_not_503(ctx, make_db, monkeypatch):
     db = make_db({
         ("cases", CASE_ID): {"ownerUid": OWNER_UID, "cnrNumber": CNR},
         ("users", OWNER_UID): {"subscription": {"tier": "cloud_subscriber"}},
+        (f"_server_token_accounts/{OWNER_UID}/balances", "case"): {"balance": 10},
     })
     main_mod.app.dependency_overrides[main_mod.get_db] = lambda: db
 

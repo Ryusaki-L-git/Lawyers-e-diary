@@ -94,9 +94,12 @@ class _WindowsAddCaseScreenState extends State<WindowsAddCaseScreen> {
                               'Enter the matter title',
                             ),
                             _field(
-                              'Case / CNR number',
+                              'CNR number *',
                               _number,
-                              'Enter official case number',
+                              'Enter the 16-character CNR',
+                              validator: (value) => _isValidCnr(value)
+                                  ? null
+                                  : 'Enter a valid 16-character CNR',
                             ),
                             _dropdown('Case type', _type, const [
                               'Civil Case',
@@ -199,6 +202,9 @@ class _WindowsAddCaseScreenState extends State<WindowsAddCaseScreen> {
       children: fields,
     ),
   );
+  bool _isValidCnr(String? value) =>
+      RegExp(r'^[A-Z0-9]{16}$').hasMatch((value ?? '').trim().toUpperCase());
+
   Widget _field(
     String label,
     TextEditingController c,
@@ -206,6 +212,7 @@ class _WindowsAddCaseScreenState extends State<WindowsAddCaseScreen> {
     bool isRequired = true,
     TextInputType type = TextInputType.text,
     int maxLines = 1,
+    String? Function(String?)? validator,
   }) => Padding(
     padding: const EdgeInsets.only(bottom: 13),
     child: Column(
@@ -218,11 +225,12 @@ class _WindowsAddCaseScreenState extends State<WindowsAddCaseScreen> {
           maxLines: maxLines,
           keyboardType: type,
           decoration: WindowsFieldDecoration(hint: hint).build(),
-          validator: isRequired
-              ? (v) => (v == null || v.trim().isEmpty)
-                    ? 'This field is required'
-                    : null
-              : null,
+          validator: validator ??
+              (isRequired
+                  ? (v) => (v == null || v.trim().isEmpty)
+                        ? 'This field is required'
+                        : null
+                  : null),
         ),
       ],
     ),

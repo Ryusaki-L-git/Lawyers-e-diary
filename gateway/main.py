@@ -45,6 +45,7 @@ from __future__ import annotations
 
 import logging
 import uuid
+from datetime import datetime, timezone
 
 from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.responses import JSONResponse
@@ -54,7 +55,7 @@ if __package__:
     from .auth import LedUser, current_led_user
     from .case_lock import acquire_case_lock, release_case_lock
     from .config import load_settings
-    from .firestore_authz import AuthorizationError, read_case_and_authorize, reauthorize_and_update
+    from .firestore_authz import AuthorizationError, read_case_and_authorize, reauthorize_and_update, _assert_cloud_subscription
     from .presence import (
         InvalidSessionId,
         count_unique_active_users,
@@ -62,6 +63,7 @@ if __package__:
         register_session,
     )
     from .led_id import allocate_led_id
+    from .token_billing import InsufficientCaseTokens, TokenBillingConflict, consume_case_tokens, refund_case_tokens
     from .provider import EcourtsProvider, EcourtsProviderError
     from .rate_limiter import (
         admit_case_request,
@@ -74,7 +76,7 @@ else:
     from auth import LedUser, current_led_user
     from case_lock import acquire_case_lock, release_case_lock
     from config import load_settings
-    from firestore_authz import AuthorizationError, read_case_and_authorize, reauthorize_and_update
+    from firestore_authz import AuthorizationError, read_case_and_authorize, reauthorize_and_update, _assert_cloud_subscription
     from presence import (
         InvalidSessionId,
         count_unique_active_users,
@@ -82,6 +84,7 @@ else:
         register_session,
     )
     from led_id import allocate_led_id
+    from token_billing import InsufficientCaseTokens, TokenBillingConflict, consume_case_tokens, refund_case_tokens
     from provider import EcourtsProvider, EcourtsProviderError
     from rate_limiter import (
         admit_case_request,
@@ -187,6 +190,230 @@ async def heartbeat_presence_session(
             detail="Session not found or ownership mismatch.",
         )
     return {"sessionId": session_id, "ttlSeconds": 300}
+
+
+@app.post("/v1/services/{service_id}/execute")
+async def execute_paid_service(
+    service_id: str,
+    body: dict,
+    user: LedUser = Depends(current_led_user),
+    provider: EcourtsProvider = Depends(get_provider),
+    db=Depends(get_db),
+):
+    """Execute only explicitly implemented, priced services through the LED gateway."""
+    service_id = service_id.strip().lower()
+    prices = {
+        "case_detail": 500,
+        "cause_list_search": 900,
+        "cnr_cause_list_check": 100,
+        "order_download_pdf": 1100,
+        "order_ai_summary": 2200,
+        "order_markdown_pdf": 1500,
+        "bulk_case_refresh": 50,
+    }
+    if service_id not in prices:
+        if service_id in {
+            "case_provisions", "act_section", "act_sections_batch",
+            "section_equivalents", "resolve_act_name", "search_sections",
+            "electoral_search", "legal_check",
+        }:
+            raise HTTPException(
+                status_code=status.HTTP_501_NOT_IMPLEMENTED,
+                detail={
+                    "code": "service_not_ready",
+                    "message": "This service is not enabled until its execution and billing workflow is verified.",
+                },
+            )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Unknown service.")
+
+    try:
+        _assert_cloud_subscription(db, user.uid, db.get)
+    except AuthorizationError:
+        raise
+    except Exception:  # noqa: BLE001
+        logger.exception("Service subscription check failed")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Service authorization is temporarily unavailable.",
+        )
+
+    case_id = body.get("case_id")
+    case_ids = body.get("case_ids")
+    params = body.get("params", {})
+    filename = body.get("filename")
+    signed = body.get("signed", True)
+    cnr = None
+    cnrs = []
+
+    def authorize_case(requested_case_id: str):
+        try:
+            return read_case_and_authorize(
+                db, user.uid, requested_case_id,
+                auth_email=user.email, email_verified=user.email_verified,
+            )
+        except AuthorizationError:
+            raise
+
+    if service_id in {"case_detail", "order_download_pdf", "order_ai_summary", "order_markdown_pdf"}:
+        if not isinstance(case_id, str) or not case_id.strip():
+            raise HTTPException(status_code=422, detail="case_id is required.")
+        access = authorize_case(case_id.strip())
+        cnr = access.cnr
+        if service_id.startswith("order_"):
+            if (
+                not isinstance(filename, str)
+                or not filename.endswith(".pdf")
+                or len(filename) > 128
+                or not filename[0].isalnum()
+                or "/" in filename
+                or "\\" in filename
+                or ".." in filename
+                or "%" in filename
+            ):
+                raise HTTPException(status_code=422, detail="A valid order PDF filename is required.")
+        if service_id in {"order_download_pdf", "order_markdown_pdf"} and not isinstance(signed, bool):
+            raise HTTPException(status_code=422, detail="signed must be a boolean.")
+    elif service_id == "cnr_cause_list_check":
+        if not isinstance(case_ids, list) or not 1 <= len(case_ids) <= 100:
+            raise HTTPException(status_code=422, detail="Provide between 1 and 100 case_ids.")
+        for requested_case_id in case_ids:
+            if not isinstance(requested_case_id, str) or not requested_case_id.strip():
+                raise HTTPException(status_code=422, detail="Each case_id must be a non-empty string.")
+            cnrs.append(authorize_case(requested_case_id.strip()).cnr)
+        cnrs = list(dict.fromkeys(cnrs))
+    elif service_id == "bulk_case_refresh":
+        if not isinstance(case_ids, list) or not 2 <= len(case_ids) <= 50:
+            raise HTTPException(status_code=422, detail="Bulk refresh requires between 2 and 50 case_ids.")
+        for requested_case_id in case_ids:
+            if not isinstance(requested_case_id, str) or not requested_case_id.strip():
+                raise HTTPException(status_code=422, detail="Each case_id must be a non-empty string.")
+            cnrs.append(authorize_case(requested_case_id.strip()).cnr)
+        cnrs = list(dict.fromkeys(cnrs))
+        if not 2 <= len(cnrs) <= 50:
+            raise HTTPException(status_code=422, detail="Bulk refresh requires at least two distinct cases.")
+    elif service_id == "cause_list_search":
+        if not isinstance(params, dict) or not params:
+            raise HTTPException(status_code=422, detail="At least one cause-list filter is required.")
+        allowed = {
+            "q", "date", "startDate", "endDate", "judge", "advocate", "state",
+            "districtCode", "limit", "offset", "courtComplexCode", "court",
+            "courtNo", "bench", "litigant", "listType", "includeCourtroom",
+        }
+        if set(params) - allowed or any(value is None or value == "" for value in params.values()):
+            raise HTTPException(status_code=422, detail="Cause-list filters are invalid.")
+
+    operation_id = str(uuid.uuid4())
+    billing_reference = f"service:{service_id}:{operation_id}"
+    amount_minor_units = prices[service_id] * (
+        len(cnrs) if service_id in {"cnr_cause_list_check", "bulk_case_refresh"} else 1
+    )
+    charged_minor_units = amount_minor_units
+    try:
+        consume_case_tokens(
+            db,
+            user.uid,
+            amount_minor_units=amount_minor_units,
+            reason=service_id,
+            reference_id=billing_reference,
+        )
+    except InsufficientCaseTokens as exc:
+        raise HTTPException(
+            status_code=status.HTTP_402_PAYMENT_REQUIRED,
+            detail={
+                "code": "insufficient_tokens",
+                "required": exc.required,
+                "available": exc.available,
+            },
+        )
+    except Exception:  # noqa: BLE001
+        logger.exception("Paid service token debit failed")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Token billing is temporarily unavailable. The service was not started.",
+        )
+
+    try:
+        if service_id == "case_detail":
+            result = provider.case_detail(cnr)
+        elif service_id == "cause_list_search":
+            result = provider.cause_list_search(params)
+        elif service_id == "cnr_cause_list_check":
+            result = provider.cnr_cause_list_check(cnrs)
+        elif service_id == "order_download_pdf":
+            result = provider.order_download_pdf(cnr, filename, signed=signed)
+        elif service_id == "order_ai_summary":
+            result = provider.order_ai_summary(cnr, filename)
+        elif service_id == "order_markdown_pdf":
+            result = provider.order_markdown_pdf(cnr, filename, signed=signed)
+        else:
+            result = provider.bulk_case_refresh(cnrs)
+
+        # Provider batch APIs report invalid CNRs separately. Refund their
+        # reserved customer charge instead of charging for unprocessed cases.
+        if service_id == "bulk_case_refresh":
+            data = result.get("data", {}) if isinstance(result, dict) else {}
+            invalid = data.get("invalid", []) if isinstance(data, dict) else []
+            invalid_count = len(invalid) if isinstance(invalid, list) else 0
+            refund_units = min(amount_minor_units, invalid_count * prices[service_id])
+            if refund_units:
+                refund_case_tokens(
+                    db, user.uid, amount_minor_units=refund_units,
+                    reason="Bulk Case Refresh invalid-CNR adjustment",
+                    reference_id=f"{billing_reference}:invalid-adjustment",
+                )
+                charged_minor_units -= refund_units
+        return {
+            "serviceId": service_id,
+            "status": "ok",
+            "chargedTokens": charged_minor_units / 100,
+            "data": result.get("data", result) if isinstance(result, dict) else result,
+        }
+    except HTTPException:
+        try:
+            refund_case_tokens(
+                db, user.uid, amount_minor_units=amount_minor_units,
+                reason=f"{service_id} failed refund",
+                reference_id=f"{billing_reference}:refund",
+            )
+        except Exception:  # noqa: BLE001
+            logger.exception("Service failed and refund could not be confirmed")
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Service failed and token refund could not be confirmed. Please contact support.",
+            )
+        raise
+    except EcourtsProviderError as exc:
+        try:
+            refund_case_tokens(
+                db, user.uid, amount_minor_units=amount_minor_units,
+                reason=f"{service_id} failed refund",
+                reference_id=f"{billing_reference}:refund",
+            )
+        except Exception:  # noqa: BLE001
+            logger.exception("Provider failed and refund could not be confirmed")
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Provider failed and token refund could not be confirmed. Please contact support.",
+            )
+        raise HTTPException(status_code=exc.status_code, detail=exc.detail)
+    except Exception:  # noqa: BLE001
+        try:
+            refund_case_tokens(
+                db, user.uid, amount_minor_units=amount_minor_units,
+                reason=f"{service_id} failed refund",
+                reference_id=f"{billing_reference}:refund",
+            )
+        except Exception:  # noqa: BLE001
+            logger.exception("Unexpected service failure and refund could not be confirmed")
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Service failed and token refund could not be confirmed. Please contact support.",
+            )
+        logger.exception("Paid service execution failed")
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="The provider service could not complete this request.",
+        )
 
 
 @app.post("/v1/ecourts/cases/{case_id}/refresh")
@@ -331,26 +558,95 @@ async def refresh_case(
                 detail="Global capacity state is temporarily unavailable.",
             )
 
-        # 5. Provider call (outside the transaction).
-        try:
-            ecourts_data = provider.refresh(access.cnr)
-        except EcourtsProviderError as exc:
-            raise HTTPException(status_code=exc.status_code, detail=exc.detail)
+        # Idempotency is checked only after all admission gates. Retries still
+        # count toward abuse limits, but a completed duplicate is never billed.
+        last_refresh_at = access.case_data.get("lastSmartRefreshAt")
+        last_billing_reference = access.case_data.get("lastSmartRefreshBillingReference")
+        if isinstance(last_refresh_at, datetime) and last_billing_reference:
+            if last_refresh_at.tzinfo is None:
+                last_refresh_at = last_refresh_at.replace(tzinfo=timezone.utc)
+            age_seconds = (datetime.now(timezone.utc) - last_refresh_at).total_seconds()
+            if 0 <= age_seconds < 15:
+                return {
+                    "caseId": case_id,
+                    "cnr": access.cnr,
+                    "status": "duplicate",
+                    "message": "A Smart Refresh for this case completed moments ago. No additional token was charged.",
+                }
 
-        # 6. Transaction: re-authorize, CNR race check, write ecourts data.
+        # 7. Atomically reserve 0.5 Case Token before any provider call.
+        # A missing/invalid account fails closed; no refresh is performed for free.
+        billing_reference = f"smart-refresh:{case_id}:{lock_token}"
         try:
-            reauthorize_and_update(
-                db, user.uid, case_id, access.cnr, ecourts_data,
-                auth_email=user.email, email_verified=user.email_verified,
+            consume_case_tokens(
+                db,
+                user.uid,
+                amount_minor_units=50,
+                reason="Smart Refresh",
+                reference_id=billing_reference,
             )
-        except AuthorizationError:
-            raise
-        except Exception:  # noqa: BLE001
-            logger.exception("Firestore update failed")
+        except InsufficientCaseTokens as exc:
             raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Unable to persist eCourts data.",
+                status_code=status.HTTP_402_PAYMENT_REQUIRED,
+                detail={
+                    "code": "insufficient_tokens",
+                    "required": exc.required,
+                    "available": exc.available,
+                },
             )
+        except TokenBillingConflict:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="This Smart Refresh billing reference conflicts with an existing operation.",
+            )
+        except Exception:  # noqa: BLE001
+            logger.exception("Smart Refresh token debit failed")
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Token billing is temporarily unavailable. No refresh was started.",
+            )
+
+        # 8. Provider call and persistence. Any failure triggers an idempotent refund.
+        # Record the start instant explicitly; it is persisted with the billing
+        # marker so duplicate requests can be recognized without another debit.
+        refresh_started_at = datetime.now(timezone.utc)
+        try:
+            try:
+                ecourts_data = provider.refresh(access.cnr)
+            except EcourtsProviderError as exc:
+                raise HTTPException(status_code=exc.status_code, detail=exc.detail)
+
+            try:
+                reauthorize_and_update(
+                    db, user.uid, case_id, access.cnr, ecourts_data,
+                    auth_email=user.email, email_verified=user.email_verified,
+                    billing_reference=billing_reference,
+                    refresh_started_at=refresh_started_at,
+                )
+            except AuthorizationError:
+                raise
+            except Exception as exc:  # noqa: BLE001
+                logger.exception("Firestore update failed")
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail="Unable to persist eCourts data.",
+                ) from exc
+        except Exception:
+            try:
+                refund_case_tokens(
+                    db,
+                    user.uid,
+                    amount_minor_units=50,
+                    reason="Smart Refresh refund",
+                    reference_id=f"{billing_reference}:refund",
+                )
+            except Exception:  # noqa: BLE001
+                logger.exception("Smart Refresh failed and its token refund could not be confirmed")
+                raise HTTPException(
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    detail="Refresh failed and token refund could not be confirmed. Please contact support before retrying.",
+                )
+            raise
     finally:
         # 7. Release the lock in all paths (success, provider error, write error).
         release_case_lock(db, case_id, lock_token)

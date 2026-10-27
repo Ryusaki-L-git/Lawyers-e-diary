@@ -8,6 +8,7 @@ import '../../services/ecourts_service.dart';
 import '../../widgets/app_bottom_navigation.dart';
 import '../../widgets/app_nav_controller.dart';
 import 'transfer_case_screen.dart';
+import '../services/services_catalogue_screen.dart';
 import '../../widgets/app_palette.dart';
 
 /// Case Detail Screen — full case docket view.
@@ -255,9 +256,43 @@ class _CaseDetailScreenState extends State<CaseDetailScreen> {
       );
     } catch (e) {
       if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Smart Refresh: $e')),
-      );
+      if (e is InsufficientCaseTokensException) {
+        await showDialog<void>(
+          context: context,
+          builder: (dialogContext) => AlertDialog(
+            title: const Text('Not enough Case Tokens'),
+            content: Text(
+              'Smart Refresh costs ${e.required.toStringAsFixed(2)} Case Tokens. '
+              'Your current balance is ${e.available.toStringAsFixed(2)}. '
+              'Add tokens to continue. No refresh was performed.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(),
+                child: const Text('Not now'),
+              ),
+              OutlinedButton(
+                onPressed: () {
+                  Navigator.of(dialogContext).pop();
+                  Navigator.of(context).pushNamed('/token_balance');
+                },
+                child: const Text('View Balance'),
+              ),
+              FilledButton(
+                onPressed: () {
+                  Navigator.of(dialogContext).pop();
+                  Navigator.of(context).pushNamed('/upgrade');
+                },
+                child: const Text('Buy Plans / Tokens'),
+              ),
+            ],
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Smart Refresh: $e')),
+        );
+      }
     } finally {
       if (mounted) setState(() => _isRefreshing = false);
     }
@@ -580,6 +615,23 @@ class _CaseDetailScreenState extends State<CaseDetailScreen> {
                           onTap: _isRefreshing
                               ? () {}
                               : () => _smartRefresh(context),
+                        ),
+
+                        const SizedBox(height: 8),
+
+                        // More Services
+                        _actionButton(
+                          context: context,
+                          icon: Icons.apps_rounded,
+                          label: 'More Services',
+                          color: primaryGreen,
+                          onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) => ServicesCatalogueScreen(
+                                caseItem: widget.localOnly ? null : caseItem,
+                              ),
+                            ),
+                          ),
                         ),
 
                         const SizedBox(height: 8),

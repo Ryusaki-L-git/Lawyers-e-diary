@@ -365,7 +365,7 @@ class _AddCaseScreenState extends State<AddCaseScreen> {
                   ),
                   const SizedBox(height: 16),
 
-                  _fieldLabel('CNR / Case Number *'),
+                  _fieldLabel('CNR Number *'),
                   TextFormField(
                     controller: _caseNumberController,
                     textCapitalization: TextCapitalization.characters,
@@ -375,12 +375,13 @@ class _AddCaseScreenState extends State<AddCaseScreen> {
                       fontWeight: FontWeight.w600,
                     ),
                     decoration: _inputDecoration(
-                      hint: 'e.g., DLHC01-002841-2024 or WP 1042/2024',
+                      hint: 'Enter the 16-character CNR',
                       icon: Icons.tag_rounded,
                     ),
                     validator: (val) {
-                      if (val == null || val.trim().isEmpty) {
-                        return 'Please enter CNR or case number';
+                      final cnr = (val ?? '').trim().toUpperCase();
+                      if (!RegExp(r'^[A-Z0-9]{16}$').hasMatch(cnr)) {
+                        return 'Enter a valid 16-character CNR';
                       }
                       return null;
                     },

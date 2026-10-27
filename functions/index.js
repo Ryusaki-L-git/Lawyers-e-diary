@@ -6,6 +6,8 @@ const { defineSecret } = require("firebase-functions/params");
 const { HttpsError, onCall } = require("firebase-functions/v2/https");
 const logger = require("firebase-functions/logger");
 const { isValidCounterValue } = require("./counter_validation");
+const { buildCnrOnlyCaseRecord } = require("./case_record_policy");
+const { isDirectCaseOwner } = require("./case_authorization_policy");
 
 if (getApps().length === 0) {
 	initializeApp();
@@ -73,23 +75,30 @@ function validateCaseId(value) {
 }
 
 function storedCnr(caseData) {
-	const value = caseData.cnrNumber ?? caseData.cnr;
-	if (typeof value !== "string" || value.trim().length === 0) {
+	const values = ["cuid", "cnrNumber", "cnr"]
+		.map((key) => caseData[key])
+		.filter((value) => typeof value === "string" && value.trim().length > 0);
+	if (values.length === 0) {
 		throw new HttpsError(
 			"failed-precondition",
 			"This case does not have a CNR number.",
 		);
 	}
-	const cnr = value.trim().toUpperCase();
-	if (!cnrPattern.test(cnr)) {
+	const normalized = values.map((value) => value.trim().toUpperCase());
+	if (normalized.some((value) => !cnrPattern.test(value))) {
 		throw new HttpsError(
 			"failed-precondition",
 			"This case does not contain a valid 16-character CNR number.",
 		);
 	}
-	return cnr;
+	if (new Set(normalized).size !== 1) {
+		throw new HttpsError(
+			"failed-precondition",
+			"The stored CUID and CNR fields do not match.",
+		);
+	}
+	return normalized[0];
 }
-
 function assertCloudPlan(userSnapshot) {
 	const subscription = userSnapshot.exists
 		? userSnapshot.data().subscription
@@ -146,8 +155,9 @@ async function readAuthorizationDocuments(
 }
 
 function isAuthorizedCaseUser(uid, caseData, teamSnapshot, memberSnapshots) {
-	// Direct case owner / legacy owner access.
-	if (caseData.ownerUid === uid || caseData.userId === uid) {
+	// ownerUid is canonical whenever present. A stale legacy userId
+	// must not grant access to another advocate's original private record.
+	if (isDirectCaseOwner(uid, caseData)) {
 		return true;
 	}
 
@@ -359,88 +369,24 @@ async function fetchFromECourts(cnr) {
 	return mapProviderResponse(payload, cnr);
 }
 
+// Legacy callable deliberately retained as a fail-closed compatibility response.
+// All Smart Refresh execution must pass through the LED gateway, which owns
+// rate limiting, per-case locks, token debit/refund, provider polling, and
+// persistence authorization. Leaving a direct provider callable active would
+// let older clients bypass those shared controls.
 exports.refreshCaseFromECourts = onCall(
-	{
-		region: "us-central1",
-		timeoutSeconds: 60,
-		secrets: [ecourtsApiKey, ecourtsBaseUrl],
-	},
-	async (request) => {
-		if (!request.auth) {
-			throw new HttpsError("unauthenticated", "Sign in to refresh a case.");
-		}
-		const uid = request.auth.uid;
-
-		try {
-			const caseId = validateCaseId(request.data?.caseId);
-			const caseRef = db.collection("cases").doc(caseId);
-			const caseSnapshot = await caseRef.get();
-			if (!caseSnapshot.exists) {
-				throw new HttpsError("not-found", "The requested case was not found.");
-			}
-
-			const initialCaseData = caseSnapshot.data();
-			const initialAccess = await readAuthorizationDocuments(
-				uid,
-				initialCaseData,
-				undefined,
-				request.auth.token.email,
-				request.auth.token.email_verified === true,
-			);
-			assertCloudPlan(initialAccess.userSnapshot);
-			if (!isAuthorizedCaseUser(
-				uid,
-				initialCaseData,
-				initialAccess.teamSnapshot,
-				initialAccess.memberSnapshots,
-			)) {
-				throw new HttpsError("permission-denied", "You are not authorized to access this case.");
-			}
-
-			const cnr = storedCnr(initialCaseData);
-			const ecourtsData = await fetchFromECourts(cnr);
-
-			await db.runTransaction(async (transaction) => {
-				const freshCaseSnapshot = await transaction.get(caseRef);
-				if (!freshCaseSnapshot.exists) {
-					throw new HttpsError("not-found", "The requested case was not found.");
-				}
-				const freshCaseData = freshCaseSnapshot.data();
-				const freshAccess = await readAuthorizationDocuments(
-					uid,
-					freshCaseData,
-					transaction,
-					request.auth.token.email,
-					request.auth.token.email_verified === true,
-				);
-				assertCloudPlan(freshAccess.userSnapshot);
-				if (!isAuthorizedCaseUser(
-					uid,
-					freshCaseData,
-					freshAccess.teamSnapshot,
-					freshAccess.memberSnapshots,
-				)) {
-					throw new HttpsError("permission-denied", "You are not authorized to access this case.");
-				}
-				if (storedCnr(freshCaseData) !== cnr) {
-					throw new HttpsError(
-						"failed-precondition",
-						"The case CNR changed during refresh. Please try again.",
-					);
-				}
-				transaction.update(caseRef, { ecourts_data: ecourtsData });
-			});
-
-			return { caseId, cnr, ecourts_data: ecourtsData };
-		} catch (error) {
-			if (error instanceof HttpsError) throw error;
-			logger.error("LED eCourts refresh failed during an internal operation.");
-			throw new HttpsError("internal", "Unable to refresh this case from eCourts.");
-		}
-	},
+  { region: "us-central1", timeoutSeconds: 15 },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "Sign in to refresh a case.");
+    }
+    throw new HttpsError(
+      "failed-precondition",
+      "This legacy refresh endpoint is disabled. Update LED to use Smart Backend refresh.",
+    );
+  },
 );
 
-// ─────────────────────────────────────────────────────────────────────────────
 // LED User ID allocation (server-authoritative year).
 //
 // Reuses the existing Firebase Functions v2 + firebase-admin infrastructure.
@@ -585,6 +531,137 @@ exports.allocateLedId = onCall(
 			if (error instanceof HttpsError) throw error;
 			logger.error("LED ID allocation failed during an internal operation.");
 			throw new HttpsError("internal", "Unable to allocate an LED ID.");
+		}
+	},
+);
+
+
+// Create a separate, private-by-default case registration for the recipient.
+// CNR identifies the court case; it is not a shared workspace or permission.
+exports.transferCaseToAdvocate = onCall(
+	{
+		region: "us-central1",
+		timeoutSeconds: 60,
+	},
+	async (request) => {
+		if (!request.auth) {
+			throw new HttpsError("unauthenticated", "Sign in to transfer a case.");
+		}
+		const sourceUid = request.auth.uid;
+		const caseId = validateCaseId(request.data?.caseId);
+		const targetUid =
+			typeof request.data?.targetLawyerId === "string"
+				? request.data.targetLawyerId.trim()
+				: "";
+		if (!targetUid || targetUid.length > 128 || targetUid.includes("/")) {
+			throw new HttpsError("invalid-argument", "A valid recipient account is required.");
+		}
+		if (targetUid === sourceUid) {
+			throw new HttpsError("invalid-argument", "Choose a different recipient.");
+		}
+
+		const sourceRef = db.collection("cases").doc(caseId);
+		const targetUserRef = db.collection("users").doc(targetUid);
+		try {
+			return await db.runTransaction(async (transaction) => {
+				const [sourceSnap, targetUserSnap] = await Promise.all([
+					transaction.get(sourceRef),
+					transaction.get(targetUserRef),
+				]);
+				if (!sourceSnap.exists) {
+					throw new HttpsError("not-found", "The source case was not found.");
+				}
+				const source = sourceSnap.data();
+				const sourceOwnerUid =
+					typeof source.ownerUid === "string" ? source.ownerUid : source.userId;
+				if (sourceOwnerUid !== sourceUid) {
+					throw new HttpsError("permission-denied", "You cannot transfer this case.");
+				}
+				if (!targetUserSnap.exists) {
+					throw new HttpsError("not-found", "The recipient account was not found.");
+				}
+				const targetData = targetUserSnap.data();
+				const targetLedId =
+					typeof targetData.ledId === "string" ? targetData.ledId.trim() : "";
+				if (!/^\d{4,}-\d{4}$/.test(targetLedId)) {
+					throw new HttpsError(
+						"failed-precondition",
+						"The recipient must have a completed LED ID before receiving a case.",
+					);
+				}
+				const targetDirectoryRef = db.collection("led_id_directory").doc(targetLedId);
+				const targetDirectorySnap = await transaction.get(targetDirectoryRef);
+				if (
+					!targetDirectorySnap.exists ||
+					targetDirectorySnap.data()?.uid !== targetUid ||
+					targetDirectorySnap.data()?.profileCompleted !== true
+				) {
+					throw new HttpsError("permission-denied", "The recipient LED ID could not be verified.");
+				}
+				const cnr = storedCnr(source);
+				const registryRef = targetUserRef.collection("case_cuid_registry").doc(cnr);
+				const registrySnap = await transaction.get(registryRef);
+				if (registrySnap.exists) {
+					const registeredCaseId = registrySnap.data()?.caseId;
+					if (typeof registeredCaseId !== "string" || !registeredCaseId.trim()) {
+						throw new HttpsError("failed-precondition", "The recipient CNR registry requires migration.");
+					}
+					const registeredCaseRef = db.collection("cases").doc(registeredCaseId);
+					const registeredCaseSnap = await transaction.get(registeredCaseRef);
+					if (!registeredCaseSnap.exists) {
+						throw new HttpsError("failed-precondition", "The recipient CNR registry points to a missing case record.");
+					}
+					const registeredCase = registeredCaseSnap.data();
+					if ((registeredCase.ownerUid ?? registeredCase.userId) !== targetUid || storedCnr(registeredCase) !== cnr) {
+						throw new HttpsError("failed-precondition", "The recipient CNR registry does not match its case record.");
+					}
+					return { caseId: registeredCaseId, created: false, cuid: cnr };
+				}
+				const targetCases = db.collection("cases")
+					.where("ownerUid", "==", targetUid)
+					.where("cuid", "==", cnr)
+					.limit(1);
+				const legacyTargetCases = db.collection("cases")
+					.where("userId", "==", targetUid)
+					.where("cnrNumber", "==", cnr)
+					.limit(50);
+				const [existing, legacyExisting] = await Promise.all([
+					transaction.get(targetCases),
+					transaction.get(legacyTargetCases),
+				]);
+				const legacyDuplicate = legacyExisting.docs.find((doc) => {
+					const data = doc.data();
+					// Old transfer code could change userId while leaving ownerUid
+					// on the source record. Do not mistake that for recipient ownership.
+					if (typeof data.ownerUid === "string" && data.ownerUid !== targetUid) return false;
+					return storedCnr(data) === cnr;
+				});
+				const duplicate = !existing.empty ? existing.docs[0] : legacyDuplicate ?? null;
+				if (duplicate) {
+					const duplicateData = duplicate.data();
+					if ((duplicateData.ownerUid ?? duplicateData.userId) !== targetUid || storedCnr(duplicateData) !== cnr) {
+						throw new HttpsError("failed-precondition", "The existing recipient case requires migration.");
+					}
+					transaction.create(registryRef, { uid: targetUid, cuid: cnr, caseId: duplicate.id, updatedAt: new Date() });
+					return { caseId: duplicate.id, created: false, cuid: cnr };
+				}
+				// The cloud registration is only CNR + minimum ownership/sync metadata.
+				// Recipient private case fields are created locally and are never copied.
+				const recipientCaseRef = db.collection("cases").doc();
+				const recipientRecord = buildCnrOnlyCaseRecord({
+					ownerUid: targetUid,
+					ownerLedId: targetLedId,
+					cnr,
+					now: new Date(),
+				});
+				transaction.create(recipientCaseRef, recipientRecord);
+				transaction.create(registryRef, { uid: targetUid, cuid: cnr, caseId: recipientCaseRef.id, updatedAt: new Date() });
+				return { caseId: recipientCaseRef.id, created: true, cuid: cnr };
+			});
+		} catch (error) {
+			if (error instanceof HttpsError) throw error;
+			logger.error("Case transfer failed.");
+			throw new HttpsError("internal", "Unable to create the recipient's independent case record.");
 		}
 	},
 );

@@ -30,8 +30,10 @@ service cloud.firestore {
 
     function caseReadable(data) {
       return signedIn() && (
-        data.ownerUid == request.auth.uid
-        || data.userId == request.auth.uid
+        // ownerUid is authoritative whenever present. A stale or forged
+        // legacy userId must never override a different canonical owner.
+        ((data.ownerUid is string && data.ownerUid == request.auth.uid)
+          || (!(data.ownerUid is string) && data.userId == request.auth.uid))
         || data.assignedTo == request.auth.uid
         || data.teamOwnerUid == request.auth.uid
       );
@@ -43,49 +45,156 @@ service cloud.firestore {
         && teamManager(data.teamId, request.auth.uid);
     }
 
+    // Ownership and court-case identity are immutable after registration.
+    // Legacy documents may lack ownerUid or CUID aliases, so allow canonical
+    // fields to be added only when they match the existing owner/CNR identity.
+    function caseIdentityUnchanged(existing, updated) {
+      return (
+        (
+          (existing.ownerUid is string && updated.ownerUid == existing.ownerUid)
+          || (!(existing.ownerUid is string) && updated.ownerUid == existing.userId)
+        )
+        && (
+          !('userId' in existing.keys())
+          || updated.userId == existing.userId
+        )
+        && (
+          !('ownerLedId' in existing.keys())
+          || updated.ownerLedId == existing.ownerLedId
+        )
+        && (
+          !('cuid' in existing.keys())
+          || updated.cuid == existing.cuid
+        )
+        && (
+          !('cnrNumber' in existing.keys())
+          || updated.cnrNumber == existing.cnrNumber
+        )
+        && (
+          !('caseNumber' in existing.keys())
+          || updated.caseNumber == existing.caseNumber
+        )
+      );
+    }
+
+
+    function cloudSubscriber(uid) {
+      return signedIn()
+        && exists(/databases/$(database)/documents/users/$(uid))
+        && get(/databases/$(database)/documents/users/$(uid)).data.subscription is map
+        && get(/databases/$(database)/documents/users/$(uid)).data.subscription.tier == 'cloud_subscriber';
+    }
+
+    function cnrOnlyCase(data) {
+      return data.cloudStorageMode == 'cnr_only'
+        && data.cuid is string
+        && data.cuid.matches('^[A-Z0-9]{16}$')
+        && data.cnrNumber == data.cuid
+        && data.caseNumber == data.cuid
+        && data.keys().hasOnly([
+          'ownerUid', 'ownerLedId', 'userId', 'cuid', 'cnrNumber',
+          'caseNumber', 'createdAt', 'updatedAt', 'lastUpdated',
+          'cloudVersion', 'cloudStorageMode'
+        ]);
+    }
+
+    function caseStorageAllowed(data, ownerUid) {
+      return cloudSubscriber(ownerUid)
+        || (ownerUid == request.auth.uid && cnrOnlyCase(data));
+    }
+    
+    function registryCaseIdAfter(uid, cnr) {
+      return getAfter(/databases/$(database)/documents/users/$(uid)/case_cuid_registry/$(cnr)).data.caseId;
+    }
+
+
     // ----------------------------------------------------------------------
     // Private user profile. Never expose the full users collection.
     // ----------------------------------------------------------------------
+    function clientEditableProfileFields() {
+      return [
+        'name',
+        'email',
+        'phone',
+        'dob',
+        'advocateType',
+        'address',
+        'courtAddress',
+        'officeAddress',
+        'degrees',
+        'createdAt',
+        'updatedAt',
+        'lastSyncedAt'
+      ];
+    }
+
     match /users/{uid} {
       allow read: if self(uid);
-      allow create: if self(uid);
-      allow update: if self(uid);
+
+      // Allow only the fields used by the profile form and sync metadata.
+      // Unknown future keys are denied by default, preventing clients from
+      // inventing privilege, identity, billing, or verification fields.
+      allow create: if self(uid)
+        && request.resource.data.keys().hasOnly(clientEditableProfileFields());
+
+      allow update: if self(uid)
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(clientEditableProfileFields());
+
+      allow delete: if false;
+    }
+
+    // Per-advocate CNR registry: same CNR may exist independently for many users.
+    match /users/{uid}/case_cuid_registry/{cnr} {
+      allow read: if self(uid);
+      allow create: if self(uid)
+        && cnr.matches('^[A-Z0-9]{16}$')
+        && request.resource.data.keys().hasOnly(['uid', 'cuid', 'caseId', 'updatedAt'])
+        && request.resource.data.uid == uid
+        && request.resource.data.cuid == cnr
+        && request.resource.data.caseId is string
+        && request.resource.data.caseId.size() > 0
+        && !request.resource.data.caseId.matches('.*[/].*')
+        && getAfter(/databases/$(database)/documents/cases/$(request.resource.data.caseId)).data.ownerUid == uid
+        && getAfter(/databases/$(database)/documents/cases/$(request.resource.data.caseId)).data.cuid == cnr;
+      allow update: if self(uid)
+        && cnr.matches('^[A-Z0-9]{16}$')
+        && resource.data.uid == uid
+        && resource.data.cuid == cnr
+        && request.resource.data.keys().hasOnly(['uid', 'cuid', 'caseId', 'updatedAt'])
+        && request.resource.data.uid == uid
+        && request.resource.data.cuid == cnr
+        && request.resource.data.caseId is string
+        && request.resource.data.caseId.size() > 0
+        && !request.resource.data.caseId.matches('.*[/].*')
+        && request.resource.data.caseId != resource.data.caseId
+        && get(/databases/$(database)/documents/cases/$(resource.data.caseId)).data.ownerUid == uid
+        && get(/databases/$(database)/documents/cases/$(resource.data.caseId)).data.cuid == cnr
+        && get(/databases/$(database)/documents/cases/$(resource.data.caseId)).data.cloudStorageMode == 'cnr_only'
+        && !existsAfter(/databases/$(database)/documents/cases/$(resource.data.caseId))
+        && existsAfter(/databases/$(database)/documents/cases/$(request.resource.data.caseId))
+        && getAfter(/databases/$(database)/documents/cases/$(request.resource.data.caseId)).data.ownerUid == uid
+        && getAfter(/databases/$(database)/documents/cases/$(request.resource.data.caseId)).data.cuid == cnr;
       allow delete: if false;
     }
 
     // Minimal directory used for LED-ID lookup. It contains no phone,
     // address, email, subscription, or other private profile information.
     match /led_id_directory/{ledId} {
-      allow read: if signedIn();
-
-      allow create: if self(request.resource.data.uid)
-        && request.resource.data.ledId == ledId
-        && request.resource.data.profileCompleted == true;
-
-      allow update: if self(resource.data.uid)
-        && request.resource.data.uid == resource.data.uid
-        && request.resource.data.ledId == resource.data.ledId
-        && request.resource.data.ledId == ledId;
-
-      allow delete: if false;
+      // The directory is written only by the trusted gateway/Admin SDK.
+      // Authenticated clients may look up IDs but cannot create, claim,
+      // overwrite, or reassign directory entries.
+      // Direct lookup by a known LED ID is allowed; collection enumeration is not.
+      allow get: if signedIn();
+      allow list: if false;
+      allow create, update, delete: if false;
     }
 
-    // Legacy sequential LED-ID counter. The client may only increment it by
-    // one; it cannot reset, decrement, or rewrite unrelated fields.
+    // LED-ID counters are server-managed. Clients may read the legacy
+    // counter for compatibility, but cannot reset, increment, or forge it.
     match /metadata/{docId} {
       allow read: if signedIn() && docId == 'counters';
-      allow create: if signedIn()
-        && docId == 'counters'
-        && request.resource.data.userCount is int
-        && request.resource.data.userCount >= 0
-        && request.resource.data.updatedAt != null;
-
-      allow update: if signedIn()
-        && docId == 'counters'
-        && request.resource.data.userCount is int
-        && request.resource.data.userCount == resource.data.userCount + 1
-        && request.resource.data.updatedAt != null;
-      allow delete: if false;
+      allow create, update, delete: if false;
     }
 
     // ----------------------------------------------------------------------
@@ -95,30 +204,51 @@ service cloud.firestore {
       allow read: if caseReadable(resource.data) || caseManager(resource.data);
 
       allow create: if signedIn()
-        && (
-          request.resource.data.ownerUid == request.auth.uid
-          || request.resource.data.userId == request.auth.uid
-        );
+        && caseStorageAllowed(request.resource.data, request.auth.uid)
+        && request.resource.data.ownerUid == request.auth.uid
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.cuid is string
+        && request.resource.data.cuid.matches('^[A-Z0-9]{16}$')
+        && request.resource.data.cnrNumber == request.resource.data.cuid
+        && request.resource.data.caseNumber == request.resource.data.cuid
+        && existsAfter(/databases/$(database)/documents/users/$(request.auth.uid)/case_cuid_registry/$(request.resource.data.cuid))
+        && getAfter(/databases/$(database)/documents/users/$(request.auth.uid)/case_cuid_registry/$(request.resource.data.cuid)).data.uid == request.auth.uid
+        && getAfter(/databases/$(database)/documents/users/$(request.auth.uid)/case_cuid_registry/$(request.resource.data.cuid)).data.cuid == request.resource.data.cuid
+        && getAfter(/databases/$(database)/documents/users/$(request.auth.uid)/case_cuid_registry/$(request.resource.data.cuid)).data.caseId == caseId;
 
-      allow update: if (
-        caseManager(resource.data)
-        || (
-          caseReadable(resource.data)
-          && (
-            resource.data.ownerUid == request.auth.uid
-            || resource.data.userId == request.auth.uid
-            || (
-              resource.data.assignedTo == request.auth.uid
-              && request.resource.data.ownerUid == resource.data.ownerUid
-              && request.resource.data.userId == resource.data.userId
-              && request.resource.data.teamId == resource.data.teamId
-              && request.resource.data.teamOwnerUid == resource.data.teamOwnerUid
-              && request.resource.data.assignedTo == resource.data.assignedTo
+      allow update: if signedIn()
+        && caseIdentityUnchanged(resource.data, request.resource.data)
+        && caseStorageAllowed(request.resource.data, request.auth.uid)
+        && request.resource.data.cuid is string
+        && request.resource.data.cuid.matches('^[A-Z0-9]{16}$')
+        && request.resource.data.cnrNumber == request.resource.data.cuid
+        && request.resource.data.caseNumber == request.resource.data.cuid
+        && (
+          caseManager(resource.data)
+          || (
+            caseReadable(resource.data)
+            && (
+              resource.data.ownerUid == request.auth.uid
+              || resource.data.userId == request.auth.uid
+              || (
+                resource.data.assignedTo == request.auth.uid
+                && request.resource.data.ownerUid == resource.data.ownerUid
+                && request.resource.data.userId == resource.data.userId
+                && request.resource.data.teamId == resource.data.teamId
+                && request.resource.data.teamOwnerUid == resource.data.teamOwnerUid
+                && request.resource.data.assignedTo == resource.data.assignedTo
+              )
             )
           )
-        )
-      );
-      allow delete: if false;
+        );
+      allow delete: if caseReadable(resource.data)
+        && resource.data.ownerUid == request.auth.uid
+        && cnrOnlyCase(resource.data)
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid)/case_cuid_registry/$(resource.data.cuid))
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)/case_cuid_registry/$(resource.data.cuid)).data.caseId == caseId
+        && !existsAfter(/databases/$(database)/documents/cases/$(caseId))
+        && existsAfter(/databases/$(database)/documents/cases/$(registryCaseIdAfter(request.auth.uid, resource.data.cuid)))
+        && getAfter(/databases/$(database)/documents/cases/$(registryCaseIdAfter(request.auth.uid, resource.data.cuid))).data.cuid == resource.data.cuid;
 
       match /notes/{noteId} {
         allow read: if caseReadable(get(/databases/$(database)/documents/cases/$(caseId)).data)

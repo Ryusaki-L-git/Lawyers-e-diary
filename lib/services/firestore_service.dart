@@ -1,11 +1,18 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import '../data/local/app_database.dart';
 import '../models/case_model.dart';
+import '../repositories/case_repository.dart';
 import '../models/fee_model.dart';
 import '../models/reminder_model.dart';
+import '../models/team_model.dart';
 import '../models/todo_model.dart';
+import 'team_service.dart';
 
 class CaseStats {
   const CaseStats({
@@ -154,7 +161,12 @@ class FirestoreService {
   Query<Map<String, dynamic>> _accessibleCasesQuery(String uid) {
     final accessFilter = Filter.or(
       Filter('ownerUid', isEqualTo: uid),
-      Filter('userId', isEqualTo: uid),
+      // Legacy records without ownerUid remain readable by their userId,
+      // but a stale userId can never expose a record owned by someone else.
+      Filter.and(
+        Filter('userId', isEqualTo: uid),
+        Filter('ownerUid', isNull: true),
+      ),
       Filter('assignedTo', isEqualTo: uid),
       Filter('teamOwnerUid', isEqualTo: uid),
     );
@@ -227,20 +239,29 @@ class FirestoreService {
     }
   }
 
-  /// Transfers case ownership/handler to another lawyer.
+  /// Creates an independent case registration for another advocate.
+  ///
+  /// The source record is intentionally preserved. The trusted callable
+  /// creates a recipient-owned record with the same CUID/CNR and does not
+  /// copy private notes, client details, fees, reminders, or documents.
   Future<void> transferCase({
     required String caseId,
     required String targetLawyerName,
     required String targetLawyerId,
   }) async {
     try {
-      await _db.collection('cases').doc(caseId).update({
-        'handledBy': targetLawyerName,
-        'userId': targetLawyerId,
-        'lastUpdated': FieldValue.serverTimestamp(),
-      });
+      if (_auth.currentUser == null) {
+        throw StateError('Sign in before transferring a case.');
+      }
+      await FirebaseFunctions.instanceFor(region: 'us-central1')
+          .httpsCallable('transferCaseToAdvocate')
+          .call(<String, dynamic>{
+            'caseId': caseId,
+            'targetLawyerId': targetLawyerId,
+            'targetLawyerName': targetLawyerName,
+          });
     } catch (e) {
-      debugPrint('Error transferring case: $e');
+      debugPrint('Error creating recipient case registration: $e');
       rethrow;
     }
   }
@@ -271,26 +292,137 @@ class FirestoreService {
     }
   }
 
+  /// Look up one recipient by their known LED ID without enumerating the
+  /// global directory. The directory contains only minimal public identity data.
+  Future<TeamMemberModel?> lookupTeamMemberByLedId(String ledId) async {
+    final normalizedId = ledId.trim();
+    if (!RegExp(r'^\d{4,}-\d{4}$').hasMatch(normalizedId)) {
+      throw ArgumentError.value(ledId, 'ledId', 'Enter a valid LED ID.');
+    }
+    final snapshot = await _db
+        .collection('led_id_directory')
+        .doc(normalizedId)
+        .get();
+    if (!snapshot.exists) return null;
+    final data = snapshot.data() ?? const <String, dynamic>{};
+    final uid = data['uid'];
+    final name = data['name'];
+    if (uid is! String ||
+        uid.isEmpty ||
+        name is! String ||
+        name.trim().isEmpty ||
+        data['profileCompleted'] != true) {
+      return null;
+    }
+    if (uid == currentUserId) {
+      throw ArgumentError.value(
+        ledId,
+        'ledId',
+        'You cannot transfer a case to yourself.',
+      );
+    }
+    return TeamMemberModel(
+      id: uid,
+      name: name.trim(),
+      role: data['advocateType'] as String? ?? 'Advocate',
+    );
+  }
+
   /// Stream firm team members for the Cause List team switcher and transfer screen.
+  /// Stream members from teams the current advocate belongs to.
+  /// Global LED-ID directory enumeration is intentionally forbidden.
+  /// Only team owners/leaders can list all members under Firestore rules.
   Stream<List<TeamMemberModel>> getTeamMembers() {
-    // User profiles are private. The transfer/team switcher only needs the
-    // minimal public identity fields maintained in the LED ID directory.
-    return _db.collection('led_id_directory').snapshots().map((snapshot) {
-      final members = <TeamMemberModel>[];
-      for (final doc in snapshot.docs) {
-        final data = doc.data();
-        final name = data['name'] as String? ?? 'Associate Lawyer';
-        members.add(
-          TeamMemberModel(
-            id: data['uid'] as String? ?? '',
-            name: name,
-            role: data['advocateType'] as String? ?? 'Associate Advocate',
-            email: null,
-          ),
-        );
+    final uid = currentUserId;
+    if (uid == null || uid.isEmpty) {
+      return Stream.value(const <TeamMemberModel>[]);
+    }
+
+    return Stream<List<TeamMemberModel>>.multi((controller) {
+      final memberSubscriptions = <String, StreamSubscription<List<TeamMembership>>>{};
+      final membershipSubscriptions = <String, StreamSubscription<TeamMembership?>>{};
+      final membersByTeam = <String, List<TeamMembership>>{};
+      final allowedTeamIds = <String>{};
+
+      void emitMembers() {
+        final byUid = <String, TeamMemberModel>{};
+        for (final teamId in allowedTeamIds) {
+          for (final member in membersByTeam[teamId] ?? const <TeamMembership>[]) {
+            if (!member.isActive || member.userId.isEmpty) continue;
+            final name = member.displayName.trim();
+            byUid[member.userId] = TeamMemberModel(
+              id: member.userId,
+              name: name.isEmpty ? 'Associate Advocate' : name,
+              role: member.role.label,
+              email: null,
+            );
+          }
+        }
+        final sorted = byUid.values.toList()
+          ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+        controller.add(sorted);
       }
 
-      return members.where((member) => member.id.isNotEmpty).toList();
+      void watchMembersFor(String teamId) {
+        if (memberSubscriptions.containsKey(teamId)) return;
+        memberSubscriptions[teamId] = TeamService.instance
+            .watchMembers(teamId)
+            .listen((members) {
+              membersByTeam[teamId] = members;
+              emitMembers();
+            }, onError: controller.addError);
+      }
+
+      Future<void> stopWatchingTeam(String teamId) async {
+        allowedTeamIds.remove(teamId);
+        membersByTeam.remove(teamId);
+        final memberSubscription = memberSubscriptions.remove(teamId);
+        if (memberSubscription != null) await memberSubscription.cancel();
+        final membershipSubscription = membershipSubscriptions.remove(teamId);
+        if (membershipSubscription != null) await membershipSubscription.cancel();
+      }
+
+      final teamsSubscription = TeamService.instance.watchUserTeams().listen((teams) async {
+        final activeIds = teams.map((team) => team.id).toSet();
+        for (final teamId in {...memberSubscriptions.keys, ...membershipSubscriptions.keys}) {
+          if (!activeIds.contains(teamId)) await stopWatchingTeam(teamId);
+        }
+        for (final team in teams) {
+          if (team.ownerId == uid) {
+            allowedTeamIds.add(team.id);
+            watchMembersFor(team.id);
+            continue;
+          }
+          if (membershipSubscriptions.containsKey(team.id)) continue;
+          membershipSubscriptions[team.id] = TeamService.instance
+              .watchMyMembership(team.id)
+              .listen((membership) async {
+                final canList = membership != null &&
+                    membership.isActive && membership.role.canManageTeam;
+                if (canList) {
+                  allowedTeamIds.add(team.id);
+                  watchMembersFor(team.id);
+                } else {
+                  allowedTeamIds.remove(team.id);
+                  membersByTeam.remove(team.id);
+                  final subscription = memberSubscriptions.remove(team.id);
+                  if (subscription != null) await subscription.cancel();
+                }
+                emitMembers();
+              }, onError: controller.addError);
+        }
+        emitMembers();
+      }, onError: controller.addError);
+
+      controller.onCancel = () async {
+        await teamsSubscription.cancel();
+        for (final subscription in memberSubscriptions.values) {
+          await subscription.cancel();
+        }
+        for (final subscription in membershipSubscriptions.values) {
+          await subscription.cancel();
+        }
+      };
     });
   }
 
@@ -311,14 +443,24 @@ class FirestoreService {
         return;
       }
 
-      await _db.collection('users').doc(uid).set({
+      final userReference = _db.collection('users').doc(uid);
+      final existing = await userReference.get();
+      final profileUpdate = <String, dynamic>{
         'name': name,
         'email': email,
         'phone': phone,
         'courtAddress': courtAddress,
         'officeAddress': officeAddress,
-        'createdAt': FieldValue.serverTimestamp(),
-      });
+        'updatedAt': FieldValue.serverTimestamp(),
+      };
+      if (!existing.exists || existing.data()?['createdAt'] == null) {
+        profileUpdate['createdAt'] = FieldValue.serverTimestamp();
+      }
+
+      // Merge is essential: the gateway owns LED ID/profile completion and
+      // the server owns subscription entitlements. A profile save must never
+      // erase those protected fields.
+      await userReference.set(profileUpdate, SetOptions(merge: true));
     } catch (e) {
       debugPrint("Error saving user data: $e");
       rethrow;
@@ -328,6 +470,12 @@ class FirestoreService {
   /// ================================
   /// ADD NEW CASE (returns caseId)
   /// ================================
+  /// Legacy compatibility wrapper. All case creation is local-first so the
+  /// sync engine can enforce the CNR-only Free tier cloud policy and preserve
+  /// private case fields on the user's device.
+  /// Legacy compatibility wrapper. Case creation is local-first so the sync
+  /// engine can enforce CNR-only Free-tier cloud storage and keep private
+  /// case details on the advocate's device.
   Future<String?> addCase({
     required String caseTitle,
     required String clientName,
@@ -340,43 +488,35 @@ class FirestoreService {
     String? clientPhone,
     String? initialNote,
   }) async {
+    final user = _auth.currentUser;
+    if (user == null || user.uid.isEmpty) return null;
+    final normalizedCnr = cnrNumber.trim().toUpperCase();
+    if (!RegExp(r'^[A-Z0-9]{16}$').hasMatch(normalizedCnr)) {
+      throw ArgumentError.value(
+        cnrNumber,
+        'cnrNumber',
+        'A valid 16-character CNR number is required.',
+      );
+    }
     try {
-      String? uid = _auth.currentUser?.uid;
-      if (uid == null) {
-        debugPrint("User not logged in");
-        return null;
-      }
-
-      final Map<String, dynamic> caseData = {
-        'userId': uid,
-        'caseTitle': caseTitle,
-        'clientName': clientName,
-        'courtName': courtName,
-        'cnrNumber': cnrNumber,
-        'status': status.toLowerCase(),
-        'opponentName': opponentName ?? '',
-        'caseType': caseType ?? 'Civil Case',
-        'handledBy': _auth.currentUser?.displayName ?? 'Advocate',
-        'clientPhone': clientPhone,
-        'isStarred': false,
-        'documents': <dynamic>[],
-        'notes': (initialNote != null && initialNote.trim().isNotEmpty)
+      return await CaseRepository(database: AppDatabase.instance).createCase(
+        caseTitle: caseTitle,
+        caseNumber: normalizedCnr,
+        clientName: clientName,
+        opponentName: opponentName ?? '',
+        courtName: courtName,
+        caseType: caseType ?? 'Civil Case',
+        status: status.toLowerCase(),
+        handledBy: user.displayName ?? 'Advocate',
+        clientPhone: clientPhone,
+        nextHearingDate: nextHearingDate,
+        notes: initialNote != null && initialNote.trim().isNotEmpty
             ? <String>[initialNote.trim()]
-            : <String>[],
-        'createdAt': FieldValue.serverTimestamp(),
-        'lastUpdated': FieldValue.serverTimestamp(),
-      };
-
-      if (nextHearingDate != null) {
-        caseData['nextHearingDate'] = Timestamp.fromDate(nextHearingDate);
-      }
-
-      DocumentReference doc = await _db.collection('cases').add(caseData);
-
-      return doc.id;
+            : const <String>[],
+      );
     } catch (e) {
-      debugPrint("Error adding case: $e");
-      return null;
+      debugPrint('Error adding case locally: $e');
+      rethrow;
     }
   }
 
@@ -388,16 +528,28 @@ class FirestoreService {
     required String text,
     required DateTime nextHearingDate,
   }) async {
-    try {
-      await _db.collection('cases').doc(caseId).collection('notes').add({
-        'text': text,
-        'date': FieldValue.serverTimestamp(),
-        'nextHearingDate': Timestamp.fromDate(nextHearingDate),
-      });
-    } catch (e) {
-      debugPrint("Error adding note: $e");
-      rethrow;
+    // Notes are private advocate workspace data. Never write them into the
+    // cloud case document or its subcollections for Free users.
+    final uid = _auth.currentUser?.uid;
+    if (uid == null || uid.isEmpty) {
+      throw StateError('Sign in before adding a case note.');
     }
+    final repository = CaseRepository(database: AppDatabase.instance);
+    final record = await repository.getCaseById(caseId);
+    if (record == null || record.ownerUid != uid) {
+      throw StateError('This case is not available in your private workspace.');
+    }
+    final trimmedNote = text.trim();
+    if (trimmedNote.isEmpty) {
+      throw ArgumentError.value(text, 'text', 'A case note cannot be empty.');
+    }
+    await repository.saveCase(
+      record.copyWith(
+        notes: <String>[...record.notes, trimmedNote],
+        nextHearingDate: nextHearingDate,
+        updatedAt: DateTime.now(),
+      ),
+    );
   }
 
   // â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”

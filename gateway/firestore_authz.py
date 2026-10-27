@@ -14,6 +14,7 @@ from __future__ import annotations
 import logging
 import re
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from typing import Callable
 
 from fastapi import HTTPException, status
@@ -68,20 +69,30 @@ def _validate_case_id(case_id: str) -> str:
 
 
 def _stored_cnr(case_data: dict) -> str:
-    value = case_data.get("cnrNumber") or case_data.get("cnr")
-    if not isinstance(value, str) or not value.strip():
+    """Resolve the canonical CUID and reject conflicting stored CNR aliases."""
+    raw_values = [
+        case_data.get(key)
+        for key in ("cuid", "cnrNumber", "cnr")
+        if isinstance(case_data.get(key), str) and case_data.get(key).strip()
+    ]
+    if not raw_values:
         raise AuthorizationError(
             status.HTTP_409_CONFLICT,
             "This case does not have a CNR number.",
         )
-    cnr = value.strip().upper()
-    if not CNR_PATTERN.fullmatch(cnr):
+
+    normalized = [value.strip().upper() for value in raw_values]
+    if any(not CNR_PATTERN.fullmatch(value) for value in normalized):
         raise AuthorizationError(
             status.HTTP_409_CONFLICT,
             "This case does not contain a valid 16-character CNR number.",
         )
-    return cnr
-
+    if len(set(normalized)) != 1:
+        raise AuthorizationError(
+            status.HTTP_409_CONFLICT,
+            "The stored CUID and CNR fields do not match.",
+        )
+    return normalized[0]
 
 def _team_id_from_case(case_data: dict) -> str | None:
     team_id = case_data.get("teamId")
@@ -212,11 +223,10 @@ def read_case_and_authorize(
 def reauthorize_and_update(
     db, uid: str, case_id: str, expected_cnr: str, ecourts_data: dict,
     auth_email: str | None = None, email_verified: bool = False,
+    billing_reference: str | None = None,
+    refresh_started_at: datetime | None = None,
 ) -> None:
-    """Re-read the case inside a transaction, re-authorize, check CNR stability,
-    and persist ecourts_data. Mirrors the Cloud Function's transactional
-    race protection.
-    """
+    """Re-authorize and persist refreshed data with a billing idempotency marker."""
     case_ref = db.collection("cases").document(case_id)
 
     def _work(transaction):
@@ -256,6 +266,12 @@ def reauthorize_and_update(
                 "You are not authorized to access this case.",
             )
 
-        transaction.update(case_ref, {"ecourts_data": ecourts_data})
+        update_data = {"ecourts_data": ecourts_data}
+        if billing_reference:
+            update_data.update({
+                "lastSmartRefreshAt": refresh_started_at or datetime.now(timezone.utc),
+                "lastSmartRefreshBillingReference": billing_reference,
+            })
+        transaction.update(case_ref, update_data)
 
     db.run_transaction(_work)

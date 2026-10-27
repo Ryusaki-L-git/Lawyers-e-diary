@@ -91,6 +91,10 @@ class CaseModel {
   final String? assignedTo;
   final String? assignedToName;
 
+  /// Canonical court-case identity. It is intentionally derived from the
+  /// normalized CNR, not from the per-advocate LED case record ID.
+  String get cuid => caseNumber.trim().toUpperCase();
+
   bool get isDeleted => status.toLowerCase() == 'deleted';
   bool get isCompleted => status.toLowerCase() == 'completed';
   bool get isActive => status.toLowerCase() == 'active';

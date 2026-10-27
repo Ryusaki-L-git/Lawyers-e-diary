@@ -104,10 +104,50 @@ def allocate_led_id(db, uid: str) -> dict:
                 detail="The LED ID counter is in an invalid state.",
             )
 
+        # A valid counter should already be ahead of all allocated IDs.
+        # Still, fail-safe against a stale/reset counter: never overwrite an
+        # existing directory entry. Skip occupied IDs inside the same
+        # transaction and persist the actual allocated sequence.
         next_count = raw_count + 1
         server_year = datetime.datetime.now(datetime.timezone.utc).year
-        padded = str(next_count).rjust(4, "0")
-        led_id = f"{padded}-{server_year}"
+        for _ in range(10000):
+            padded = str(next_count).rjust(4, "0")
+            led_id = f"{padded}-{server_year}"
+            candidate_ref = directory_collection.document(led_id)
+            candidate_snap = txn.get(candidate_ref)
+            if not candidate_snap.exists:
+                break
+
+            candidate_data = candidate_snap.to_dict() or {}
+            if candidate_data.get("uid") == uid:
+                # Repair a partial legacy mapping without assigning a second ID.
+                now = datetime.datetime.now(datetime.timezone.utc)
+                txn.set(counter_ref, {
+                    "userCount": max(raw_count, next_count),
+                    "updatedAt": now,
+                }, merge=True)
+                txn.set(user_ref, {
+                    "ledId": led_id,
+                    "profileCompleted": True,
+                    "updatedAt": now,
+                }, merge=True)
+                txn.set(candidate_ref, {
+                    "uid": uid,
+                    "ledId": led_id,
+                    "name": name,
+                    "advocateType": advocate_type,
+                    "profileCompleted": True,
+                    "updatedAt": now,
+                }, merge=True)
+                result.update({"ledId": led_id, "created": False})
+                return
+
+            next_count += 1
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Unable to find a free LED ID; the counter needs review.",
+            )
 
         txn.set(counter_ref, {
             "userCount": next_count,

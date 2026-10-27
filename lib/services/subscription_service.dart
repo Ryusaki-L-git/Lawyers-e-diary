@@ -36,24 +36,22 @@ class SubscriptionInfo {
 
   /// Parse from a Firestore document's data map.
   factory SubscriptionInfo.fromMap(Map<String, dynamic> data) {
-    final subMap = data['subscription'] as Map<String, dynamic>?;
-    if (subMap == null) {
-      return const SubscriptionInfo(tier: SubscriptionTier.free);
-    }
-
+    final subMap = data['subscription'] as Map<String, dynamic>? ?? {};
     final tierStr = subMap['tier'] as String? ?? 'free';
     final tier = tierStr == 'cloud_subscriber'
         ? SubscriptionTier.cloudSubscriber
         : SubscriptionTier.free;
 
     final expiryTs = subMap['expiry'] as Timestamp?;
-    final lastSyncTs = subMap['lastSyncedAt'] as Timestamp?;
+    // Sync activity is client-owned metadata; the subscription entitlement
+    // itself is server-owned and must never be mutated by the Flutter client.
+    final lastSyncTs = (data['lastSyncedAt'] ?? subMap['lastSyncedAt']) as Timestamp?;
 
     return SubscriptionInfo(
       tier: tier,
-      expiresAt: expiryTs?.toDate(),
+      expiresAt: expiryTs?.toDate().toUtc(),
       storageUsedBytes: (subMap['storageUsedBytes'] as int?) ?? 0,
-      lastSyncedAt: lastSyncTs?.toDate(),
+      lastSyncedAt: lastSyncTs?.toDate().toUtc(),
     );
   }
 
@@ -105,7 +103,7 @@ class SubscriptionService {
       return;
     }
     await _firestore.collection('users').doc(uid).set({
-      'subscription': {'lastSyncedAt': FieldValue.serverTimestamp()},
+      'lastSyncedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
   }
 }

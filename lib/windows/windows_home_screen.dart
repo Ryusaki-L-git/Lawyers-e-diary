@@ -7,6 +7,7 @@ import '../models/case_model.dart';
 import '../models/reminder_model.dart';
 import '../repositories/case_repository.dart';
 import '../services/firestore_service.dart';
+import '../services/case_sync_service.dart';
 import '../widgets/app_palette.dart';
 import '../widgets/windows_desktop_ui.dart';
 import 'windows_desktop_shell.dart';
@@ -27,11 +28,70 @@ class WindowsHomeScreen extends StatefulWidget {
 class _WindowsHomeScreenState extends State<WindowsHomeScreen> {
   final _search = TextEditingController();
   final _repository = CaseRepository(database: AppDatabase.instance);
+  bool _syncingCases = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Windows uses a local-first case register. Reconcile its pending changes
+    // and pull the user's cloud cases after the workspace first renders so
+    // JURIS and Smart Refresh can use authorized, synchronized case records.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _syncCases(showResult: false);
+    });
+  }
 
   @override
   void dispose() {
     _search.dispose();
     super.dispose();
+  }
+
+  Future<void> _syncCases({bool showResult = true}) async {
+    if (_syncingCases || FirebaseAuth.instance.currentUser == null) return;
+    setState(() => _syncingCases = true);
+    try {
+      final result = await CaseSyncEngine(
+        repository: _repository,
+        dataSource: FirestoreCaseSyncDataSource(),
+      ).sync();
+      if (!mounted) return;
+
+      final hasChanges = result.uploaded > 0 || result.downloaded > 0;
+      final hasIssues = result.failed > 0 ||
+          result.conflicts > 0 ||
+          result.rejected > 0 ||
+          result.pullError != null;
+      if (showResult || hasIssues) {
+        final message = hasIssues
+            ? 'Case sync finished with issues: '
+                '${result.uploaded} uploaded, ${result.downloaded} downloaded, '
+                '${result.conflicts} conflicts, ${result.failed} failed.'
+            : hasChanges
+            ? 'Cases synchronized: ${result.uploaded} uploaded, '
+                '${result.downloaded} downloaded.'
+            : 'Cases are already synchronized.';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              result.pullError == null
+                  ? message
+                  : '$message Cloud pull: ${result.pullError}',
+            ),
+          ),
+        );
+      }
+    } catch (error) {
+      // A failed automatic sync must be visible too: otherwise a user may
+      // assume a local-only case is available to cloud-backed services.
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Case sync unavailable: $error')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _syncingCases = false);
+    }
   }
 
   /// Hands the typed query to the dedicated search surface.
@@ -170,6 +230,35 @@ class _WindowsHomeScreenState extends State<WindowsHomeScreen> {
                         actions: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
+                            IconButton(
+                              tooltip: _syncingCases
+                                  ? 'Synchronizing cases'
+                                  : 'Synchronize cases',
+                              onPressed: _syncingCases
+                                  ? null
+                                  : () => _syncCases(),
+                              icon: _syncingCases
+                                  ? const SizedBox(
+                                      width: 18,
+                                      height: 18,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                  : const Icon(Icons.sync_rounded),
+                              style: IconButton.styleFrom(
+                                foregroundColor: AppPalette.primaryGreen,
+                                backgroundColor: AppPalette.cardBackground,
+                                side: const BorderSide(
+                                  color: AppPalette.borderLight,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(11),
+                                ),
+                                minimumSize: const Size(44, 44),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
                             IconButton(
                               tooltip: 'Notifications',
                               onPressed: () => Navigator.of(

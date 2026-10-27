@@ -72,7 +72,7 @@ class TokenService {
         'Could not verify your LED session. Please sign in again.',
       );
     }
-    final uri = base.resolve('/v1/ai/usage/me?limit=$limit');
+    final uri = base.resolve('/v1/tokens/me/ledger?limit=$limit');
     final request = await _client
         .getUrl(uri)
         .timeout(const Duration(seconds: 15));
@@ -114,11 +114,25 @@ class TokenBalance {
   double get caseTokens => caseTokensMinorUnits / 100.0;
 
   factory TokenBalance.fromJson(Map<String, dynamic> json) {
+    // JURIS currently exposes whole-token balances in snake_case. LED's
+    // presentation model uses hundredths so the existing two-decimal display
+    // remains stable. Prefer the explicit minor-unit contract when supplied.
+    final explicitMinorUnits = json['caseTokensMinorUnits'];
+    final legacyWholeTokens = json['case_tokens'];
+    final caseMinorUnits = explicitMinorUnits is num
+        ? explicitMinorUnits.toInt()
+        : legacyWholeTokens is num
+        ? (legacyWholeTokens * 100).round()
+        : 0;
+    final explicitDisplay = json['caseTokensDisplay'];
+    final display = explicitDisplay is String
+        ? explicitDisplay
+        : (caseMinorUnits / 100).toStringAsFixed(2);
+    final jurisValue = json['jurisTokens'] ?? json['juris_tokens'];
     return TokenBalance(
-      caseTokensMinorUnits:
-          (json['caseTokensMinorUnits'] as num?)?.toInt() ?? 0,
-      caseTokensDisplay: json['caseTokensDisplay'] as String? ?? '0.00',
-      jurisTokens: (json['jurisTokens'] as num?)?.toInt() ?? 0,
+      caseTokensMinorUnits: caseMinorUnits,
+      caseTokensDisplay: display,
+      jurisTokens: jurisValue is num ? jurisValue.toInt() : 0,
     );
   }
 }
@@ -144,14 +158,35 @@ class UsageEntry {
   double get balanceAfterTokens => balanceAfterMinorUnits / 100.0;
 
   factory UsageEntry.fromJson(Map<String, dynamic> json) {
+    // The current JURIS ledger uses snake_case fields and whole-token
+    // integer amounts. Keep compatibility with LED's previous minor-unit
+    // camelCase payload while normalizing both into the UI model.
+    final explicitAmountMinorUnits = json['amountMinorUnits'];
+    final rawAmount = json['amount'] ?? json['amount_minor_units'];
+    final amountMinorUnits = explicitAmountMinorUnits is num
+        ? explicitAmountMinorUnits.toInt()
+        : rawAmount is num
+        ? (rawAmount * 100).round()
+        : 0;
+    final explicitBalanceMinorUnits = json['balanceAfterMinorUnits'];
+    final rawBalance = json['balance_after'] ?? json['balanceAfter'];
+    final balanceAfterMinorUnits = explicitBalanceMinorUnits is num
+        ? explicitBalanceMinorUnits.toInt()
+        : rawBalance is num
+        ? (rawBalance * 100).round()
+        : 0;
+    final created = json['createdAt'] ?? json['created_at'];
     return UsageEntry(
-      transactionId: json['transactionId'] as String? ?? '',
-      amountMinorUnits: (json['amountMinorUnits'] as num?)?.toInt() ?? 0,
+      transactionId: json['transactionId'] as String? ??
+          json['transaction_id'] as String? ??
+          '',
+      amountMinorUnits: amountMinorUnits,
       direction: json['direction'] as String? ?? '',
       reason: json['reason'] as String? ?? '',
-      createdAt: json['createdAt'] as String? ?? '',
-      balanceAfterMinorUnits:
-          (json['balanceAfterMinorUnits'] as num?)?.toInt() ?? 0,
+      createdAt: created is String
+          ? created
+          : created?.toString() ?? '',
+      balanceAfterMinorUnits: balanceAfterMinorUnits,
     );
   }
 }
