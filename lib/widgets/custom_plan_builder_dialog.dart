@@ -14,7 +14,8 @@ class CustomPlanBuilderDialog extends StatefulWidget {
   final String planName;
 
   @override
-  State<CustomPlanBuilderDialog> createState() => _CustomPlanBuilderDialogState();
+  State<CustomPlanBuilderDialog> createState() =>
+      _CustomPlanBuilderDialogState();
 }
 
 class _CustomPlanBuilderDialogState extends State<CustomPlanBuilderDialog> {
@@ -47,13 +48,14 @@ class _CustomPlanBuilderDialogState extends State<CustomPlanBuilderDialog> {
     final tokens = int.parse(_caseTokens.text.trim());
     final credits = int.parse(_jurisCredits.text.trim());
     final storage = int.parse(_storageGb.text.trim());
+    final periodLabel = _period == 'Monthly' ? 'month' : 'year';
     final request = [
       "Lawyer's E-Diary — Custom Plan Request",
       'Plan: ${widget.planName}',
       'Type: ${widget.isTeam ? 'Chamber / firm' : 'Individual'}',
       if (widget.isTeam) 'Requested seats: $members',
-      'Case Tokens: $tokens per $(_period.toLowerCase())',
-      'JURIS Credits: $credits per $(_period.toLowerCase())',
+      'Case Tokens: $tokens per $periodLabel',
+      'JURIS Credits: $credits per $periodLabel',
       'Requested storage: $storage GB',
       'Status: draft only; not submitted, purchased, or activated.',
       'Storage is a requested quota only; shared file storage is not live.',
@@ -77,7 +79,9 @@ class _CustomPlanBuilderDialogState extends State<CustomPlanBuilderDialog> {
 
   @override
   Widget build(BuildContext context) => AlertDialog(
-    title: Text('Build your ${widget.isTeam ? 'custom chamber' : 'custom individual'} plan'),
+    title: Text(
+      'Build your ${widget.isTeam ? 'custom chamber' : 'custom individual'} plan',
+    ),
     content: SizedBox(
       width: 440,
       child: SingleChildScrollView(
