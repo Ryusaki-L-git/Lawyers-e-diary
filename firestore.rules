@@ -43,6 +43,33 @@ service cloud.firestore {
         && teamManager(data.teamId, request.auth.uid);
     }
 
+
+    function cloudSubscriber(uid) {
+      return signedIn()
+        && exists(/databases/$(database)/documents/users/$(uid))
+        && get(/databases/$(database)/documents/users/$(uid)).data.subscription is map
+        && get(/databases/$(database)/documents/users/$(uid)).data.subscription.tier == 'cloud_subscriber';
+    }
+
+    function cnrOnlyCase(data) {
+      return data.cloudStorageMode == 'cnr_only'
+        && data.cuid is string
+        && data.cuid.matches('^[A-Z0-9]{16}$')
+        && data.cnrNumber == data.cuid
+        && data.caseNumber == data.cuid
+        && data.keys().hasOnly([
+          'ownerUid', 'ownerLedId', 'userId', 'cuid', 'cnrNumber',
+          'caseNumber', 'createdAt', 'updatedAt', 'lastUpdated',
+          'cloudVersion', 'cloudStorageMode'
+        ]);
+    }
+
+    function caseStorageAllowed(data, ownerUid) {
+      return cloudSubscriber(ownerUid)
+        || (ownerUid == request.auth.uid && cnrOnlyCase(data));
+    }
+
+
     // ----------------------------------------------------------------------
     // Private user profile. Never expose the full users collection.
     // ----------------------------------------------------------------------
@@ -79,6 +106,40 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // Per-advocate CNR registry: same CNR may exist independently for many users.
+    match /users/{uid}/case_cuid_registry/{cnr} {
+      allow read: if self(uid);
+      allow create: if self(uid)
+        && cnr.matches('^[A-Z0-9]{16}$')
+        && request.resource.data.keys().hasOnly(['uid', 'cuid', 'caseId', 'updatedAt'])
+        && request.resource.data.uid == uid
+        && request.resource.data.cuid == cnr
+        && request.resource.data.caseId is string
+        && request.resource.data.caseId.size() > 0
+        && !request.resource.data.caseId.matches('.*[/].*')
+        && getAfter(/databases/$(database)/documents/cases/$(request.resource.data.caseId)).data.ownerUid == uid
+        && getAfter(/databases/$(database)/documents/cases/$(request.resource.data.caseId)).data.cuid == cnr;
+      allow update: if self(uid)
+        && cnr.matches('^[A-Z0-9]{16}$')
+        && resource.data.uid == uid
+        && resource.data.cuid == cnr
+        && request.resource.data.keys().hasOnly(['uid', 'cuid', 'caseId', 'updatedAt'])
+        && request.resource.data.uid == uid
+        && request.resource.data.cuid == cnr
+        && request.resource.data.caseId is string
+        && request.resource.data.caseId.size() > 0
+        && !request.resource.data.caseId.matches('.*[/].*')
+        && request.resource.data.caseId != resource.data.caseId
+        && get(/databases/$(database)/documents/cases/$(resource.data.caseId)).data.ownerUid == uid
+        && get(/databases/$(database)/documents/cases/$(resource.data.caseId)).data.cuid == cnr
+        && get(/databases/$(database)/documents/cases/$(resource.data.caseId)).data.cloudStorageMode == 'cnr_only'
+        && !existsAfter(/databases/$(database)/documents/cases/$(resource.data.caseId))
+        && existsAfter(/databases/$(database)/documents/cases/$(request.resource.data.caseId))
+        && getAfter(/databases/$(database)/documents/cases/$(request.resource.data.caseId)).data.ownerUid == uid
+        && getAfter(/databases/$(database)/documents/cases/$(request.resource.data.caseId)).data.cuid == cnr;
+      allow delete: if false;
+    }
+
     // Minimal directory used for LED-ID lookup. It contains no phone,
     // address, email, subscription, or other private profile information.
     match /led_id_directory/{ledId} {
@@ -105,10 +166,13 @@ service cloud.firestore {
       allow read: if caseReadable(resource.data) || caseManager(resource.data);
 
       allow create: if signedIn()
-        && (
-          request.resource.data.ownerUid == request.auth.uid
-          || request.resource.data.userId == request.auth.uid
-        );
+        && caseStorageAllowed(request.resource.data, request.auth.uid)
+        && request.resource.data.ownerUid == request.auth.uid
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.cuid is string
+        && request.resource.data.cuid.matches('^[A-Z0-9]{16}$')
+        && request.resource.data.cnrNumber == request.resource.data.cuid
+        && request.resource.data.caseNumber == request.resource.data.cuid;
 
       allow update: if (
         caseManager(resource.data)
@@ -128,7 +192,14 @@ service cloud.firestore {
           )
         )
       );
-      allow delete: if false;
+      allow delete: if caseReadable(resource.data)
+        && resource.data.ownerUid == request.auth.uid
+        && cnrOnlyCase(resource.data)
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid)/case_cuid_registry/$(resource.data.cuid))
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)/case_cuid_registry/$(resource.data.cuid)).data.caseId == caseId
+        && !existsAfter(/databases/$(database)/documents/cases/$(caseId))
+        && existsAfter(/databases/$(database)/documents/cases/$(getAfter(/databases/$(database)/documents/users/$(request.auth.uid)/case_cuid_registry/$(resource.data.cuid)).data.caseId))
+        && getAfter(/databases/$(database)/documents/cases/$(getAfter(/databases/$(database)/documents/users/$(request.auth.uid)/case_cuid_registry/$(resource.data.cuid)).data.caseId)).data.cuid == resource.data.cuid;
 
       match /notes/{noteId} {
         allow read: if caseReadable(get(/databases/$(database)/documents/cases/$(caseId)).data)
