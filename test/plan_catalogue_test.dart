@@ -47,6 +47,53 @@ void main() {
     expect(find.text('Up to 50 members'), findsOneWidget);
   });
 
+  testWidgets('custom individual opens a validated request builder', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(child: PlanCatalogue()),
+        ),
+      ),
+    );
+
+    final customButton = find.text('Request custom quote').first;
+    await tester.ensureVisible(customButton);
+    await tester.tap(customButton);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Build your custom individual plan'), findsOneWidget);
+    expect(find.text('Case Token allowance'), findsOneWidget);
+    expect(find.text('JURIS Credit allowance'), findsOneWidget);
+    expect(find.text('Requested storage'), findsOneWidget);
+    expect(find.text('Validate & copy request'), findsOneWidget);
+  });
+
+  testWidgets('custom chamber builder exposes seat limits and period', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(child: PlanCatalogue()),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Chambers & firms'));
+    await tester.pumpAndSettle();
+    final customButton = find.text('Request custom quote').first;
+    await tester.ensureVisible(customButton);
+    await tester.tap(customButton);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Build your custom chamber plan'), findsOneWidget);
+    expect(find.text('Team members'), findsOneWidget);
+    expect(find.text('Allowance period'), findsOneWidget);
+    expect(find.textContaining('not an active subscription'), findsOneWidget);
+  });
+
   testWidgets('reviewing a plan explains that checkout is not live', (
     tester,
   ) async {
