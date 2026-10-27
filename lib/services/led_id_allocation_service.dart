@@ -8,7 +8,10 @@ import 'package:flutter/foundation.dart';
 /// Best-effort LED ID allocation. IDs are assigned only by the authenticated
 /// gateway; this client never counts users or chooses an ID locally.
 class LedIdAllocationService {
-  static const _gatewayUrl =
+  // Prefer a dedicated LED gateway setting; fall back to the legacy shared
+  // setting so existing builds do not break during migration.
+  static const _gatewayUrl = String.fromEnvironment('LED_GATEWAY_URL');
+  static const _legacyGatewayUrl =
       String.fromEnvironment('ECOURTS_GATEWAY_URL');
   static const _retryDelays = <Duration>[
     Duration(seconds: 5),
@@ -37,9 +40,13 @@ class LedIdAllocationService {
   }
 
   Future<bool> _allocateOnce(User user) async {
-    final configuredUrl = _gatewayUrl.trim();
+    final configuredUrl = _gatewayUrl.trim().isNotEmpty
+        ? _gatewayUrl.trim()
+        : _legacyGatewayUrl.trim();
     if (configuredUrl.isEmpty) {
-      throw StateError('ECOURTS_GATEWAY_URL is not configured.');
+      throw StateError(
+        'LED_GATEWAY_URL (or legacy ECOURTS_GATEWAY_URL) is not configured.',
+      );
     }
 
     final base = Uri.tryParse(configuredUrl);
