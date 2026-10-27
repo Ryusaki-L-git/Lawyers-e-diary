@@ -365,7 +365,7 @@ class _AddCaseScreenState extends State<AddCaseScreen> {
                   ),
                   const SizedBox(height: 16),
 
-                  _fieldLabel('CNR / Case Number *'),
+                  _fieldLabel('CNR Number *'),
                   TextFormField(
                     controller: _caseNumberController,
                     textCapitalization: TextCapitalization.characters,
