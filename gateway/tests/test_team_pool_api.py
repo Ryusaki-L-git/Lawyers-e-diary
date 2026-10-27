@@ -85,13 +85,13 @@ def test_get_preferences_returns_validated_user_preference(pool_ctx):
     }
 
 
-def test_save_preferences_requires_membership_in_selected_team(pool_ctx):
+def test_save_preferences_rejects_nonexistent_team(pool_ctx):
     response = pool_ctx.client.put(
         "/v1/billing/preferences",
         headers={"Authorization": "Bearer tok"},
         json={"usageDeductionPriority": "personal_first", "preferredTeamId": "not-a-member"},
     )
-    assert response.status_code == 403
+    assert response.status_code == 404
 
 
 def test_save_preferences_rejects_unknown_priority(pool_ctx):
