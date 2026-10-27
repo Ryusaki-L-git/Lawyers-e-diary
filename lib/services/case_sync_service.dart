@@ -145,8 +145,8 @@ class FirestoreCaseSyncDataSource implements CaseSyncDataSource {
       );
     }
 
-    // Entitlement is read from the server-owned user document. Unknown or
-    // missing subscription state fails closed to CNR-only cloud registration.
+    // Entitlement is read from the server-owned user document. Missing or
+    // unknown subscription state fails closed to CNR-only cloud registration.
     final userSnapshot = await _firestore.collection('users').doc(uid).get();
     final userData = userSnapshot.data() ?? const <String, dynamic>{};
     final subscription = userData['subscription'];
@@ -214,7 +214,7 @@ class FirestoreCaseSyncDataSource implements CaseSyncDataSource {
         }
       }
 
-      // Replace Free-tier documents to remove any prior private fields.
+      // Replace Free-tier documents to remove previously stored private fields.
       // Subscriber writes merge to preserve server/team-owned fields.
       transaction.set(
         reference,
@@ -263,9 +263,8 @@ class CaseSyncEngine {
     final conflictsHandled = <String>{};
     String? pullError;
 
-    // Promote existing CNR-only cloud registrations only after the server
-    // confirms a Cloud Subscriber entitlement. Private data remains local for
-    // Free accounts.
+    // Promote CNR-only cloud registrations only after the server confirms
+    // Cloud Subscriber entitlement. Free users' private data remains local.
     if (await _dataSource.isCloudSubscriber()) {
       final localRecords = await _repository.getCasesForCurrentUser();
       for (final record in localRecords) {
@@ -277,7 +276,7 @@ class CaseSyncEngine {
     }
 
     final pending = await _repository.getPendingCaseChanges();
-    for (final change in pending) {
+    for (final change of pending) {
       try {
         final remote = await _dataSource.readOwnedCase(change.record.id);
         if (remote != null &&
@@ -343,202 +342,9 @@ class CaseSyncEngine {
           rejected++;
           continue;
         }
-        // A CNR-only cloud stub must never overwrite a full local workspace.
-        // If this device has no local record, it may create a blank local
-        // registration that the advocate can complete privately.
+        // Never let a cloud-only CNR stub overwrite a full local workspace.
         if (remote.data['cloudStorageMode'] == 'cnr_only' &&
             localIds.contains(remote.id)) {
-          continue;
-        }
-        final syncedAt = DateTime.now();
-        final record = LocalCaseRecord.fromCloudMap(
-          id: remote.id,
-          ownerUid: uid,
-          data: remote.data,
-          lastSyncedAt: syncedAt,
-          cloudVersion: remote.cloudVersion,
-        );
-        final outcome = await _repository.applyRemoteCase(
-          remoteCase: record,
-          remoteData: remote.data,
-        );
-        if (outcome == 'applied') downloaded++;
-        if (outcome == 'conflict') conflicts++;
-      }
-    } catch (error) {
-      pullError = error.toString();
-    }
-
-    return CaseSyncResult(
-      uploaded: uploaded,
-      downloaded: downloaded,
-      conflicts: conflicts,
-      failed: failed,
-      rejected: rejected,
-      pullError: pullError,
-    );
-  }
-}
-).hasMatch(cnr)) {
-        throw StateError(
-          'A valid 16-character CNR is required for CNR-only cloud registration.',
-        );
-      }
-      final createdAt = data['createdAt'] ?? DateTime.now();
-      final updatedAt = data['updatedAt'] ?? data['lastUpdated'] ?? DateTime.now();
-      payload = <String, dynamic>{
-        'ownerUid': uid,
-        'userId': uid,
-        'cuid': cnr,
-        'cnrNumber': cnr,
-        'caseNumber': cnr,
-        'createdAt': createdAt,
-        'updatedAt': updatedAt,
-        'lastUpdated': updatedAt,
-        'cloudVersion': (data['cloudVersion'] as num?)?.toInt() ?? 1,
-        'cloudStorageMode': 'cnr_only',
-      };
-    }
-
-    final reference = _cases.doc(caseId);
-    await _firestore.runTransaction((transaction) async {
-      final existing = await transaction.get(reference);
-      if (existing.exists) {
-        final existingData = existing.data()!;
-        if ((existingData['ownerUid'] ?? existingData['userId']) != uid) {
-          throw StateError(
-            'Firestore Case ID is already owned by another user.',
-          );
-        }
-      }
-      if (!existing.exists && expectedCloudVersion != null) {
-        throw StateError('Firestore Case changed during synchronization.');
-      }
-      if (existing.exists) {
-        final current = existing.data()!;
-        final currentVersion = (current['cloudVersion'] as num?)?.toInt() ?? 0;
-        final currentUpdatedValue =
-            current['updatedAt'] ?? current['lastUpdated'];
-        final currentUpdatedAt = currentUpdatedValue is Timestamp
-            ? currentUpdatedValue.toDate()
-            : currentUpdatedValue is DateTime
-            ? currentUpdatedValue
-            : currentUpdatedValue is String
-            ? DateTime.tryParse(currentUpdatedValue)
-            : null;
-        if (currentVersion != expectedCloudVersion ||
-            currentUpdatedAt != expectedUpdatedAt) {
-          throw StateError('Firestore Case changed during synchronization.');
-        }
-      }
-      // Team assignment fields are maintained by TeamService. Merge the
-      // owner's local payload so a normal case sync cannot erase them.
-      transaction.set(reference, data, SetOptions(merge: true));
-    });
-  }
-}
-
-class CaseSyncResult {
-  const CaseSyncResult({
-    this.uploaded = 0,
-    this.downloaded = 0,
-    this.conflicts = 0,
-    this.failed = 0,
-    this.rejected = 0,
-    this.pullError,
-  });
-
-  final int uploaded;
-  final int downloaded;
-  final int conflicts;
-  final int failed;
-  final int rejected;
-  final String? pullError;
-}
-
-class CaseSyncEngine {
-  factory CaseSyncEngine({
-    required CaseRepository repository,
-    required CaseSyncDataSource dataSource,
-  }) => CaseSyncEngine._(repository, dataSource);
-
-  CaseSyncEngine._(this._repository, this._dataSource);
-
-  final CaseRepository _repository;
-  final CaseSyncDataSource _dataSource;
-
-  Future<CaseSyncResult> sync() async {
-    _repository.currentUserId;
-    var uploaded = 0;
-    var downloaded = 0;
-    var conflicts = 0;
-    var failed = 0;
-    var rejected = 0;
-    final conflictsHandled = <String>{};
-    String? pullError;
-
-    final pending = await _repository.getPendingCaseChanges();
-    for (final change in pending) {
-      try {
-        final remote = await _dataSource.readOwnedCase(change.record.id);
-        if (remote != null &&
-            remote.data['ownerUid'] != change.record.ownerUid) {
-          rejected++;
-          continue;
-        }
-
-        if (remote != null &&
-            remote.updatedAt != null &&
-            remote.updatedAt!.isAfter(change.record.updatedAt)) {
-          await _repository.markCaseConflict(
-            caseId: change.record.id,
-            expectedRevision: change.revision,
-            remoteData: remote.data,
-            cloudVersion: remote.cloudVersion,
-          );
-          conflictsHandled.add(change.record.id);
-          conflicts++;
-          continue;
-        }
-
-        final version = remote == null
-            ? 1
-            : remote.updatedAt != null &&
-                  change.record.updatedAt.isAfter(remote.updatedAt!)
-            ? remote.cloudVersion + 1
-            : (remote.cloudVersion == 0 ? 1 : remote.cloudVersion);
-        await _dataSource.writeOwnedCase(
-          change.record.id,
-          change.record.toCloudMap(cloudVersion: version),
-          expectedCloudVersion: remote?.cloudVersion,
-          expectedUpdatedAt: remote?.updatedAt,
-        );
-        await _repository.markCaseSynchronized(
-          caseId: change.record.id,
-          expectedRevision: change.revision,
-          expectedUpdatedAt: change.record.updatedAt,
-          cloudVersion: version,
-        );
-        uploaded++;
-      } catch (error) {
-        await _repository.markCaseSyncFailed(
-          caseId: change.record.id,
-          expectedRevision: change.revision,
-          error: error,
-        );
-        failed++;
-      }
-    }
-
-    try {
-      final remoteCases = await _dataSource.fetchOwnedCases();
-      for (final remote in remoteCases) {
-        if (conflictsHandled.contains(remote.id)) {
-          continue;
-        }
-        final uid = _repository.currentUserId;
-        if (remote.data['ownerUid'] != uid) {
-          rejected++;
           continue;
         }
         final syncedAt = DateTime.now();
