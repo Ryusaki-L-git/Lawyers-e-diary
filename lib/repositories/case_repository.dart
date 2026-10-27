@@ -587,7 +587,7 @@ class CaseRepository {
     final caseModel = CaseModel(
       // Each advocate gets an independent local record, even when another
       // account already has the same CNR. CNR is identity, never ownership.
-      id: 'case_' + uid + '_' + now.microsecondsSinceEpoch.toString(),
+      id: 'case_${uid}_${now.microsecondsSinceEpoch}',
       caseTitle: caseTitle,
       caseNumber: normalizedCnr,
       clientName: clientName,
