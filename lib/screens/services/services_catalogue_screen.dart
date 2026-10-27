@@ -1,12 +1,19 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 
+import '../../models/case_model.dart';
 import '../../models/service_catalogue_item.dart';
+import '../../services/ecourts_service.dart';
+import '../../services/firestore_service.dart';
 import '../../services/services_catalogue_service.dart';
 import '../../widgets/app_palette.dart';
 import '../../widgets/platform_app_bar.dart';
 
 class ServicesCatalogueScreen extends StatefulWidget {
-  const ServicesCatalogueScreen({super.key});
+  const ServicesCatalogueScreen({super.key, this.caseItem});
+
+  final CaseModel? caseItem;
 
   @override
   State<ServicesCatalogueScreen> createState() => _ServicesCatalogueScreenState();
@@ -14,6 +21,9 @@ class ServicesCatalogueScreen extends StatefulWidget {
 
 class _ServicesCatalogueScreenState extends State<ServicesCatalogueScreen> {
   final _service = ServicesCatalogueService();
+  final _gateway = EcourtsService();
+  final _cases = FirestoreService();
+  bool _executing = false;
   final _searchController = TextEditingController();
   List<ServiceCatalogueItem> _items = const [];
   bool _loading = true;
@@ -29,6 +39,7 @@ class _ServicesCatalogueScreenState extends State<ServicesCatalogueScreen> {
   @override
   void dispose() {
     _service.dispose();
+    _gateway.dispose();
     _searchController.dispose();
     super.dispose();
   }
@@ -52,6 +63,251 @@ class _ServicesCatalogueScreenState extends State<ServicesCatalogueScreen> {
         _loading = false;
       });
     }
+  }
+
+  Future<List<CaseModel>?> _pickCases({
+    required bool multiple,
+    required int minimum,
+  }) async {
+    if (!multiple && widget.caseItem != null) {
+      return [widget.caseItem!];
+    }
+
+    final selectedIds = <String>{};
+    return showDialog<List<CaseModel>>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Text(multiple ? 'Select cases' : 'Select a case'),
+          content: SizedBox(
+            width: 440,
+            height: 420,
+            child: StreamBuilder<List<CaseModel>>(
+              stream: _cases.watchCases(limit: 100),
+              builder: (context, snapshot) {
+                if (snapshot.hasError) {
+                  return const Center(
+                    child: Text('Could not load your accessible cases.'),
+                  );
+                }
+                if (!snapshot.hasData) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                final cases = snapshot.data!;
+                if (cases.isEmpty) {
+                  return const Center(
+                    child: Text('No cloud-accessible cases were found.'),
+                  );
+                }
+                return ListView.builder(
+                  itemCount: cases.length,
+                  itemBuilder: (context, index) {
+                    final item = cases[index];
+                    final selected = selectedIds.contains(item.id);
+                    return CheckboxListTile(
+                      value: selected,
+                      onChanged: (checked) {
+                        if (!multiple) {
+                          Navigator.of(dialogContext).pop([item]);
+                          return;
+                        }
+                        setDialogState(() {
+                          if (checked == true) {
+                            selectedIds.add(item.id);
+                          } else {
+                            selectedIds.remove(item.id);
+                          }
+                        });
+                      },
+                      title: Text(
+                        item.caseTitle.isEmpty ? item.caseNumber : item.caseTitle,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      subtitle: Text('CNR: ${item.caseNumber}'),
+                      controlAffinity: ListTileControlAffinity.leading,
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Cancel'),
+            ),
+            if (multiple)
+              FilledButton(
+                onPressed: selectedIds.length < minimum
+                    ? null
+                    : () {
+                        // The result list is re-read from the current stream
+                        // by the next picker invocation; selection is by stable
+                        // Firestore document ID, not by CNR.
+                        Navigator.of(dialogContext).pop(
+                          selectedIds
+                              .map((id) => CaseModel(
+                                    id: id,
+                                    caseTitle: id,
+                                    caseNumber: '',
+                                    clientName: '',
+                                  ))
+                              .toList(),
+                        );
+                      },
+                child: Text('Use ${selectedIds.length} selected'),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<String?> _promptText({
+    required String title,
+    required String hint,
+  }) async {
+    final controller = TextEditingController();
+    try {
+      return await showDialog<String>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: Text(title),
+          content: TextField(
+            controller: controller,
+            autofocus: true,
+            decoration: InputDecoration(hintText: hint),
+            onSubmitted: (value) => Navigator.of(dialogContext).pop(value.trim()),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(controller.text.trim()),
+              child: const Text('Continue'),
+            ),
+          ],
+        ),
+      );
+    } finally {
+      controller.dispose();
+    }
+  }
+
+  Future<void> _runService(ServiceCatalogueItem item) async {
+    if (_executing) return;
+    setState(() => _executing = true);
+    try {
+      if (item.serviceId == 'smart_refresh') {
+        final picked = await _pickCases(multiple: false, minimum: 1);
+        if (picked == null || picked.isEmpty) return;
+        final result = await _gateway.smartRefresh(caseId: picked.single.id);
+        if (!mounted) return;
+        await _showResult(item.displayName, {
+          'status': 'ok',
+          'message': result.message,
+          'caseId': result.caseId,
+          'cnr': result.cnr,
+        });
+        return;
+      }
+
+      final body = <String, dynamic>{};
+      switch (item.serviceId) {
+        case 'case_detail':
+          final picked = await _pickCases(multiple: false, minimum: 1);
+          if (picked == null || picked.isEmpty) return;
+          body['case_id'] = picked.single.id;
+          break;
+        case 'order_download_pdf':
+        case 'order_ai_summary':
+        case 'order_markdown_pdf':
+          final picked = await _pickCases(multiple: false, minimum: 1);
+          if (picked == null || picked.isEmpty) return;
+          final filename = await _promptText(
+            title: 'Order PDF filename',
+            hint: 'Enter the exact PDF filename',
+          );
+          if (filename == null || filename.isEmpty) return;
+          body['case_id'] = picked.single.id;
+          body['filename'] = filename;
+          if (item.serviceId != 'order_ai_summary') body['signed'] = true;
+          break;
+        case 'cause_list_search':
+          final query = await _promptText(
+            title: 'Cause-list search',
+            hint: 'Enter a case, party, advocate, or court search term',
+          );
+          if (query == null || query.isEmpty) return;
+          body['params'] = {'q': query};
+          break;
+        case 'cnr_cause_list_check':
+        case 'bulk_case_refresh':
+          final picked = await _pickCases(
+            multiple: true,
+            minimum: item.serviceId == 'bulk_case_refresh' ? 2 : 1,
+          );
+          if (picked == null || picked.isEmpty) return;
+          body['case_ids'] = picked.map((caseItem) => caseItem.id).toList();
+          break;
+        default:
+          throw const EcourtsServiceException(
+            'This service is listed as available but has no verified execution flow yet.',
+          );
+      }
+
+      final result = await _gateway.executePaidService(
+        serviceId: item.serviceId,
+        body: body,
+      );
+      if (!mounted) return;
+      await _showResult(item.displayName, result);
+    } catch (error) {
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: Text('${item.displayName} could not complete'),
+          content: SelectableText(error.toString()),
+          actions: [
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Close'),
+            ),
+          ],
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _executing = false);
+    }
+  }
+
+  Future<void> _showResult(String title, Map<String, dynamic> result) async {
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(title),
+        content: SizedBox(
+          width: 520,
+          child: SingleChildScrollView(
+            child: SelectableText(
+              const JsonEncoder.withIndent('  ').convert(result),
+              style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+            ),
+          ),
+        ),
+        actions: [
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Done'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -200,8 +456,8 @@ class _ServicesCatalogueScreenState extends State<ServicesCatalogueScreen> {
                                         border: Border.all(color: AppPalette.borderLight),
                                       ),
                                       child: ListTile(
-                                        onTap: item.available
-                                            ? () => Navigator.of(context).pushNamed('/cases')
+                                        onTap: item.available && !_executing
+                                            ? () => _runService(item)
                                             : null,
                                         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                                         leading: Container(
