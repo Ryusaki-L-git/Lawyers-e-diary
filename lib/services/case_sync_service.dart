@@ -136,22 +136,47 @@ class FirestoreCaseSyncDataSource implements CaseSyncDataSource {
       );
     }
 
-    // Cloud storage is an entitlement, not a client-controlled preference.
-    // Missing/unknown subscription state fails closed to CNR-only registration.
+    // Entitlement is read from the server-owned user document. Unknown or
+    // missing subscription state fails closed to CNR-only cloud registration.
     final userSnapshot = await _firestore.collection('users').doc(uid).get();
     final userData = userSnapshot.data() ?? const <String, dynamic>{};
     final subscription = userData['subscription'];
-    final tier = subscription is Map ? subscription['tier'] : null;
-    final isCloudSubscriber = tier == 'cloud_subscriber';
+    final isCloudSubscriber =
+        subscription is Map && subscription['tier'] == 'cloud_subscriber';
+
+    final rawCnr = data['cuid'] ?? data['cnrNumber'] ?? data['cnr'];
+    final cnr = rawCnr is String ? rawCnr.trim().toUpperCase() : '';
+    if (!RegExp(r'^[A-Z0-9]{16}$').hasMatch(cnr)) {
+      throw StateError('A valid 16-character CNR is required for cloud registration.');
+    }
 
     Map<String, dynamic> payload;
     if (isCloudSubscriber) {
       payload = Map<String, dynamic>.from(data)
+        ..['cuid'] = cnr
+        ..['cnrNumber'] = cnr
+        ..['caseNumber'] = cnr
         ..['cloudStorageMode'] = 'full';
     } else {
-      final rawCnr = data['cuid'] ?? data['cnrNumber'] ?? data['cnr'];
-      final cnr = rawCnr is String ? rawCnr.trim().toUpperCase() : '';
-      if (!RegExp(r'^[A-Z0-9]{16}
+      final createdAt = data['createdAt'] ?? DateTime.now();
+      final updatedAt = data['updatedAt'] ?? data['lastUpdated'] ?? DateTime.now();
+      payload = <String, dynamic>{
+        'ownerUid': uid,
+        'userId': uid,
+        'cuid': cnr,
+        'cnrNumber': cnr,
+        'caseNumber': cnr,
+        'createdAt': createdAt,
+        'updatedAt': updatedAt,
+        'lastUpdated': updatedAt,
+        'cloudVersion': (data['cloudVersion'] as num?)?.toInt() ?? 1,
+        'cloudStorageMode': 'cnr_only',
+      };
+    }
+
+    final reference = _cases.doc(caseId);
+    await _firestore.runTransaction((transaction) async {
+      final existing = await transaction.get(reference);
       if (existing.exists) {
         final existingData = existing.data()!;
         if ((existingData['ownerUid'] ?? existingData['userId']) != uid) {
@@ -166,8 +191,7 @@ class FirestoreCaseSyncDataSource implements CaseSyncDataSource {
       if (existing.exists) {
         final current = existing.data()!;
         final currentVersion = (current['cloudVersion'] as num?)?.toInt() ?? 0;
-        final currentUpdatedValue =
-            current['updatedAt'] ?? current['lastUpdated'];
+        final currentUpdatedValue = current['updatedAt'] ?? current['lastUpdated'];
         final currentUpdatedAt = currentUpdatedValue is Timestamp
             ? currentUpdatedValue.toDate()
             : currentUpdatedValue is DateTime
@@ -180,9 +204,9 @@ class FirestoreCaseSyncDataSource implements CaseSyncDataSource {
           throw StateError('Firestore Case changed during synchronization.');
         }
       }
-      // A CNR-only write replaces the document so previously stored private
-      // fields cannot remain in the cloud after a downgrade. Subscriber writes
-      // merge to preserve server/team-owned fields.
+
+      // Replace Free-tier documents to remove any prior private fields.
+      // Subscriber writes merge to preserve server/team-owned fields.
       transaction.set(
         reference,
         payload,
@@ -190,7 +214,6 @@ class FirestoreCaseSyncDataSource implements CaseSyncDataSource {
       );
     });
   }
-}
 
 class CaseSyncResult {
   const CaseSyncResult({
