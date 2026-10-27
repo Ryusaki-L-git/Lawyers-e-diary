@@ -190,3 +190,27 @@ def test_distinct_users():
     assert r1["ledId"] != r2["ledId"]
     counter = db._store[("metadata", "counters")]
     assert counter["userCount"] == 2
+
+
+
+def test_stale_counter_never_overwrites_existing_directory_id():
+    db = _make_db({})
+    db._store[("users", "uid-new")] = {
+        "name": "New User",
+        "advocateType": "Junior",
+    }
+    # Simulate a stale/reset counter while an ID for the current year exists.
+    db._store[("metadata", "counters")] = {"userCount": 0}
+    db._store[("led_id_directory", "0001-2026")] = {
+        "uid": "existing-owner",
+        "ledId": "0001-2026",
+        "name": "Existing User",
+        "profileCompleted": True,
+    }
+
+    result = allocate_led_id(db, "uid-new")
+
+    assert result["ledId"] == "0002-2026"
+    assert db._store[("led_id_directory", "0001-2026")]["uid"] == "existing-owner"
+    assert db._store[("led_id_directory", "0002-2026")]["uid"] == "uid-new"
+    assert db._store[("metadata", "counters")]["userCount"] == 2
