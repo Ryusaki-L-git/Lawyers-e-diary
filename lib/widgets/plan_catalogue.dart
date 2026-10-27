@@ -620,7 +620,7 @@ class _PlanCard extends StatelessWidget {
               child: plan.price == 0 && !plan.custom
                   ? OutlinedButton(
                       onPressed: onSelect,
-                      child: const Text('Current free option'),
+                      child: const Text('Review free tier'),
                     )
                   : FilledButton(
                       onPressed: onSelect,
