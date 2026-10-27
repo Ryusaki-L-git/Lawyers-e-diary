@@ -119,10 +119,8 @@ service cloud.firestore {
 
       allow create: if signedIn()
         && caseStorageAllowed(request.resource.data, request.auth.uid)
-        && (
-          request.resource.data.ownerUid == request.auth.uid
-          || request.resource.data.userId == request.auth.uid
-        );
+        && request.resource.data.ownerUid == request.auth.uid
+        && request.resource.data.userId == request.auth.uid;
 
       allow update: if caseStorageAllowed(
         request.resource.data,
