@@ -22,7 +22,6 @@ class _TransferCaseScreenState extends State<TransferCaseScreen> {
   final TextEditingController _searchController = TextEditingController();
   String _selectedMemberId = '';
   String _selectedMemberName = '';
-  String _searchQuery = '';
   bool _isTransferring = false;
 
   static const Color background = Color(0xFFF7F5F2);
