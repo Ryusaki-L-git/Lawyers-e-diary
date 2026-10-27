@@ -171,6 +171,45 @@ class _JurisChatScreenState extends State<JurisChatScreen> {
       if (result.status != 'confirmation_required') {
         unawaited(_loadBalance());
       }
+      if (result.status == 'billing_source_required') {
+        // A server-side preference change can race the preflight read. The
+        // prior quote may already have been consumed, so select the wallet
+        // and request a fresh estimate rather than reusing that quote token.
+        final selectedSource = await showDialog<String>(
+          context: context,
+          barrierDismissible: false,
+          builder: (dialogContext) => AlertDialog(
+            title: const Text('Choose a balance'),
+            content: const Text(
+              'Choose which wallet should pay. JURIS will show a fresh estimate before any AI work starts.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop('personal'),
+                child: const Text('Personal JURIS Credits'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.of(dialogContext).pop('team'),
+                child: const Text('Team allocation'),
+              ),
+            ],
+          ),
+        );
+        if (!mounted) return;
+        if (selectedSource == null) {
+          setState(() => _entries.add(const _ChatEntry(
+            false,
+            'No balance was selected, so I did not run the AI request.',
+          )));
+          return;
+        }
+        await _sendToJuris(
+          message: message,
+          confirmedActionIds: confirmedActionIds,
+          billingSource: selectedSource,
+        );
+        return;
+      }
       if (result.status == 'confirmation_required') {
         final sa = result.suggestedAction;
         if (sa != null && sa['type'] == 'confirm_ai_usage') {
