@@ -30,8 +30,10 @@ service cloud.firestore {
 
     function caseReadable(data) {
       return signedIn() && (
-        data.ownerUid == request.auth.uid
-        || data.userId == request.auth.uid
+        // ownerUid is authoritative whenever present. A stale or forged
+        // legacy userId must never override a different canonical owner.
+        (('ownerUid' in data.keys() && data.ownerUid == request.auth.uid)
+          || (!('ownerUid' in data.keys()) && data.userId == request.auth.uid))
         || data.assignedTo == request.auth.uid
         || data.teamOwnerUid == request.auth.uid
       );
