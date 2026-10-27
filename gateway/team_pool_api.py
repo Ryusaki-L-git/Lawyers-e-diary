@@ -96,7 +96,7 @@ def make_router(get_db_dependency):
         profile = _data(db.collection("users").document(user.uid).get())
         prefs = profile.get("billingPreferences")
         prefs = prefs if isinstance(prefs, dict) else {}
-        priority = prefs.get("usageDeductionPriority", "ask")
+        priority = prefs.get("usageDeductionPriority", "personal_first")
         if priority not in _PRIORITY_VALUES:
             priority = "ask"
         team_id = prefs.get("preferredTeamId")
