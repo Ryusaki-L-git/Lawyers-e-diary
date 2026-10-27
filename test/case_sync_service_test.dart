@@ -336,6 +336,37 @@ void main() {
     expect(dataSource.documents['case-actions']!['status'], 'active');
   });
 
+  test('CNR-only transfer stub imports without private workspace data', () async {
+    dataSource.documents['recipient-case'] = <String, dynamic>{
+      'ownerUid': 'user-a',
+      'userId': 'user-a',
+      'cuid': 'ABCD1234EFGH5678',
+      'cnrNumber': 'ABCD1234EFGH5678',
+      'caseNumber': 'ABCD1234EFGH5678',
+      'cloudStorageMode': 'cnr_only',
+      'cloudVersion': 1,
+      'createdAt': now,
+      'updatedAt': now,
+      'lastUpdated': now,
+    };
+
+    final result = await engine.sync();
+    final local = await repository.getCaseById('recipient-case');
+
+    expect(result.downloaded, 1);
+    expect(local, isNotNull);
+    expect(local!.caseNumber, 'ABCD1234EFGH5678');
+    expect(local.caseTitle, 'Court case ABCD1234EFGH5678');
+    expect(local.clientName, isEmpty);
+    expect(local.clientPhone, isNull);
+    expect(local.notes, isEmpty);
+    expect(local.documents, isEmpty);
+    expect(dataSource.documents['recipient-case']!.keys.toSet(), {
+      'ownerUid', 'userId', 'cuid', 'cnrNumber', 'caseNumber',
+      'cloudStorageMode', 'cloudVersion', 'createdAt', 'updatedAt', 'lastUpdated',
+    });
+  });
+
   test('remote owned Case is imported into local storage', () async {
     final remote = buildRecord(
       id: 'remote-case',
