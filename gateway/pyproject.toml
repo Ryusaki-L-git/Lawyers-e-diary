@@ -16,7 +16,7 @@ dependencies = [
 ]
 
 [tool.setuptools]
-py-modules = ["admission", "auth", "case_lock", "config", "firestore_authz", "led_id", "main", "presence", "provider", "rate_limiter"]
+py-modules = ["admission", "auth", "case_lock", "config", "firestore_authz", "led_id", "main", "presence", "provider", "rate_limiter", "payments"]
 
 [tool.fastapi]
 entrypoint = "main:app"
