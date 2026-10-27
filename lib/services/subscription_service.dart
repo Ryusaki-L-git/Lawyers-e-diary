@@ -49,9 +49,9 @@ class SubscriptionInfo {
 
     return SubscriptionInfo(
       tier: tier,
-      expiresAt: expiryTs?.toDate(),
+      expiresAt: expiryTs?.toDate().toUtc(),
       storageUsedBytes: (subMap['storageUsedBytes'] as int?) ?? 0,
-      lastSyncedAt: lastSyncTs?.toDate(),
+      lastSyncedAt: lastSyncTs?.toDate().toUtc(),
     );
   }
 
