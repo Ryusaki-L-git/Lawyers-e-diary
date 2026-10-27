@@ -637,7 +637,7 @@ exports.transferCaseToAdvocate = onCall(
 				const targetData = targetUserSnap.data();
 				const targetLedId =
 					typeof targetData.ledId === "string" ? targetData.ledId.trim() : "";
-				if (!/^\\d{4,}-\\d{4}$/.test(targetLedId)) {
+				if (!/^\d{4,}-\d{4}$/.test(targetLedId)) {
 					throw new HttpsError(
 						"failed-precondition",
 						"The recipient must have a completed LED ID before receiving a case.",
