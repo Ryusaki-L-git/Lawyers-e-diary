@@ -3,7 +3,9 @@ import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import '../data/local/app_database.dart';
 import '../models/case_model.dart';
+import '../repositories/case_repository.dart';
 import '../models/fee_model.dart';
 import '../models/reminder_model.dart';
 import '../models/todo_model.dart';
@@ -384,6 +386,9 @@ class FirestoreService {
   /// ================================
   /// ADD NEW CASE (returns caseId)
   /// ================================
+  /// Legacy compatibility wrapper. All case creation is local-first so the
+  /// sync engine can enforce the CNR-only Free tier cloud policy and preserve
+  /// private case fields on the user's device.
   Future<String?> addCase({
     required String caseTitle,
     required String clientName,
@@ -396,84 +401,34 @@ class FirestoreService {
     String? clientPhone,
     String? initialNote,
   }) async {
+    final user = _auth.currentUser;
+    if (user == null || user.uid.isEmpty) return null;
+    final normalizedCnr = cnrNumber.trim().toUpperCase();
+    if (!RegExp(r'^[A-Z0-9]{16}$').hasMatch(normalizedCnr)) {
+      throw ArgumentError.value(
+        cnrNumber,
+        'cnrNumber',
+        'A valid 16-character CNR number is required.',
+      );
+    }
     try {
-      final uid = _auth.currentUser?.uid;
-      if (uid == null || uid.isEmpty) {
-        debugPrint('User not logged in');
-        return null;
-      }
-
-      final normalizedCnr = cnrNumber.trim().toUpperCase();
-      if (!RegExp(r'^[A-Z0-9]{16}$').hasMatch(normalizedCnr)) {
-        throw ArgumentError.value(
-          cnrNumber,
-          'cnrNumber',
-          'A valid 16-character CNR number is required.',
-        );
-      }
-
-      final userProfile = await _db.collection('users').doc(uid).get();
-      final ownerLedId = userProfile.data()?['ledId'];
-
-      final Map<String, dynamic> caseData = {
-        // A unique Firestore document represents this advocate's record.
-        // CUID/CNR identifies the court case but never merges workspaces.
-        'ownerUid': uid,
-        'userId': uid,
-        'cuid': normalizedCnr,
-        'cnrNumber': normalizedCnr,
-        'caseTitle': caseTitle,
-        'clientName': clientName,
-        'courtName': courtName,
-        'status': status.toLowerCase(),
-        'opponentName': opponentName ?? '',
-        'caseType': caseType ?? 'Civil Case',
-        'handledBy': _auth.currentUser?.displayName ?? 'Advocate',
-        'clientPhone': clientPhone,
-        'isStarred': false,
-        'documents': <dynamic>[],
-        'notes': (initialNote != null && initialNote.trim().isNotEmpty)
+      return await CaseRepository(database: AppDatabase.instance).createCase(
+        caseTitle: caseTitle,
+        caseNumber: normalizedCnr,
+        clientName: clientName,
+        opponentName: opponentName ?? '',
+        courtName: courtName,
+        caseType: caseType ?? 'Civil Case',
+        status: status.toLowerCase(),
+        handledBy: user.displayName ?? 'Advocate',
+        clientPhone: clientPhone,
+        nextHearingDate: nextHearingDate,
+        notes: initialNote != null && initialNote.trim().isNotEmpty
             ? <String>[initialNote.trim()]
-            : <String>[],
-        'createdAt': FieldValue.serverTimestamp(),
-        'lastUpdated': FieldValue.serverTimestamp(),
-      };
-
-      if (ownerLedId is String && ownerLedId.trim().isNotEmpty) {
-        caseData['ownerLedId'] = ownerLedId.trim();
-      }
-      if (nextHearingDate != null) {
-        caseData['nextHearingDate'] = Timestamp.fromDate(nextHearingDate);
-      }
-
-      final caseReference = _db.collection('cases').doc();
-      final registryReference = _db
-          .collection('users')
-          .doc(uid)
-          .collection('case_cuid_registry')
-          .doc(normalizedCnr);
-      String? existingCaseId;
-      await _db.runTransaction((transaction) async {
-        final registry = await transaction.get(registryReference);
-        if (registry.exists) {
-          final registeredId = registry.data()?['caseId'];
-          if (registeredId is! String || registeredId.isEmpty) {
-            throw StateError('The CNR registry entry requires migration.');
-          }
-          existingCaseId = registeredId;
-          return;
-        }
-        transaction.set(registryReference, <String, dynamic>{
-          'uid': uid,
-          'cuid': normalizedCnr,
-          'caseId': caseReference.id,
-          'updatedAt': FieldValue.serverTimestamp(),
-        });
-        transaction.set(caseReference, caseData);
-      });
-      return existingCaseId ?? caseReference.id;
+            : const <String>[],
+      );
     } catch (e) {
-      debugPrint('Error adding case: $e');
+      debugPrint('Error adding case locally: $e');
       rethrow;
     }
   }
