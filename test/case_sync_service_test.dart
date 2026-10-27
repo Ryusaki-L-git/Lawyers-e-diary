@@ -249,6 +249,7 @@ void main() {
 
     expect(result.failed, 0);
     expect(dataSource.writeCount, 0);
+    expect(await repository.getPendingCaseChanges(), isEmpty);
     expect((await repository.getCaseById(record.id))!.notes, ['Initial note']);
   });
 
