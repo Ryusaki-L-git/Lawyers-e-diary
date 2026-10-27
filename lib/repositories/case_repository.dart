@@ -573,7 +573,11 @@ class CaseRepository {
           ..where((tbl) => tbl.ownerUid.equals(uid)))
         .get();
     for (final row in existingRows) {
-      final storedCnr = (row.cnr ?? row.caseNumber).trim().toUpperCase();
+      final storedCnr = (
+        row.cnr != null && row.cnr!.trim().isNotEmpty
+            ? row.cnr!
+            : row.caseNumber
+      ).trim().toUpperCase();
       if (!row.isDeleted && storedCnr == normalizedCnr) {
         return row.id;
       }
