@@ -23,8 +23,8 @@ class CalendarPageRoute<T> extends PageRouteBuilder<T> {
     : super(
         pageBuilder: (context, animation, secondaryAnimation) =>
             builder(context),
-        transitionDuration: const Duration(milliseconds: 200),
-        reverseTransitionDuration: const Duration(milliseconds: 200),
+        transitionDuration: const Duration(milliseconds: 160),
+        reverseTransitionDuration: const Duration(milliseconds: 140),
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
           final curved = CurvedAnimation(
             parent: animation,
@@ -35,7 +35,7 @@ class CalendarPageRoute<T> extends PageRouteBuilder<T> {
             opacity: curved,
             child: SlideTransition(
               position: Tween<Offset>(
-                begin: const Offset(0.03, 0.0),
+                begin: const Offset(0.012, 0.0),
                 end: Offset.zero,
               ).animate(curved),
               child: child,
