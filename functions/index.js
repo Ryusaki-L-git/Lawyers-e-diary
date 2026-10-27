@@ -666,17 +666,20 @@ exports.transferCaseToAdvocate = onCall(
 					.limit(1);
 				const legacyTargetCases = db.collection("cases")
 					.where("userId", "==", targetUid)
-					.where("cnrNumber", "==", cnr)
-					.limit(1);
+					.where("cnrNumber", "==", cnr);
 				const [existing, legacyExisting] = await Promise.all([
 					transaction.get(targetCases),
 					transaction.get(legacyTargetCases),
 				]);
+				const legacyDuplicate = legacyExisting.docs.find((doc) => {
+					const data = doc.data();
+					// A historical transfer may have changed userId without changing
+					// ownerUid. Never mistake that source record for the recipient's.
+					return typeof data.ownerUid !== "string" || data.ownerUid === targetUid;
+				});
 				const duplicate = !existing.empty
 					? existing.docs[0]
-					: !legacyExisting.empty
-					? legacyExisting.docs[0]
-					: null;
+					: legacyDuplicate ?? null;
 				if (duplicate) {
 					return { caseId: duplicate.id, created: false, cuid: cnr };
 				}
