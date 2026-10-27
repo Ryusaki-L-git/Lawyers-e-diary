@@ -23,11 +23,11 @@ Configure only in FastAPI Cloud secrets; never commit real values:
 - RAZORPAY_KEY_SECRET
 - RAZORPAY_WEBHOOK_SECRET
 
-Configure the Razorpay webhook URL as https://<LED-gateway-host>/v1/payments/webhook and subscribe to payment.captured. Do not point this at the JURIS service.
+Configure the Razorpay webhook URL as https://<LED-gateway-host>/v1/payments/webhook and subscribe to payment.captured and payment_link.paid. Do not point this at the JURIS service.
 
 ## Endpoints
 
-- GET /v1/payments/packs — publish available denominations.
+- GET /v1/payments/packs — publish available denominations.\n- POST /v1/payments/links — authenticated; creates a hosted Razorpay checkout URL for Windows.\n- GET /v1/payments/links/{reference_id} — authenticated status polling after checkout; the balance changes only after the signed payment_link.paid webhook.
 - POST /v1/payments/orders — authenticated; accepts {"packId": "juris_credits_100"} or a case_tokens_* pack ID.
 - POST /v1/payments/verify — authenticated; validates Razorpay checkout HMAC and then fetches payment status from Razorpay before granting.
 - POST /v1/payments/webhook — verifies the raw-body webhook HMAC and processes captured payments idempotently.
@@ -41,4 +41,4 @@ Configure the Razorpay webhook URL as https://<LED-gateway-host>/v1/payments/web
 
 ## Remaining client work
 
-The backend is only one layer. The Windows UI must launch a Razorpay checkout flow and call /verify after checkout; it must never credit locally. Android needs Google Play Billing purchase flow plus backend purchase-token verification and acknowledgement, or a separately approved India alternative-billing implementation. These client changes and store-console configuration are not completed by this backend change.
+The backend is only one layer. The Windows UI should call /links, open the returned shortUrl in the system browser, and poll /links/{reference_id}; it must never credit locally. Android needs Google Play Billing purchase flow plus backend purchase-token verification and acknowledgement, or a separately approved India alternative-billing implementation. These client changes and store-console configuration are not completed by this backend change.
