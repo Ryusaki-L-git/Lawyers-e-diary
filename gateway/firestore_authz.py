@@ -69,20 +69,30 @@ def _validate_case_id(case_id: str) -> str:
 
 
 def _stored_cnr(case_data: dict) -> str:
-    value = case_data.get("cnrNumber") or case_data.get("cnr")
-    if not isinstance(value, str) or not value.strip():
+    """Resolve the canonical CUID and reject conflicting stored CNR aliases."""
+    raw_values = [
+        case_data.get(key)
+        for key in ("cuid", "cnrNumber", "cnr")
+        if isinstance(case_data.get(key), str) and case_data.get(key).strip()
+    ]
+    if not raw_values:
         raise AuthorizationError(
             status.HTTP_409_CONFLICT,
             "This case does not have a CNR number.",
         )
-    cnr = value.strip().upper()
-    if not CNR_PATTERN.fullmatch(cnr):
+
+    normalized = [value.strip().upper() for value in raw_values]
+    if any(not CNR_PATTERN.fullmatch(value) for value in normalized):
         raise AuthorizationError(
             status.HTTP_409_CONFLICT,
             "This case does not contain a valid 16-character CNR number.",
         )
-    return cnr
-
+    if len(set(normalized)) != 1:
+        raise AuthorizationError(
+            status.HTTP_409_CONFLICT,
+            "The stored CUID and CNR fields do not match.",
+        )
+    return normalized[0]
 
 def _team_id_from_case(case_data: dict) -> str | None:
     team_id = case_data.get("teamId")
