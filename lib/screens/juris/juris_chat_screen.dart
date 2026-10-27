@@ -289,7 +289,7 @@ class _JurisChatScreenState extends State<JurisChatScreen> {
                 ],
               ),
             ),
-            // Case Token balance and model selector
+            // JURIS Credit balance and model selector
             Container(
               width: double.infinity,
               margin: const EdgeInsets.fromLTRB(16, 0, 16, 8),
