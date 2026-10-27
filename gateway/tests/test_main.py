@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
+
 import hashlib
 from types import SimpleNamespace
 
@@ -143,6 +145,31 @@ def test_case_detail_service_refunds_provider_failure(ctx):
     assert response.status_code == 404
     account = ctx.db._store[(f"_server_token_accounts/{OWNER_UID}/balances", "case")]
     assert account["balanceMinorUnits"] == 1000
+
+
+def test_refresh_repeat_within_provider_window_is_not_charged_again(ctx, make_db):
+    db = make_db({
+        ("cases", CASE_ID): {
+            "ownerUid": OWNER_UID,
+            "cnrNumber": CNR,
+            "lastSmartRefreshAt": datetime.now(timezone.utc),
+            "lastSmartRefreshBillingReference": "prior-operation",
+        },
+        ("users", OWNER_UID): {"subscription": {"tier": "cloud_subscriber"}},
+        (f"_server_token_accounts/{OWNER_UID}/balances", "case"): {"balance": 10},
+    })
+    main_mod.app.dependency_overrides[main_mod.get_db] = lambda: db
+
+    response = ctx.client.post(
+        f"/v1/ecourts/cases/{CASE_ID}/refresh",
+        headers=_headers(),
+    )
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "duplicate"
+    assert "No additional token" in response.json()["message"]
+    assert ctx.provider.called_with is None
+    assert db._store[(f"_server_token_accounts/{OWNER_UID}/balances", "case")]["balance"] == 10
 
 
 def test_refresh_requires_half_token_balance(ctx, make_db):
