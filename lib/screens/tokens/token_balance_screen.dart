@@ -203,8 +203,13 @@ class _TokenBalanceScreenState extends State<TokenBalanceScreen> {
           _poolLine('Your team JURIS allocation left', _minorToUnits(allocation['jurisCreditAvailableMinorUnits']).toStringAsFixed(2)),
           _poolLine('Shared team JURIS pool', _minorToUnits(shared['jurisCreditsMinorUnits']).toStringAsFixed(2)),
           const Divider(height: 22),
-          _poolLine('Your storage allowance', _formatStorage(allocation['storageLimitBytes'])),
-          _poolLine('Shared storage capacity', _formatStorage(shared['storageLimitBytes'])),
+          _poolLine('Configured member storage limit', _formatStorage(allocation['storageLimitBytes'])),
+          _poolLine('Configured shared storage limit', _formatStorage(shared['storageLimitBytes'])),
+          const SizedBox(height: 8),
+          const Text(
+            'These are saved limits only. Shared file uploads and downloads are not enabled yet.',
+            style: TextStyle(fontSize: 12, color: AppPalette.textMuted),
+          ),
         ],
       ),
     );
