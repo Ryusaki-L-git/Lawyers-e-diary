@@ -31,3 +31,16 @@ jobs:
           node --check functions/case_record_policy.js
       - name: Test CNR-only case-record privacy policy
         run: node --test functions/tests/*.test.js
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - name: Install Firestore rules test dependencies
+        run: npm install --prefix rules-tests
+      - name: Test Firestore security rules in the emulator
+        run: >-
+          rules-tests/node_modules/.bin/firebase emulators:exec
+          --config firebase.json
+          --project demo-led-case-privacy
+          --only firestore
+          "node --test rules-tests/firestore.rules.test.js"
