@@ -197,6 +197,9 @@ class FirestoreCaseSyncDataSource implements CaseSyncDataSource {
     await _firestore.runTransaction((transaction) async {
       final existing = await transaction.get(reference);
       final registry = await transaction.get(registryReference);
+      DocumentReference<Map<String, dynamic>>? replaceStubReference;
+      var replacingCnrOnlyStub = false;
+
       if (existing.exists) {
         final existingData = existing.data()!;
         if ((existingData['ownerUid'] ?? existingData['userId']) != uid) {
@@ -205,19 +208,56 @@ class FirestoreCaseSyncDataSource implements CaseSyncDataSource {
           );
         }
       }
-      if (registry.exists && registry.data()?['caseId'] != caseId) {
-        throw StateError(
-          'This CNR is already registered in your cloud account. Sync the existing record instead of creating a duplicate.',
-        );
+
+      final registeredCaseId = registry.data()?['caseId'];
+      if (registry.exists && registeredCaseId != caseId) {
+        if (registeredCaseId is! String || registeredCaseId.isEmpty) {
+          throw StateError(
+            'The CNR registry requires migration before this case can sync.',
+          );
+        }
+        if (existing.exists) {
+          throw StateError(
+            'Two cloud case records already exist for this CNR. Resolve the duplicate without merging private data.',
+          );
+        }
+
+        replaceStubReference = _cases.doc(registeredCaseId);
+        final registeredSnapshot = await transaction.get(replaceStubReference);
+        if (!registeredSnapshot.exists) {
+          throw StateError(
+            'The CNR registry points to a missing case record; migration is required.',
+          );
+        }
+        final registeredData = registeredSnapshot.data()!;
+        final registeredRawCnr = registeredData['cuid'] ??
+            registeredData['cnrNumber'] ??
+            registeredData['cnr'];
+        final registeredCnr = registeredRawCnr is String
+            ? registeredRawCnr.trim().toUpperCase()
+            : '';
+        if ((registeredData['ownerUid'] ?? registeredData['userId']) != uid ||
+            registeredCnr != cnr ||
+            registeredData['cloudStorageMode'] != 'cnr_only') {
+          throw StateError(
+            'This CNR already has a non-stub cloud record in your account. Resolve the duplicate without overwriting private data.',
+          );
+        }
+        // A transfer may have created a CNR-only cloud stub before this
+        // device's private local case synced. Re-key that empty stub to the
+        // local case ID, preserving the local private workspace.
+        replacingCnrOnlyStub = true;
       }
+
       if (!registry.exists && !existing.exists && expectedCloudVersion != null) {
         throw StateError('Firestore Case changed during synchronization.');
       }
-      if (registry.exists && !existing.exists) {
+      if (registry.exists && !existing.exists && !replacingCnrOnlyStub) {
         throw StateError(
           'The CNR registry points to a missing case record; migration is required.',
         );
       }
+
       if (existing.exists) {
         final current = existing.data()!;
         final currentVersion = (current['cloudVersion'] as num?)?.toInt() ?? 0;
@@ -235,8 +275,9 @@ class FirestoreCaseSyncDataSource implements CaseSyncDataSource {
         }
       }
 
-      // The per-user CUID registry makes create/update idempotent across
-      // devices without globally deduplicating other advocates' records.
+      // Create or move the per-user CNR registry in the same transaction as
+      // the case write. A move is permitted only when replacing an empty CNR
+      // stub, never a full case record.
       if (!registry.exists) {
         transaction.set(registryReference, <String, dynamic>{
           'uid': uid,
@@ -244,6 +285,18 @@ class FirestoreCaseSyncDataSource implements CaseSyncDataSource {
           'caseId': caseId,
           'updatedAt': FieldValue.serverTimestamp(),
         });
+      } else if (replacingCnrOnlyStub) {
+        transaction.set(
+          registryReference,
+          <String, dynamic>{
+            'uid': uid,
+            'cuid': cnr,
+            'caseId': caseId,
+            'updatedAt': FieldValue.serverTimestamp(),
+          },
+          SetOptions(merge: true),
+        );
+        transaction.delete(replaceStubReference!);
       }
 
       // Replace Free-tier documents to remove previously stored private fields.
@@ -254,6 +307,8 @@ class FirestoreCaseSyncDataSource implements CaseSyncDataSource {
         SetOptions(merge: isCloudSubscriber),
       );
     });
+  }
+
   }
 
 class CaseSyncResult {
