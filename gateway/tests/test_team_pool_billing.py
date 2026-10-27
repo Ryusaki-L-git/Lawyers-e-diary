@@ -3,9 +3,12 @@ from __future__ import annotations
 import pytest
 
 from gateway.team_pool_billing import (
+    BillingSourceChoiceRequired,
+    InsufficientCombinedCaseTokens,
     InsufficientTeamAllocation,
     InsufficientTeamPool,
     TeamBillingConflict,
+    consume_case_tokens_with_preference,
     consume_team_case_tokens,
     refund_team_case_tokens,
 )
@@ -105,3 +108,61 @@ def test_team_refund_is_idempotent_and_restores_pool_and_usage(make_db):
     assert first.balance_after == duplicate.balance_after == 10
     assert duplicate.duplicate is True
     assert db._store[(MEMBER_PATH, UID)]["billingUsage"]["caseTokenUsedMinorUnits"] == 100
+
+
+def test_ask_preference_requires_wallet_choice_before_charge(make_db):
+    data = _seed()
+    data[("users", UID)] = {
+        "billingPreferences": {
+            "usageDeductionPriority": "ask",
+            "preferredTeamId": TEAM,
+        }
+    }
+    db = make_db(data)
+    with pytest.raises(BillingSourceChoiceRequired):
+        consume_case_tokens_with_preference(
+            db, UID, amount_minor_units=50, reason="Smart Refresh",
+            reference_id="ask-choice-1", case_team_id=TEAM,
+        )
+    assert db._store[(TEAM_BALANCE_PATH, "case")]["balance"] == 10
+
+
+def test_explicit_team_source_debits_team_and_member_allocation(make_db):
+    data = _seed()
+    data[("users", UID)] = {
+        "billingPreferences": {
+            "usageDeductionPriority": "ask",
+            "preferredTeamId": TEAM,
+        }
+    }
+    data[("_server_token_accounts", UID, "balances", "case")] = {"balance": 20}
+    db = make_db(data)
+    result = consume_case_tokens_with_preference(
+        db, UID, amount_minor_units=50, reason="Smart Refresh",
+        reference_id="team-choice-1", case_team_id=TEAM,
+        requested_source="team",
+    )
+    assert result.source == "team"
+    assert result.team_id == TEAM
+    assert db._store[(TEAM_BALANCE_PATH, "case")]["balanceMinorUnits"] == 950
+    assert db._store[("_server_token_accounts", UID, "balances", "case")]["balance"] == 20
+
+
+def test_personal_first_falls_back_to_team_when_personal_wallet_is_empty(make_db):
+    data = _seed()
+    data[("users", UID)] = {
+        "billingPreferences": {
+            "usageDeductionPriority": "personal_first",
+            "preferredTeamId": TEAM,
+        }
+    }
+    data[("_server_token_accounts", UID, "balances", "case")] = {"balance": 0}
+    db = make_db(data)
+    result = consume_case_tokens_with_preference(
+        db, UID, amount_minor_units=50, reason="Smart Refresh",
+        reference_id="fallback-team-1", case_team_id=TEAM,
+    )
+    assert result.source == "team"
+    assert result.team_id == TEAM
+    assert db._store[(TEAM_BALANCE_PATH, "case")]["balanceMinorUnits"] == 950
+    assert db._store[("_server_token_accounts", UID, "balances", "case")]["balance"] == 0
