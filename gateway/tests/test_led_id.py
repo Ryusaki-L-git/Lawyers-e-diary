@@ -218,3 +218,27 @@ def test_stale_counter_never_overwrites_existing_directory_id():
     assert db._store[("led_id_directory", occupied_id)]["uid"] == "existing-owner"
     assert db._store[("led_id_directory", next_id)]["uid"] == "uid-new"
     assert db._store[("metadata", "counters")]["userCount"] == 2
+
+
+
+def test_existing_directory_id_is_reused_when_profile_mapping_is_missing():
+    db = _make_db({})
+    year = datetime.datetime.now(datetime.timezone.utc).year
+    existing_id = f"0001-{year}"
+    db._store[("users", "uid-recover")] = {
+        "name": "Recovered User",
+        "advocateType": "Senior",
+    }
+    db._store[("metadata", "counters")] = {"userCount": 0}
+    db._store[("led_id_directory", existing_id)] = {
+        "uid": "uid-recover",
+        "ledId": existing_id,
+        "name": "Recovered User",
+        "profileCompleted": True,
+    }
+
+    result = allocate_led_id(db, "uid-recover")
+
+    assert result == {"ledId": existing_id, "created": False}
+    assert db._store[("users", "uid-recover")]["ledId"] == existing_id
+    assert db._store[("metadata", "counters")]["userCount"] == 1
