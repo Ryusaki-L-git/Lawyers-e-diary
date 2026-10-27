@@ -295,7 +295,7 @@ class _ServicesCatalogueScreenState extends State<ServicesCatalogueScreen> {
           width: 520,
           child: SingleChildScrollView(
             child: SelectableText(
-              const JsonEncoder.withIndent('  ').convert(result),
+              JsonEncoder.withIndent('  ').convert(result),
               style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
             ),
           ),
