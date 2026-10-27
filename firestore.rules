@@ -46,34 +46,32 @@ service cloud.firestore {
     // ----------------------------------------------------------------------
     // Private user profile. Never expose the full users collection.
     // ----------------------------------------------------------------------
-    function serverManagedUserFields() {
+    function clientEditableProfileFields() {
       return [
-        'ledId',
-        'profileCompleted',
-        'subscription',
-        'role',
-        'roles',
-        'isAdmin',
-        'isStaff',
-        'userCount',
-        'createdBy',
-        'verified',
-        'emailVerified'
+        'name',
+        'dob',
+        'advocateType',
+        'address',
+        'courtAddress',
+        'degrees',
+        'createdAt',
+        'updatedAt',
+        'lastSyncedAt'
       ];
     }
 
     match /users/{uid} {
       allow read: if self(uid);
 
-      // Clients may create their own basic profile, but cannot mint an LED ID
-      // or claim server-controlled status, roles, or subscription entitlements.
+      // Allow only the fields used by the profile form and sync metadata.
+      // Unknown future keys are denied by default, preventing clients from
+      // inventing privilege, identity, billing, or verification fields.
       allow create: if self(uid)
-        && !request.resource.data.keys().hasAny(serverManagedUserFields());
+        && request.resource.data.keys().hasOnly(clientEditableProfileFields());
 
-      // Profile edits must not change server-owned identity or entitlement data.
       allow update: if self(uid)
-        && !request.resource.data.diff(resource.data)
-          .affectedKeys().hasAny(serverManagedUserFields());
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(clientEditableProfileFields());
 
       allow delete: if false;
     }
