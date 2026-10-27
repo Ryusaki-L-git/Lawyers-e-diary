@@ -101,6 +101,7 @@ class _JurisChatScreenState extends State<JurisChatScreen> {
     String? billingSource;
     try {
       final preferences = await _tokenService.fetchBillingPreferences();
+      if (!mounted) return;
       if (preferences.usageDeductionPriority == 'ask' &&
           preferences.preferredTeamId != null) {
         billingSource = await showDialog<String>(
