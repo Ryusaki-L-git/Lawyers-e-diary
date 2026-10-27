@@ -287,8 +287,39 @@ class FirestoreService {
   /// global directory. The directory contains only minimal public identity data.
   Future<TeamMemberModel?> lookupTeamMemberByLedId(String ledId) async {
     final normalizedId = ledId.trim();
-    if (!RegExp(r'^\\d{4,}-\\d{4}
-    // User profiles are private. The transfer/team switcher only needs the
+    if (!RegExp(r'^\d{4,}-\d{4}$').hasMatch(normalizedId)) {
+      throw ArgumentError.value(ledId, 'ledId', 'Enter a valid LED ID.');
+    }
+    final snapshot = await _db
+        .collection('led_id_directory')
+        .doc(normalizedId)
+        .get();
+    if (!snapshot.exists) return null;
+    final data = snapshot.data() ?? const <String, dynamic>{};
+    final uid = data['uid'];
+    final name = data['name'];
+    if (uid is! String ||
+        uid.isEmpty ||
+        name is! String ||
+        name.trim().isEmpty ||
+        data['profileCompleted'] != true) {
+      return null;
+    }
+    if (uid == currentUserId) {
+      throw ArgumentError.value(
+        ledId,
+        'ledId',
+        'You cannot transfer a case to yourself.',
+      );
+    }
+    return TeamMemberModel(
+      id: uid,
+      name: name.trim(),
+      role: data['advocateType'] as String? ?? 'Advocate',
+    );
+  }
+
+  // User profiles are private. The transfer/team switcher only needs the
     // minimal public identity fields maintained in the LED ID directory.
     return _db.collection('led_id_directory').snapshots().map((snapshot) {
       final members = <TeamMemberModel>[];
