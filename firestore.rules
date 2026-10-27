@@ -112,6 +112,26 @@ service cloud.firestore {
         && request.resource.data.diff(resource.data).affectedKeys()
           .hasOnly(clientEditableProfileFields());
 
+      match /case_cuid_registry/{cuid} {
+        allow get: if self(uid);
+        allow list: if false;
+        allow create: if self(uid)
+          && request.resource.data.keys().hasOnly(['uid', 'cuid', 'caseId', 'updatedAt'])
+          && request.resource.data.uid == uid
+          && request.resource.data.cuid == cuid
+          && request.resource.data.caseId is string
+          && getAfter(/databases/$(database)/documents/cases/$(request.resource.data.caseId)).data.ownerUid == uid
+          && getAfter(/databases/$(database)/documents/cases/$(request.resource.data.caseId)).data.cuid == cuid;
+        allow update: if self(uid)
+          && request.resource.data.keys().hasOnly(['uid', 'cuid', 'caseId', 'updatedAt'])
+          && request.resource.data.uid == resource.data.uid
+          && request.resource.data.cuid == resource.data.cuid
+          && request.resource.data.caseId == resource.data.caseId
+          && getAfter(/databases/$(database)/documents/cases/$(request.resource.data.caseId)).data.ownerUid == uid
+          && getAfter(/databases/$(database)/documents/cases/$(request.resource.data.caseId)).data.cuid == cuid;
+        allow delete: if false;
+      }
+
       allow delete: if false;
     }
 
@@ -143,7 +163,11 @@ service cloud.firestore {
       allow create: if signedIn()
         && caseStorageAllowed(request.resource.data, request.auth.uid)
         && request.resource.data.ownerUid == request.auth.uid
-        && request.resource.data.userId == request.auth.uid;
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.cuid is string
+        && request.resource.data.cuid.matches('^[A-Z0-9]{16}$')
+        && request.resource.data.cnrNumber == request.resource.data.cuid
+        && getAfter(/databases/$(database)/documents/users/$(request.auth.uid)/case_cuid_registry/$(request.resource.data.cuid)).data.caseId == caseId;
 
       allow update: if caseStorageAllowed(
         request.resource.data,
