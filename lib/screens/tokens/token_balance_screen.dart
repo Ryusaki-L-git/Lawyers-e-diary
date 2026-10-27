@@ -27,6 +27,12 @@ class _TokenBalanceScreenState extends State<TokenBalanceScreen> {
   String? _preferenceError;
   bool _savingPreferences = false;
   bool _loadingPool = false;
+  bool _savingAllocation = false;
+  String? _selectedMemberUid;
+  String? _allocationError;
+  final _caseLimitController = TextEditingController();
+  final _jurisLimitController = TextEditingController();
+  final _storageLimitController = TextEditingController();
   late final Stream<List<TeamModel>> _teamsStream;
 
   @override
@@ -39,6 +45,9 @@ class _TokenBalanceScreenState extends State<TokenBalanceScreen> {
   @override
   void dispose() {
     _service.dispose();
+    _caseLimitController.dispose();
+    _jurisLimitController.dispose();
+    _storageLimitController.dispose();
     super.dispose();
   }
 
@@ -201,6 +210,139 @@ class _TokenBalanceScreenState extends State<TokenBalanceScreen> {
         ],
       ),
     );
+  }
+
+  Widget _buildAllocationEditor(Map<String, dynamic> pool) {
+    if (pool['isManager'] != true || _selectedTeamId == null) {
+      return const SizedBox.shrink();
+    }
+    return WindowsPanel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Member allocation limits',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppPalette.textPrimary),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'Set each member’s monthly usage allowance. These limits do not add money to the shared pool.',
+            style: TextStyle(fontSize: 12, color: AppPalette.textMuted),
+          ),
+          const SizedBox(height: 12),
+          StreamBuilder<List<TeamMembership>>(
+            stream: TeamService.instance.watchMembers(_selectedTeamId!),
+            builder: (context, snapshot) {
+              final members = (snapshot.data ?? const <TeamMembership>[])
+                  .where((member) => member.isActive && member.hasFirebaseIdentity && member.userId.isNotEmpty)
+                  .toList();
+              final selected = members.any((member) => member.userId == _selectedMemberUid)
+                  ? _selectedMemberUid
+                  : null;
+              return DropdownButtonFormField<String>(
+                value: selected,
+                isExpanded: true,
+                decoration: const InputDecoration(
+                  labelText: 'Team member',
+                  border: OutlineInputBorder(),
+                ),
+                items: members.map((member) => DropdownMenuItem<String>(
+                  value: member.userId,
+                  child: Text(
+                    member.displayName.isNotEmpty ? member.displayName : member.email.isNotEmpty ? member.email : member.userId,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                )).toList(),
+                onChanged: _savingAllocation ? null : (uid) {
+                  setState(() {
+                    _selectedMemberUid = uid;
+                    _allocationError = null;
+                  });
+                },
+                hint: const Text('Choose an authorised team member'),
+              );
+            },
+          ),
+          const SizedBox(height: 10),
+          TextField(
+            controller: _caseLimitController,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            decoration: const InputDecoration(labelText: 'Monthly Case Token limit (₹)', border: OutlineInputBorder()),
+          ),
+          const SizedBox(height: 10),
+          TextField(
+            controller: _jurisLimitController,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            decoration: const InputDecoration(labelText: 'Monthly JURIS Credit limit (₹)', border: OutlineInputBorder()),
+          ),
+          const SizedBox(height: 10),
+          TextField(
+            controller: _storageLimitController,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            decoration: const InputDecoration(labelText: 'Member storage limit (GB)', border: OutlineInputBorder()),
+          ),
+          if (_allocationError != null) ...[
+            const SizedBox(height: 8),
+            Text(_allocationError!, style: const TextStyle(color: AppPalette.statusDanger, fontSize: 12)),
+          ],
+          const SizedBox(height: 12),
+          FilledButton.icon(
+            onPressed: _savingAllocation ? null : _saveAllocation,
+            icon: _savingAllocation
+                ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                : const Icon(Icons.tune_rounded),
+            label: const Text('Save member limits'),
+            style: FilledButton.styleFrom(backgroundColor: AppPalette.primaryGreen, foregroundColor: Colors.white),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _saveAllocation() async {
+    final teamId = _selectedTeamId;
+    final memberUid = _selectedMemberUid;
+    if (teamId == null || memberUid == null) {
+      setState(() => _allocationError = 'Choose a team member first.');
+      return;
+    }
+    double parse(String value, String label) {
+      final parsed = double.tryParse(value.trim());
+      if (parsed == null || !parsed.isFinite || parsed < 0) {
+        throw FormatException('Enter a valid non-negative $label.');
+      }
+      return parsed;
+    }
+    setState(() {
+      _savingAllocation = true;
+      _allocationError = null;
+    });
+    try {
+      final caseLimit = (parse(_caseLimitController.text, 'Case Token limit') * 100).round();
+      final jurisLimit = (parse(_jurisLimitController.text, 'JURIS Credit limit') * 100).round();
+      final storageBytes = (parse(_storageLimitController.text, 'storage limit') * 1024 * 1024 * 1024).round();
+      await _service.saveTeamMemberAllocation(
+        teamId: teamId,
+        memberUid: memberUid,
+        caseTokenLimitMinorUnits: caseLimit,
+        jurisCreditLimitMinorUnits: jurisLimit,
+        storageLimitBytes: storageBytes,
+      );
+      if (!mounted) return;
+      setState(() => _savingAllocation = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Member allocation limits saved.')),
+      );
+      await _loadTeamPool(teamId);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _savingAllocation = false;
+        _allocationError = error is FormatException
+            ? error.message
+            : error.toString();
+      });
+    }
   }
 
   Widget _poolLine(String label, String value) => Padding(
@@ -418,6 +560,8 @@ class _TokenBalanceScreenState extends State<TokenBalanceScreen> {
                 ),
                 const SizedBox(height: 16),
                 _buildTeamPoolPanel(),
+                const SizedBox(height: 16),
+                if (_teamPool != null) _buildAllocationEditor(_teamPool!),
                 const SizedBox(height: 16),
                 FilledButton.icon(
                   onPressed: () =>
