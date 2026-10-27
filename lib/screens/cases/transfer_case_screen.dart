@@ -118,7 +118,7 @@ class _TransferCaseScreenState extends State<TransferCaseScreen> {
               height: 1.5,
             ),
             children: [
-              const TextSpan(text: 'Are you sure you want to transfer '),
+              const TextSpan(text: 'Create an independent case record for '),
               TextSpan(
                 text: '"$caseName"',
                 style: const TextStyle(
@@ -134,7 +134,7 @@ class _TransferCaseScreenState extends State<TransferCaseScreen> {
                   fontWeight: FontWeight.w700,
                 ),
               ),
-              const TextSpan(text: '?'),
+              const TextSpan(text: '? The recipient gets the same CNR in their own workspace; your private notes, client details, and documents are not copied.'),
             ],
           ),
         ),
@@ -159,7 +159,7 @@ class _TransferCaseScreenState extends State<TransferCaseScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
             ),
             child: const Text(
-              'Yes, Transfer',
+              'Create Record',
               style: TextStyle(fontWeight: FontWeight.w700),
             ),
           ),
@@ -181,7 +181,7 @@ class _TransferCaseScreenState extends State<TransferCaseScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('"$caseName" transferred to $_selectedMemberName.'),
+          content: Text('Independent case record created for $_selectedMemberName.'),
           backgroundColor: primaryGreen,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(
