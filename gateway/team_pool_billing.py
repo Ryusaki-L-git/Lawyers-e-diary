@@ -12,6 +12,9 @@ from datetime import datetime, timezone
 from typing import Any, Callable
 
 
+_PRIORITY_VALUES = {"personal_first", "team_first", "ask"}
+
+
 class InsufficientTeamPool(Exception):
     def __init__(self, required: float, available: float) -> None:
         super().__init__("The shared team Case Token pool is insufficient.")
@@ -336,11 +339,6 @@ def consume_case_tokens_with_preference(
     requested_source: str | None = None,
 ) -> PreferredBillingResult:
     """Charge a personal or eligible team wallet according to server-stored preference."""
-    from .token_billing import (
-        InsufficientCaseTokens,
-        consume_case_tokens,
-    ) if __package__ else (None, None)
-
     # Keep top-level imports compatible with FastAPI Cloud's flat-module entrypoint.
     if __package__:
         from .token_billing import InsufficientCaseTokens as PersonalInsufficient
