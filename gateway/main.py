@@ -262,9 +262,12 @@ async def execute_paid_service(
             if (
                 not isinstance(filename, str)
                 or not filename.endswith(".pdf")
+                or len(filename) > 128
+                or not filename[0].isalnum()
                 or "/" in filename
                 or "\\" in filename
                 or ".." in filename
+                or "%" in filename
             ):
                 raise HTTPException(status_code=422, detail="A valid order PDF filename is required.")
         if service_id in {"order_download_pdf", "order_markdown_pdf"} and not isinstance(signed, bool):
@@ -303,6 +306,7 @@ async def execute_paid_service(
     amount_minor_units = prices[service_id] * (
         len(cnrs) if service_id in {"cnr_cause_list_check", "bulk_case_refresh"} else 1
     )
+    charged_minor_units = amount_minor_units
     try:
         consume_case_tokens(
             db,
@@ -356,10 +360,11 @@ async def execute_paid_service(
                     reason="Bulk Case Refresh invalid-CNR adjustment",
                     reference_id=f"{billing_reference}:invalid-adjustment",
                 )
+                charged_minor_units -= refund_units
         return {
             "serviceId": service_id,
             "status": "ok",
-            "chargedTokens": amount_minor_units / 100,
+            "chargedTokens": charged_minor_units / 100,
             "data": result.get("data", result) if isinstance(result, dict) else result,
         }
     except HTTPException:
