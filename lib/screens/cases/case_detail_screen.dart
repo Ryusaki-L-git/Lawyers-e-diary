@@ -255,9 +255,43 @@ class _CaseDetailScreenState extends State<CaseDetailScreen> {
       );
     } catch (e) {
       if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Smart Refresh: $e')),
-      );
+      if (e is InsufficientCaseTokensException) {
+        await showDialog<void>(
+          context: context,
+          builder: (dialogContext) => AlertDialog(
+            title: const Text('Not enough Case Tokens'),
+            content: Text(
+              'Smart Refresh costs ${e.required.toStringAsFixed(2)} Case Tokens. '
+              'Your current balance is ${e.available.toStringAsFixed(2)}. '
+              'Add tokens to continue. No refresh was performed.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(),
+                child: const Text('Not now'),
+              ),
+              OutlinedButton(
+                onPressed: () {
+                  Navigator.of(dialogContext).pop();
+                  Navigator.of(context).pushNamed('/token_balance');
+                },
+                child: const Text('View Balance'),
+              ),
+              FilledButton(
+                onPressed: () {
+                  Navigator.of(dialogContext).pop();
+                  Navigator.of(context).pushNamed('/upgrade');
+                },
+                child: const Text('Buy Plans / Tokens'),
+              ),
+            ],
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Smart Refresh: $e')),
+        );
+      }
     } finally {
       if (mounted) setState(() => _isRefreshing = false);
     }
