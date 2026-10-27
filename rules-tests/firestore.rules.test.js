@@ -12,6 +12,15 @@ const CNR = "ABCD1234EFGH5678";
 const now = () => Timestamp.fromDate(new Date("2026-10-27T12:00:00.000Z"));
 let testEnv;
 
+async function createRegisteredCase(db, caseId, data) {
+  const batch = writeBatch(db);
+  batch.set(doc(db, `cases/${caseId}`), data);
+  batch.set(doc(db, `users/${data.ownerUid}/case_cuid_registry/${data.cuid}`), {
+    uid: data.ownerUid, cuid: data.cuid, caseId, updatedAt: now(),
+  });
+  await batch.commit();
+}
+
 function freeStub(uid, caseId) {
   return {
     ownerUid: uid, userId: uid, cuid: CNR, cnrNumber: CNR, caseNumber: CNR,
@@ -40,12 +49,12 @@ test.after(async () => { await testEnv.cleanup(); });
 
 test("Free users may create a minimal CNR-only cloud registration", async () => {
   const db = testEnv.authenticatedContext("user-a").firestore();
-  await assertSucceeds(setDoc(doc(db, "cases/case-a"), freeStub("user-a", "case-a")));
+  await assertSucceeds(createRegisteredCase(db, "case-a", freeStub("user-a", "case-a")));
 });
 
 test("Free users cannot upload private case fields to the cloud", async () => {
   const db = testEnv.authenticatedContext("user-a").firestore();
-  await assertFails(setDoc(doc(db, "cases/case-private"), {
+  await assertFails(createRegisteredCase(db, "case-private", {
     ...freeStub("user-a", "case-private"), caseTitle: "Private client case",
     clientName: "Confidential", notes: ["Private note"], documents: [{ name: "brief.pdf" }],
   }));
@@ -53,7 +62,7 @@ test("Free users cannot upload private case fields to the cloud", async () => {
 
 test("Cloud Subscribers may store their own full case record", async () => {
   const db = testEnv.authenticatedContext("user-subscriber").firestore();
-  await assertSucceeds(setDoc(doc(db, "cases/subscriber-case"), {
+  await assertSucceeds(createRegisteredCase(db, "subscriber-case", {
     ownerUid: "user-subscriber", userId: "user-subscriber", cuid: CNR,
     cnrNumber: CNR, caseNumber: CNR, cloudStorageMode: "full",
     caseTitle: "Subscriber private case", clientName: "Client A",
@@ -64,8 +73,8 @@ test("Cloud Subscribers may store their own full case record", async () => {
 test("the same CNR can exist in two independent advocate records", async () => {
   const dbA = testEnv.authenticatedContext("user-a").firestore();
   const dbB = testEnv.authenticatedContext("user-b").firestore();
-  await assertSucceeds(setDoc(doc(dbA, "cases/a-record"), freeStub("user-a", "a-record")));
-  await assertSucceeds(setDoc(doc(dbB, "cases/b-record"), freeStub("user-b", "b-record")));
+  await assertSucceeds(createRegisteredCase(dbA, "a-record", freeStub("user-a", "a-record")));
+  await assertSucceeds(createRegisteredCase(dbB, "b-record", freeStub("user-b", "b-record")));
   await assertSucceeds(getDoc(doc(dbA, "cases/a-record")));
   await assertSucceeds(getDoc(doc(dbB, "cases/b-record")));
   await assertFails(getDoc(doc(dbA, "cases/b-record")));
