@@ -104,10 +104,25 @@ def allocate_led_id(db, uid: str) -> dict:
                 detail="The LED ID counter is in an invalid state.",
             )
 
+        # A valid counter should already be ahead of all allocated IDs.
+        # Still, fail-safe against a stale/reset counter: never overwrite an
+        # existing directory entry. Skip occupied IDs inside the same
+        # transaction and persist the actual allocated sequence.
         next_count = raw_count + 1
         server_year = datetime.datetime.now(datetime.timezone.utc).year
-        padded = str(next_count).rjust(4, "0")
-        led_id = f"{padded}-{server_year}"
+        for _ in range(10000):
+            padded = str(next_count).rjust(4, "0")
+            led_id = f"{padded}-{server_year}"
+            candidate_ref = directory_collection.document(led_id)
+            candidate_snap = txn.get(candidate_ref)
+            if not candidate_snap.exists:
+                break
+            next_count += 1
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Unable to find a free LED ID; the counter needs review.",
+            )
 
         txn.set(counter_ref, {
             "userCount": next_count,
