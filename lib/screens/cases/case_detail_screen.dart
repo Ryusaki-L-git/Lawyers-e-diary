@@ -8,6 +8,7 @@ import '../../services/ecourts_service.dart';
 import '../../widgets/app_bottom_navigation.dart';
 import '../../widgets/app_nav_controller.dart';
 import 'transfer_case_screen.dart';
+import '../services/services_catalogue_screen.dart';
 import '../../widgets/app_palette.dart';
 
 /// Case Detail Screen — full case docket view.
@@ -614,6 +615,21 @@ class _CaseDetailScreenState extends State<CaseDetailScreen> {
                           onTap: _isRefreshing
                               ? () {}
                               : () => _smartRefresh(context),
+                        ),
+
+                        const SizedBox(height: 8),
+
+                        // More Services
+                        _actionButton(
+                          context: context,
+                          icon: Icons.apps_rounded,
+                          label: 'More Services',
+                          color: primaryGreen,
+                          onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) => const ServicesCatalogueScreen(),
+                            ),
+                          ),
                         ),
 
                         const SizedBox(height: 8),
