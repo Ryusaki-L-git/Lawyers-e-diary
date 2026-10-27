@@ -109,8 +109,10 @@ class TokenBalance {
 
   final int caseTokensMinorUnits;
   final String caseTokensDisplay;
-  final int jurisTokens;
+  final double jurisTokens;
 
+  double get credits => jurisTokens;
+  String get creditsDisplay => credits.toStringAsFixed(2);
   double get caseTokens => caseTokensMinorUnits / 100.0;
 
   factory TokenBalance.fromJson(Map<String, dynamic> json) {
@@ -128,11 +130,11 @@ class TokenBalance {
     final display = explicitDisplay is String
         ? explicitDisplay
         : (caseMinorUnits / 100).toStringAsFixed(2);
-    final jurisValue = json['jurisTokens'] ?? json['juris_tokens'];
+    final creditsValue = json['credits'] ?? json['jurisTokens'] ?? json['juris_tokens'];
     return TokenBalance(
       caseTokensMinorUnits: caseMinorUnits,
       caseTokensDisplay: display,
-      jurisTokens: jurisValue is num ? jurisValue.toInt() : 0,
+      jurisTokens: creditsValue is num ? creditsValue.toDouble() : 0.0,
     );
   }
 }
@@ -145,6 +147,7 @@ class UsageEntry {
     required this.reason,
     required this.createdAt,
     required this.balanceAfterMinorUnits,
+    required this.tokenType,
   });
 
   final String transactionId;
@@ -153,9 +156,11 @@ class UsageEntry {
   final String reason;
   final String createdAt;
   final int balanceAfterMinorUnits;
+  final String tokenType;
 
   double get amountTokens => amountMinorUnits / 100.0;
   double get balanceAfterTokens => balanceAfterMinorUnits / 100.0;
+  String get unitLabel => tokenType == 'case' ? 'Case Tokens' : 'Credits';
 
   factory UsageEntry.fromJson(Map<String, dynamic> json) {
     // The current JURIS ledger uses snake_case fields and whole-token
@@ -187,6 +192,9 @@ class UsageEntry {
           ? created
           : created?.toString() ?? '',
       balanceAfterMinorUnits: balanceAfterMinorUnits,
+      tokenType: (json['tokenType'] ?? json['token_type'] ?? 'juris')
+          .toString()
+          .toLowerCase(),
     );
   }
 }
