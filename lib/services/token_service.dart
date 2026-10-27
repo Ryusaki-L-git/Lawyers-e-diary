@@ -122,7 +122,7 @@ class TokenBalance {
     final caseMinorUnits = explicitMinorUnits is num
         ? explicitMinorUnits.toInt()
         : legacyWholeTokens is num
-        ? legacyWholeTokens.toInt() * 100
+        ? (legacyWholeTokens * 100).round()
         : 0;
     final explicitDisplay = json['caseTokensDisplay'];
     final display = explicitDisplay is String
@@ -166,14 +166,14 @@ class UsageEntry {
     final amountMinorUnits = explicitAmountMinorUnits is num
         ? explicitAmountMinorUnits.toInt()
         : rawAmount is num
-        ? rawAmount.toInt() * 100
+        ? (rawAmount * 100).round()
         : 0;
     final explicitBalanceMinorUnits = json['balanceAfterMinorUnits'];
     final rawBalance = json['balance_after'] ?? json['balanceAfter'];
     final balanceAfterMinorUnits = explicitBalanceMinorUnits is num
         ? explicitBalanceMinorUnits.toInt()
         : rawBalance is num
-        ? rawBalance.toInt() * 100
+        ? (rawBalance * 100).round()
         : 0;
     final created = json['createdAt'] ?? json['created_at'];
     return UsageEntry(
