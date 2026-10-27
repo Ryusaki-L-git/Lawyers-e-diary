@@ -20,6 +20,7 @@ class JurisService {
     String? activeCaseId,
     String? activeCaseTitle,
     List<String>? confirmedActionIds,
+    String? selectedModel,
   }) async {
     final trimmed = message.trim();
     if (trimmed.isEmpty) {
@@ -79,6 +80,12 @@ class JurisService {
             },
         },
         'confirmed_action_ids': confirmedActionIds ?? [],
+        if (selectedModel != null && selectedModel.trim().isNotEmpty)
+          'ai': {
+            'provider': 'gemini',
+            'model': selectedModel.trim(),
+            'mode': 'managed',
+          },
       }),
     );
 
@@ -105,7 +112,9 @@ class JurisService {
       );
     }
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw JurisServiceException('JURIS is temporarily unavailable (HTTP ).');
+      throw JurisServiceException(
+        'JURIS is temporarily unavailable (HTTP ${response.statusCode}).',
+      );
     }
     final reply = (data['reply'] as String?)?.trim() ?? '';
     if (reply.isEmpty) {
