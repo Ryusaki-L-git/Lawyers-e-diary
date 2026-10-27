@@ -10,6 +10,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'services/led_id_allocation_service.dart';
+
 class WelcomeScreen extends StatefulWidget {
   const WelcomeScreen({super.key});
 
@@ -172,12 +174,14 @@ class _WelcomeScreenState extends State<WelcomeScreen>
     final userReference = firestore.collection('users').doc(userId);
     final profileData = _buildProfileData(dateOfBirth);
 
-    // Save profile data first (without ledId or profileCompleted). The server
-    // is responsible for allocating the LED ID and marking the profile complete.
+    // The profile is complete even if the ID service is temporarily busy.
+    // The ID itself remains server-assigned; the UI displays "Not assigned"
+    // until the gateway's Firestore transaction succeeds.
     final userSnapshot = await userReference.get();
     final existingUserData = userSnapshot.data();
     final dataToSave = Map<String, dynamic>.from(profileData)
-      ..['updatedAt'] = FieldValue.serverTimestamp();
+      ..['updatedAt'] = FieldValue.serverTimestamp()
+      ..['profileCompleted'] = true;
 
     if (!userSnapshot.exists || existingUserData?['createdAt'] == null) {
       dataToSave['createdAt'] = FieldValue.serverTimestamp();
@@ -185,57 +189,12 @@ class _WelcomeScreenState extends State<WelcomeScreen>
 
     await userReference.set(dataToSave, SetOptions(merge: true));
 
-    // Allocate the LED ID via the trusted FastAPI gateway. The gateway derives
-    // the UID from the verified Firebase ID token and the year from server
-    // time. It reuses an existing ID on retry, so this call is safe to repeat.
-    final gatewayUrl = const String.fromEnvironment('ECOURTS_GATEWAY_URL').trim();
-    if (gatewayUrl.isEmpty) {
-      throw StateError('LED allocation service is not configured for this build.');
-    }
-    final base = Uri.tryParse(gatewayUrl);
-    if (base == null || !base.hasScheme || !base.hasAuthority) {
-      throw StateError('LED allocation service URL is invalid.');
-    }
-
+    // Do not hold up onboarding while the server is busy. Retries are safe:
+    // the gateway derives UID from Firebase Auth and returns the same ID for
+    // the same UID on repeated requests.
     final user = FirebaseAuth.instance.currentUser;
-    if (user == null) {
-      throw StateError('Your session has expired. Please sign in again.');
-    }
-    final token = await user.getIdToken();
-    if (token == null || token.isEmpty) {
-      throw StateError('Could not verify your LED session.');
-    }
-
-    final client = HttpClient()..connectionTimeout = const Duration(seconds: 15);
-    try {
-      final uri = base.resolve('/v1/led/allocate-id');
-      final request = await client.postUrl(uri).timeout(const Duration(seconds: 20));
-      request.headers.set(HttpHeaders.authorizationHeader, 'Bearer $token');
-      request.headers.contentType = ContentType.json;
-      request.headers.set(HttpHeaders.acceptHeader, 'application/json');
-      request.write(jsonEncode({}));
-
-      final response = await request.close().timeout(const Duration(seconds: 60));
-      final body = await response.transform(utf8.decoder).join();
-      Map<String, dynamic> data = <String, dynamic>{};
-      try {
-        final decoded = jsonDecode(body);
-        if (decoded is Map<String, dynamic>) data = decoded;
-      } catch (_) {
-        throw StateError('Invalid response from LED allocation service.');
-      }
-
-      if (response.statusCode < 200 || response.statusCode >= 300) {
-        final detail = data['detail'] as String?;
-        throw StateError(detail ?? 'LED allocation failed (HTTP ${response.statusCode}).');
-      }
-
-      final ledId = data['ledId'];
-      if (ledId is! String || ledId.trim().isEmpty) {
-        throw StateError('LED allocation service did not return a valid ID.');
-      }
-    } finally {
-      client.close(force: true);
+    if (user != null) {
+      unawaited(LedIdAllocationService().allocateWithRetries(user));
     }
   }
 
