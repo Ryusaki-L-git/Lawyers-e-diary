@@ -523,16 +523,28 @@ class FirestoreService {
     required String text,
     required DateTime nextHearingDate,
   }) async {
-    try {
-      await _db.collection('cases').doc(caseId).collection('notes').add({
-        'text': text,
-        'date': FieldValue.serverTimestamp(),
-        'nextHearingDate': Timestamp.fromDate(nextHearingDate),
-      });
-    } catch (e) {
-      debugPrint("Error adding note: $e");
-      rethrow;
+    // Notes are private advocate workspace data. Never write them into the
+    // cloud case document or its subcollections for Free users.
+    final uid = _auth.currentUser?.uid;
+    if (uid == null || uid.isEmpty) {
+      throw StateError('Sign in before adding a case note.');
     }
+    final repository = CaseRepository(database: AppDatabase.instance);
+    final record = await repository.getCaseById(caseId);
+    if (record == null || record.ownerUid != uid) {
+      throw StateError('This case is not available in your private workspace.');
+    }
+    final trimmedNote = text.trim();
+    if (trimmedNote.isEmpty) {
+      throw ArgumentError.value(text, 'text', 'A case note cannot be empty.');
+    }
+    await repository.saveCase(
+      record.copyWith(
+        notes: <String>[...record.notes, trimmedNote],
+        nextHearingDate: nextHearingDate,
+        updatedAt: DateTime.now(),
+      ),
+    );
   }
 
   // â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
