@@ -79,6 +79,152 @@ class EcourtsProvider:
     base_url: str
     timeout_seconds: int = 20
 
+    def case_detail(self, cnr: str) -> dict:
+        """Read case details for a CNR authorized by the LED gateway."""
+        headers = {"Authorization": f"Bearer {self.api_token}", "Accept": "application/json"}
+        try:
+            with httpx.Client(timeout=self.timeout_seconds, follow_redirects=False) as client:
+                response = client.get(f"{self.base_url.rstrip('/')}/api/partner/case/{cnr}", headers=headers)
+        except httpx.TimeoutException as exc:
+            raise EcourtsProviderError(504, "The eCourts provider timed out.") from exc
+        except httpx.RequestError as exc:
+            raise EcourtsProviderError(502, "The eCourts provider is unavailable.") from exc
+        if response.status_code != 200:
+            _raise_provider_http_error(response.status_code)
+        return _parse_json_response(response)
+
+    def cause_list_search(self, params: dict) -> dict:
+        """Search the documented cause-list endpoint with a bounded parameter set."""
+        allowed = {
+            "q", "date", "startDate", "endDate", "judge", "advocate", "state",
+            "districtCode", "limit", "offset", "courtComplexCode", "court",
+            "courtNo", "bench", "litigant", "listType", "includeCourtroom",
+        }
+        if not isinstance(params, dict) or not params or set(params) - allowed:
+            raise ValueError("Cause-list filters are invalid.")
+        headers = {"Authorization": f"Bearer {self.api_token}", "Accept": "application/json"}
+        try:
+            with httpx.Client(timeout=self.timeout_seconds, follow_redirects=False) as client:
+                response = client.get(
+                    f"{self.base_url.rstrip('/')}/api/partner/causelist/search",
+                    headers=headers,
+                    params=params,
+                )
+        except httpx.TimeoutException as exc:
+            raise EcourtsProviderError(504, "The eCourts provider timed out.") from exc
+        except httpx.RequestError as exc:
+            raise EcourtsProviderError(502, "The eCourts provider is unavailable.") from exc
+        if response.status_code != 200:
+            _raise_provider_http_error(response.status_code)
+        return _parse_json_response(response)
+
+    def cnr_cause_list_check(self, cnrs: list[str]) -> dict:
+        """Check upcoming cause-list entries for a bounded list of authorized CNRs."""
+        if not 1 <= len(cnrs) <= 100:
+            raise ValueError("Provide between 1 and 100 case identifiers.")
+        headers = {
+            "Authorization": f"Bearer {self.api_token}",
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+        }
+        try:
+            with httpx.Client(timeout=self.timeout_seconds, follow_redirects=False) as client:
+                response = client.post(
+                    f"{self.base_url.rstrip('/')}/api/partner/causelist/cnr/batch",
+                    headers=headers,
+                    json={"cnrs": cnrs},
+                )
+        except httpx.TimeoutException as exc:
+            raise EcourtsProviderError(504, "The eCourts provider timed out.") from exc
+        except httpx.RequestError as exc:
+            raise EcourtsProviderError(502, "The eCourts provider is unavailable.") from exc
+        if response.status_code != 200:
+            _raise_provider_http_error(response.status_code)
+        return _parse_json_response(response)
+
+    def order_download_pdf(self, cnr: str, filename: str, *, signed: bool = True) -> dict:
+        """Retrieve the provider's order-download response for an authorized case."""
+        if not filename.endswith(".pdf") or "/" in filename or "\\" in filename or ".." in filename:
+            raise ValueError("Order filename is invalid.")
+        headers = {"Authorization": f"Bearer {self.api_token}", "Accept": "application/json"}
+        try:
+            with httpx.Client(timeout=self.timeout_seconds, follow_redirects=False) as client:
+                response = client.get(
+                    f"{self.base_url.rstrip('/')}/api/partner/case/{cnr}/order/{filename}",
+                    headers=headers,
+                    params={"signed": str(signed).lower()},
+                )
+        except httpx.TimeoutException as exc:
+            raise EcourtsProviderError(504, "The eCourts provider timed out.") from exc
+        except httpx.RequestError as exc:
+            raise EcourtsProviderError(502, "The eCourts provider is unavailable.") from exc
+        if response.status_code != 200:
+            _raise_provider_http_error(response.status_code)
+        return _parse_json_response(response)
+
+    def order_ai_summary(self, cnr: str, filename: str) -> dict:
+        """Retrieve the provider's AI-assisted order analysis."""
+        if not filename.endswith(".pdf") or "/" in filename or "\\" in filename or ".." in filename:
+            raise ValueError("Order filename is invalid.")
+        headers = {"Authorization": f"Bearer {self.api_token}", "Accept": "application/json"}
+        try:
+            with httpx.Client(timeout=self.timeout_seconds, follow_redirects=False) as client:
+                response = client.get(
+                    f"{self.base_url.rstrip('/')}/api/partner/case/{cnr}/order-ai/{filename}",
+                    headers=headers,
+                )
+        except httpx.TimeoutException as exc:
+            raise EcourtsProviderError(504, "The eCourts provider timed out.") from exc
+        except httpx.RequestError as exc:
+            raise EcourtsProviderError(502, "The eCourts provider is unavailable.") from exc
+        if response.status_code != 200:
+            _raise_provider_http_error(response.status_code)
+        return _parse_json_response(response)
+
+    def order_markdown_pdf(self, cnr: str, filename: str, *, signed: bool = True) -> dict:
+        """Retrieve a watermarked order PDF and its extracted Markdown."""
+        if not filename.endswith(".pdf") or "/" in filename or "\\" in filename or ".." in filename:
+            raise ValueError("Order filename is invalid.")
+        headers = {"Authorization": f"Bearer {self.api_token}", "Accept": "application/json"}
+        try:
+            with httpx.Client(timeout=max(self.timeout_seconds, 300), follow_redirects=False) as client:
+                response = client.get(
+                    f"{self.base_url.rstrip('/')}/api/partner/case/{cnr}/order-md/{filename}",
+                    headers=headers,
+                    params={"signed": str(signed).lower()},
+                )
+        except httpx.TimeoutException as exc:
+            raise EcourtsProviderError(504, "The order conversion timed out.") from exc
+        except httpx.RequestError as exc:
+            raise EcourtsProviderError(502, "The eCourts provider is unavailable.") from exc
+        if response.status_code != 200:
+            _raise_provider_http_error(response.status_code)
+        return _parse_json_response(response)
+
+    def bulk_case_refresh(self, cnrs: list[str]) -> dict:
+        """Queue a bounded batch of case refreshes through the partner API."""
+        if not 2 <= len(cnrs) <= 50:
+            raise ValueError("Bulk refresh requires between 2 and 50 case identifiers.")
+        headers = {
+            "Authorization": f"Bearer {self.api_token}",
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+        }
+        try:
+            with httpx.Client(timeout=self.timeout_seconds, follow_redirects=False) as client:
+                response = client.post(
+                    f"{self.base_url.rstrip('/')}/api/partner/case/bulk-refresh",
+                    headers=headers,
+                    json={"cnrs": cnrs},
+                )
+        except httpx.TimeoutException as exc:
+            raise EcourtsProviderError(504, "The eCourts provider timed out.") from exc
+        except httpx.RequestError as exc:
+            raise EcourtsProviderError(502, "The eCourts provider is unavailable.") from exc
+        if response.status_code != 200:
+            _raise_provider_http_error(response.status_code)
+        return _parse_json_response(response)
+
     def refresh(self, cnr: str) -> dict:
         """Queue a provider refresh, wait for its status, then read the fresh case.
 
