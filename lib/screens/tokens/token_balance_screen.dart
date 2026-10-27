@@ -339,7 +339,7 @@ class _TokenBalanceScreenState extends State<TokenBalanceScreen> {
       setState(() {
         _savingAllocation = false;
         _allocationError = error is FormatException
-            ? error.message
+            ? error.message.toString()
             : error.toString();
       });
     }
