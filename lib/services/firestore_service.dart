@@ -10,6 +10,7 @@ import '../models/case_model.dart';
 import '../repositories/case_repository.dart';
 import '../models/fee_model.dart';
 import '../models/reminder_model.dart';
+import '../models/team_model.dart';
 import '../models/todo_model.dart';
 import 'team_service.dart';
 
@@ -328,14 +329,15 @@ class FirestoreService {
   /// Only team owners/leaders can list all members under Firestore rules.
   Stream<List<TeamMemberModel>> getTeamMembers() {
     final uid = currentUserId;
-    if (uid == null || uid.isEmpty) return Stream.value(const []);
+    if (uid == null || uid.isEmpty) {
+      return Stream.value(const <TeamMemberModel>[]);
+    }
 
     return Stream<List<TeamMemberModel>>.multi((controller) {
       final memberSubscriptions = <String, StreamSubscription<List<TeamMembership>>>{};
       final membershipSubscriptions = <String, StreamSubscription<TeamMembership?>>{};
       final membersByTeam = <String, List<TeamMembership>>{};
       final allowedTeamIds = <String>{};
-      var currentTeams = <dynamic>[];
 
       void emitMembers() {
         final byUid = <String, TeamMemberModel>{};
@@ -376,7 +378,6 @@ class FirestoreService {
       }
 
       final teamsSubscription = TeamService.instance.watchUserTeams().listen((teams) async {
-        currentTeams = teams;
         final activeIds = teams.map((team) => team.id).toSet();
         for (final teamId in [...memberSubscriptions.keys, ...membershipSubscriptions.keys].toSet()) {
           if (!activeIds.contains(teamId)) await stopWatchingTeam(teamId);
