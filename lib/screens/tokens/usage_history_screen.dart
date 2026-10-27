@@ -5,7 +5,7 @@ import '../../widgets/app_palette.dart';
 import '../../widgets/platform_app_bar.dart';
 import '../../widgets/windows_desktop_ui.dart';
 
-/// Lists the token consumption recorded against the signed-in user.
+/// Lists JURIS Credit and eCourts Case Token usage recorded for the signed-in user.
 class UsageHistoryScreen extends StatefulWidget {
   const UsageHistoryScreen({super.key});
 
@@ -63,7 +63,7 @@ class _UsageHistoryScreenState extends State<UsageHistoryScreen> {
       appBar: PlatformAppBar(
         title: 'Usage history',
         eyebrow: 'SERVICE ACCOUNT',
-        subtitle: 'A running record of case-token consumption.',
+        subtitle: 'Separate ledger entries for JURIS Credits and eCourts Case Tokens.',
         backgroundColor: AppPalette.canvas,
         foregroundColor: AppPalette.textPrimary,
         actions: [
@@ -102,7 +102,7 @@ class _UsageHistoryScreenState extends State<UsageHistoryScreen> {
             ? const WindowsMessageState(
                 icon: Icons.receipt_long_outlined,
                 title: 'No usage records yet',
-                message: 'Token consumption appears here once JURIS case intelligence is used.',
+                message: 'Usage appears here when JURIS AI or eCourts services are used.',
               )
             : ListView.builder(
                 padding: const EdgeInsets.all(16),
@@ -133,18 +133,31 @@ class _UsageHistoryScreenState extends State<UsageHistoryScreen> {
                         ),
                       ),
                       subtitle: Text(
-                        '${entry.createdAt}\n${entry.amountTokens.toStringAsFixed(2)} tokens',
+                        '${entry.createdAt}\n${entry.amountTokens.toStringAsFixed(2)} ${entry.unitLabel}',
                         style: const TextStyle(
                           fontSize: 12,
                           color: AppPalette.textMuted,
                         ),
                       ),
-                      trailing: Text(
-                        entry.balanceAfterTokens.toStringAsFixed(2),
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w800,
-                          color: AppPalette.primaryGreen,
-                        ),
+                      trailing: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text(
+                            entry.balanceAfterTokens.toStringAsFixed(2),
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w800,
+                              color: AppPalette.primaryGreen,
+                            ),
+                          ),
+                          Text(
+                            entry.unitLabel,
+                            style: const TextStyle(
+                              fontSize: 10,
+                              color: AppPalette.textMuted,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   );
