@@ -402,6 +402,21 @@ class CaseSyncEngine {
           continue;
         }
 
+        // Free accounts may keep private case details locally, but a
+        // cloud CNR-only stub must never be promoted by a queued local edit.
+        // Acknowledge the local queue entry without uploading private data.
+        if (remote != null &&
+            remote.data['cloudStorageMode'] == 'cnr_only' &&
+            !isCloudSubscriber) {
+          await _repository.markCaseSynchronized(
+            caseId: change.record.id,
+            expectedRevision: change.revision,
+            expectedUpdatedAt: change.record.updatedAt,
+            cloudVersion: remote.cloudVersion,
+          );
+          continue;
+        }
+
         if (remote != null &&
             remote.data['cloudStorageMode'] != 'cnr_only' &&
             remote.updatedAt != null &&
