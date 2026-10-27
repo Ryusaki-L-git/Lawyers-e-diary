@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 from fastapi.testclient import TestClient
 import pytest
 
@@ -10,7 +12,33 @@ TEAM_ID = "team-one"
 
 
 @pytest.fixture
-def pool_ctx(ctx):
+def pool_ctx(make_db, monkeypatch):
+    import firebase_admin.auth
+
+    monkeypatch.setenv("FIREBASE_PROJECT_ID", "proj")
+    monkeypatch.setenv(
+        "FIREBASE_SERVICE_ACCOUNT_JSON",
+        '{"type":"service_account","private_key":"x","client_email":"a@b.iam.gserviceaccount.com"}',
+    )
+    monkeypatch.setenv("ECOURTS_API_KEY", "test-key")
+    monkeypatch.setenv("ECOURTS_BASE_URL", "https://example.com")
+    monkeypatch.setenv("RATE_LIMIT_USER_MAX_REQUESTS", "5")
+    monkeypatch.setenv("RATE_LIMIT_USER_WINDOW_SECONDS", "600")
+    monkeypatch.setenv("RATE_LIMIT_CASE_MAX_REQUESTS", "5")
+    monkeypatch.setenv("RATE_LIMIT_CASE_WINDOW_SECONDS", "300")
+    monkeypatch.setenv("RATE_LIMIT_CAPACITY_MULTIPLIER", "5")
+    monkeypatch.setenv("RATE_LIMIT_ZERO_USER_FALLBACK_USERS", "5")
+    monkeypatch.setenv("RATE_LIMIT_GLOBAL_WINDOW_SECONDS", "3600")
+    monkeypatch.setenv("RATE_LIMIT_CASE_LOCK_TTL_SECONDS", "30")
+    monkeypatch.setenv("RATE_LIMIT_FAIL_CLOSED", "true")
+    monkeypatch.setattr(
+        firebase_admin.auth,
+        "verify_id_token",
+        lambda token, check_revoked=False: {"uid": UID, "email": "owner@example.com", "email_verified": True},
+    )
+    db = make_db({})
+    main_mod.app.dependency_overrides[main_mod.get_db] = lambda: db
+    ctx = SimpleNamespace(client=TestClient(main_mod.app), db=db)
     ctx.db._store.update({
         ("users", UID): {
             "subscription": {"tier": "cloud_subscriber"},
@@ -44,7 +72,8 @@ def pool_ctx(ctx):
         (f"_server_token_accounts/{UID}/balances", "case"): {"balance": 20},
         (f"_server_token_accounts/{UID}/balances", "juris"): {"balanceMinorUnits": 3000},
     })
-    return ctx
+    yield ctx
+    main_mod.app.dependency_overrides.clear()
 
 
 def test_get_preferences_returns_validated_user_preference(pool_ctx):
