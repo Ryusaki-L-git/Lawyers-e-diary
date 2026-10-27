@@ -412,6 +412,9 @@ class FirestoreService {
         );
       }
 
+      final userProfile = await _db.collection('users').doc(uid).get();
+      final ownerLedId = userProfile.data()?['ledId'];
+
       final Map<String, dynamic> caseData = {
         // A unique Firestore document represents this advocate's record.
         // CUID/CNR identifies the court case but never merges workspaces.
@@ -436,6 +439,9 @@ class FirestoreService {
         'lastUpdated': FieldValue.serverTimestamp(),
       };
 
+      if (ownerLedId is String && ownerLedId.trim().isNotEmpty) {
+        caseData['ownerLedId'] = ownerLedId.trim();
+      }
       if (nextHearingDate != null) {
         caseData['nextHearingDate'] = Timestamp.fromDate(nextHearingDate);
       }
