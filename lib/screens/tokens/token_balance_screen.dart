@@ -5,7 +5,7 @@ import '../../widgets/app_palette.dart';
 import '../../widgets/platform_app_bar.dart';
 import '../../widgets/windows_desktop_ui.dart';
 
-/// Displays the prepaid case-token balance held against the signed-in user.
+/// Displays separate prepaid balances for JURIS AI Credits and eCourts Case Tokens.
 class TokenBalanceScreen extends StatefulWidget {
   const TokenBalanceScreen({super.key});
 
@@ -61,9 +61,9 @@ class _TokenBalanceScreenState extends State<TokenBalanceScreen> {
     return Scaffold(
       backgroundColor: AppPalette.canvas,
       appBar: PlatformAppBar(
-        title: 'Case Tokens',
+        title: 'Balances',
         eyebrow: 'SERVICE ACCOUNT',
-        subtitle: 'Prepaid credits available for JURIS case intelligence.',
+        subtitle: 'Separate balances for JURIS AI and eCourts services.',
         backgroundColor: AppPalette.canvas,
         foregroundColor: AppPalette.textPrimary,
         actions: [
@@ -109,7 +109,39 @@ class _TokenBalanceScreenState extends State<TokenBalanceScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const Text(
-                        'Available case tokens',
+                        'Available JURIS Credits',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: AppPalette.textMuted,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        _balance!.creditsDisplay,
+                        style: const TextStyle(
+                          fontSize: 36,
+                          fontWeight: FontWeight.w700,
+                          color: AppPalette.primaryGreen,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      const Text(
+                        '1 Credit = ₹1 · Usage-based Gemini AI billing',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppPalette.textMuted,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                WindowsPanel(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Available eCourts Case Tokens',
                         style: TextStyle(
                           fontSize: 14,
                           color: AppPalette.textMuted,
@@ -125,9 +157,9 @@ class _TokenBalanceScreenState extends State<TokenBalanceScreen> {
                         ),
                       ),
                       const SizedBox(height: 4),
-                      Text(
-                        '${_balance!.caseTokensMinorUnits} minor units',
-                        style: const TextStyle(
+                      const Text(
+                        '1 Case Token = ₹1 · eCourts/provider services',
+                        style: TextStyle(
                           fontSize: 12,
                           color: AppPalette.textMuted,
                         ),
@@ -153,12 +185,12 @@ class _TokenBalanceScreenState extends State<TokenBalanceScreen> {
               ] else
                 const WindowsMessageState(
                   icon: Icons.account_balance_wallet_outlined,
-                  title: 'No token balance yet',
-                  message: 'A balance appears here once prepaid case tokens are credited to your account.',
+                  title: 'No balances yet',
+                  message: 'Credits and Case Tokens appear here once your account has a balance.',
                 ),
               const Spacer(),
               const Text(
-                'Case Tokens are prepaid service credits. They are not withdrawable or transferable.',
+                'Credits are for JURIS AI; Case Tokens are for eCourts. The balances are separate and cannot be exchanged.',
                 style: TextStyle(
                   fontSize: 11,
                   color: AppPalette.textMuted,
