@@ -47,7 +47,9 @@ class SubscriptionInfo {
         : SubscriptionTier.free;
 
     final expiryTs = subMap['expiry'] as Timestamp?;
-    final lastSyncTs = subMap['lastSyncedAt'] as Timestamp?;
+    // Sync activity is client-owned metadata; the subscription entitlement
+    // itself is server-owned and must never be mutated by the Flutter client.
+    final lastSyncTs = (data['lastSyncedAt'] ?? subMap['lastSyncedAt']) as Timestamp?;
 
     return SubscriptionInfo(
       tier: tier,
@@ -105,7 +107,7 @@ class SubscriptionService {
       return;
     }
     await _firestore.collection('users').doc(uid).set({
-      'subscription': {'lastSyncedAt': FieldValue.serverTimestamp()},
+      'lastSyncedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
   }
 }
