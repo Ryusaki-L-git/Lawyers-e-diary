@@ -123,7 +123,7 @@ void main() {
     () async {
       final id = await repository.createCase(
         caseTitle: 'New Case',
-        caseNumber: 'CNR-NEW',
+        caseNumber: 'ABCD1234EFGH5678',
         clientName: 'Client',
         opponentName: 'Opponent',
         courtName: 'District Court',
@@ -138,11 +138,28 @@ void main() {
       expect(result.uploaded, 1);
       expect(dataSource.documents.keys, [id]);
       expect(dataSource.documents[id]!['ownerUid'], 'user-a');
+      expect(dataSource.documents[id]!['cuid'], 'ABCD1234EFGH5678');
       expect(localBefore!.id, id);
       expect((await repository.getCaseById(id))!.syncState, 'synced');
       expect(await repository.getPendingCaseChanges(), isEmpty);
     },
   );
+
+  test('new local cases reject missing or malformed CNR values', () async {
+    await expectLater(
+      repository.createCase(
+        caseTitle: 'Invalid case',
+        caseNumber: 'not-a-cnr',
+        clientName: 'Client',
+        opponentName: 'Opponent',
+        courtName: 'District Court',
+        caseType: 'Civil',
+        status: 'active',
+        handledBy: 'Advocate',
+      ),
+      throwsArgumentError,
+    );
+  });
 
   test('local update, star, archive, and restore are uploaded', () async {
     final record = buildRecord(
