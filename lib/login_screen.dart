@@ -327,7 +327,11 @@ class _LoginScreenState extends State<LoginScreen>
                             ],
                           )
                         : Row(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            // The desktop login sits inside a vertical
+                            // SingleChildScrollView, whose height is unbounded.
+                            // Stretching vertically here requests infinite height
+                            // and crashes the Windows login layout.
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Expanded(
                                 flex: 5,
