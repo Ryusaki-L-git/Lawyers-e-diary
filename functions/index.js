@@ -600,22 +600,6 @@ exports.allocateLedId = onCall(
 
 // Create a separate, private-by-default case registration for the recipient.
 // CNR identifies the court case; it is not a shared workspace or permission.
-function buildCnrOnlyCaseRecord({ ownerUid, ownerLedId, cnr, now }) {
-	return {
-		ownerUid,
-		ownerLedId,
-		userId: ownerUid,
-		cuid: cnr,
-		cnrNumber: cnr,
-		caseNumber: cnr,
-		createdAt: now,
-		updatedAt: now,
-		lastUpdated: now,
-		cloudVersion: 1,
-		cloudStorageMode: "cnr_only",
-	};
-}
-
 exports.transferCaseToAdvocate = onCall(
 	{
 		region: "us-central1",
