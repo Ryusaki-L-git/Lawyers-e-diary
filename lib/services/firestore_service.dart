@@ -446,8 +446,32 @@ class FirestoreService {
         caseData['nextHearingDate'] = Timestamp.fromDate(nextHearingDate);
       }
 
-      final doc = await _db.collection('cases').add(caseData);
-      return doc.id;
+      final caseReference = _db.collection('cases').doc();
+      final registryReference = _db
+          .collection('users')
+          .doc(uid)
+          .collection('case_cuid_registry')
+          .doc(normalizedCnr);
+      String? existingCaseId;
+      await _db.runTransaction((transaction) async {
+        final registry = await transaction.get(registryReference);
+        if (registry.exists) {
+          final registeredId = registry.data()?['caseId'];
+          if (registeredId is! String || registeredId.isEmpty) {
+            throw StateError('The CNR registry entry requires migration.');
+          }
+          existingCaseId = registeredId;
+          return;
+        }
+        transaction.set(registryReference, <String, dynamic>{
+          'uid': uid,
+          'cuid': normalizedCnr,
+          'caseId': caseReference.id,
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+        transaction.set(caseReference, caseData);
+      });
+      return existingCaseId ?? caseReference.id;
     } catch (e) {
       debugPrint('Error adding case: $e');
       rethrow;
