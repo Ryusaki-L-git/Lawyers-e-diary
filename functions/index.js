@@ -685,13 +685,19 @@ exports.transferCaseToAdvocate = onCall(
 					.limit(1);
 				const legacyTargetCases = db.collection("cases")
 					.where("userId", "==", targetUid)
-					.where("cnrNumber", "==", cnr)
-					.limit(1);
+					.where("cnrNumber", "==", cnr);
 				const [existing, legacyExisting] = await Promise.all([
 					transaction.get(targetCases),
 					transaction.get(legacyTargetCases),
 				]);
-				const duplicate = !existing.empty ? existing.docs[0] : !legacyExisting.empty ? legacyExisting.docs[0] : null;
+				const legacyDuplicate = legacyExisting.docs.find((doc) => {
+					const data = doc.data();
+					// Old transfer code could change userId while leaving ownerUid
+					// on the source record. Do not mistake that for recipient ownership.
+					if (typeof data.ownerUid === "string" && data.ownerUid !== targetUid) return false;
+					return storedCnr(data) === cnr;
+				});
+				const duplicate = !existing.empty ? existing.docs[0] : legacyDuplicate ?? null;
 				if (duplicate) {
 					const duplicateData = duplicate.data();
 					if ((duplicateData.ownerUid ?? duplicateData.userId) !== targetUid || storedCnr(duplicateData) !== cnr) {
