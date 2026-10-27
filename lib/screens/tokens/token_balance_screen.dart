@@ -238,7 +238,7 @@ class _TokenBalanceScreenState extends State<TokenBalanceScreen> {
                   ? _selectedMemberUid
                   : null;
               return DropdownButtonFormField<String>(
-                value: selected,
+                initialValue: selected,
                 isExpanded: true,
                 decoration: const InputDecoration(
                   labelText: 'Team member',
@@ -482,13 +482,10 @@ class _TokenBalanceScreenState extends State<TokenBalanceScreen> {
                       ),
                       RadioGroup<String>(
                         groupValue: _selectedPriority,
-                        onChanged: _savingPreferences
-                            ? null
-                            : (value) {
-                                if (value != null) {
-                                  setState(() => _selectedPriority = value);
-                                }
-                              },
+                        onChanged: (value) {
+                          if (_savingPreferences || value == null) return;
+                          setState(() => _selectedPriority = value);
+                        },
                         child: const Column(
                           children: [
                             RadioListTile<String>(
