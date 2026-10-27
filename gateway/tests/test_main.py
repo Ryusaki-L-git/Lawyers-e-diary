@@ -112,6 +112,39 @@ def test_refresh_missing_token_is_401(ctx):
     response = ctx.client.post(f"/v1/ecourts/cases/{CASE_ID}/refresh")
     assert response.status_code == 401
 
+def test_case_detail_service_debits_tokens_and_returns_provider_data(ctx):
+    ctx.provider.case_detail = lambda cnr: {"data": {"courtCaseData": {"cnr": cnr}}}
+
+    response = ctx.client.post(
+        "/v1/services/case_detail/execute",
+        headers=_headers(),
+        json={"case_id": CASE_ID},
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json()["serviceId"] == "case_detail"
+    assert response.json()["chargedTokens"] == 5.0
+    assert response.json()["data"]["courtCaseData"]["cnr"] == CNR
+    account = ctx.db._store[(f"_server_token_accounts/{OWNER_UID}/balances", "case")]
+    assert account["balanceMinorUnits"] == 500
+
+
+def test_case_detail_service_refunds_provider_failure(ctx):
+    def fail(_cnr):
+        raise EcourtsProviderError(404, "missing")
+    ctx.provider.case_detail = fail
+
+    response = ctx.client.post(
+        "/v1/services/case_detail/execute",
+        headers=_headers(),
+        json={"case_id": CASE_ID},
+    )
+
+    assert response.status_code == 404
+    account = ctx.db._store[(f"_server_token_accounts/{OWNER_UID}/balances", "case")]
+    assert account["balanceMinorUnits"] == 1000
+
+
 def test_refresh_requires_half_token_balance(ctx, make_db):
     db = make_db({
         ("cases", CASE_ID): {"ownerUid": OWNER_UID, "cnrNumber": CNR},
