@@ -222,8 +222,9 @@ class FirestoreCaseSyncDataSource implements CaseSyncDataSource {
           );
         }
 
-        replaceStubReference = _cases.doc(registeredCaseId);
-        final registeredSnapshot = await transaction.get(replaceStubReference);
+        final registeredReference = _cases.doc(registeredCaseId);
+        replaceStubReference = registeredReference;
+        final registeredSnapshot = await transaction.get(registeredReference);
         if (!registeredSnapshot.exists) {
           throw StateError(
             'The CNR registry points to a missing case record; migration is required.',
