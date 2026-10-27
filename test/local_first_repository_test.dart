@@ -215,7 +215,7 @@ void main() {
         expect(secondId, isNot(firstId));
         expect((await repoB.getCaseById(secondId))!.ownerUid, 'user-b');
         expect((await repoB.getCaseById(secondId))!.notes, ['Private note B']);
-        expect((await repoA.getCaseById(firstId))!.clientName, 'Client user-a');
+        expect((await repoA.getCaseById(firstId))!.clientName, 'Client A');
       },
     );
 
