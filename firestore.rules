@@ -32,8 +32,8 @@ service cloud.firestore {
       return signedIn() && (
         // ownerUid is authoritative whenever present. A stale or forged
         // legacy userId must never override a different canonical owner.
-        (('ownerUid' in data.keys() && data.ownerUid == request.auth.uid)
-          || (!('ownerUid' in data.keys()) && data.userId == request.auth.uid))
+        ((data.ownerUid is string && data.ownerUid == request.auth.uid)
+          || (!(data.ownerUid is string) && data.userId == request.auth.uid))
         || data.assignedTo == request.auth.uid
         || data.teamOwnerUid == request.auth.uid
       );
@@ -51,8 +51,8 @@ service cloud.firestore {
     function caseIdentityUnchanged(existing, updated) {
       return (
         (
-          ('ownerUid' in existing.keys() && updated.ownerUid == existing.ownerUid)
-          || (!('ownerUid' in existing.keys()) && updated.ownerUid == existing.userId)
+          (existing.ownerUid is string && updated.ownerUid == existing.ownerUid)
+          || (!(existing.ownerUid is string) && updated.ownerUid == existing.userId)
         )
         && (
           !('userId' in existing.keys())
