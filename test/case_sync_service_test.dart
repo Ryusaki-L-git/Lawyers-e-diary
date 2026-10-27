@@ -83,7 +83,7 @@ LocalCaseRecord buildRecord({
   return LocalCaseRecord(
     id: id,
     ownerUid: ownerUid,
-    caseNumber: 'CNR-$id',
+    caseNumber: 'ABCD1234EFGH5678',
     caseTitle: title,
     clientName: 'Client',
     opponentName: 'Opponent',
