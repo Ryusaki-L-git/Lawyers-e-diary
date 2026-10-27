@@ -369,88 +369,24 @@ async function fetchFromECourts(cnr) {
 	return mapProviderResponse(payload, cnr);
 }
 
+// Legacy callable deliberately retained as a fail-closed compatibility response.
+// All Smart Refresh execution must pass through the LED gateway, which owns
+// rate limiting, per-case locks, token debit/refund, provider polling, and
+// persistence authorization. Leaving a direct provider callable active would
+// let older clients bypass those shared controls.
 exports.refreshCaseFromECourts = onCall(
-	{
-		region: "us-central1",
-		timeoutSeconds: 60,
-		secrets: [ecourtsApiKey, ecourtsBaseUrl],
-	},
-	async (request) => {
-		if (!request.auth) {
-			throw new HttpsError("unauthenticated", "Sign in to refresh a case.");
-		}
-		const uid = request.auth.uid;
-
-		try {
-			const caseId = validateCaseId(request.data?.caseId);
-			const caseRef = db.collection("cases").doc(caseId);
-			const caseSnapshot = await caseRef.get();
-			if (!caseSnapshot.exists) {
-				throw new HttpsError("not-found", "The requested case was not found.");
-			}
-
-			const initialCaseData = caseSnapshot.data();
-			const initialAccess = await readAuthorizationDocuments(
-				uid,
-				initialCaseData,
-				undefined,
-				request.auth.token.email,
-				request.auth.token.email_verified === true,
-			);
-			assertCloudPlan(initialAccess.userSnapshot);
-			if (!isAuthorizedCaseUser(
-				uid,
-				initialCaseData,
-				initialAccess.teamSnapshot,
-				initialAccess.memberSnapshots,
-			)) {
-				throw new HttpsError("permission-denied", "You are not authorized to access this case.");
-			}
-
-			const cnr = storedCnr(initialCaseData);
-			const ecourtsData = await fetchFromECourts(cnr);
-
-			await db.runTransaction(async (transaction) => {
-				const freshCaseSnapshot = await transaction.get(caseRef);
-				if (!freshCaseSnapshot.exists) {
-					throw new HttpsError("not-found", "The requested case was not found.");
-				}
-				const freshCaseData = freshCaseSnapshot.data();
-				const freshAccess = await readAuthorizationDocuments(
-					uid,
-					freshCaseData,
-					transaction,
-					request.auth.token.email,
-					request.auth.token.email_verified === true,
-				);
-				assertCloudPlan(freshAccess.userSnapshot);
-				if (!isAuthorizedCaseUser(
-					uid,
-					freshCaseData,
-					freshAccess.teamSnapshot,
-					freshAccess.memberSnapshots,
-				)) {
-					throw new HttpsError("permission-denied", "You are not authorized to access this case.");
-				}
-				if (storedCnr(freshCaseData) !== cnr) {
-					throw new HttpsError(
-						"failed-precondition",
-						"The case CNR changed during refresh. Please try again.",
-					);
-				}
-				transaction.update(caseRef, { ecourts_data: ecourtsData });
-			});
-
-			return { caseId, cnr, ecourts_data: ecourtsData };
-		} catch (error) {
-			if (error instanceof HttpsError) throw error;
-			logger.error("LED eCourts refresh failed during an internal operation.");
-			throw new HttpsError("internal", "Unable to refresh this case from eCourts.");
-		}
-	},
+  { region: "us-central1", timeoutSeconds: 15 },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "Sign in to refresh a case.");
+    }
+    throw new HttpsError(
+      "failed-precondition",
+      "This legacy refresh endpoint is disabled. Update LED to use Smart Backend refresh.",
+    );
+  },
 );
 
-// ─────────────────────────────────────────────────────────────────────────────
 // LED User ID allocation (server-authoritative year).
 //
 // Reuses the existing Firebase Functions v2 + firebase-admin infrastructure.
