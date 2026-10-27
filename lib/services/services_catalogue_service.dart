@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 
 import '../models/service_catalogue_item.dart';
 
@@ -30,8 +31,18 @@ class ServicesCatalogueService {
     }
 
     final base = Uri.tryParse(_baseUrl);
-    if (base == null || !base.hasScheme || !base.hasAuthority) {
-      throw const ServicesCatalogueException('JURIS URL is invalid.');
+    final isWindowsLocalDevelopment =
+        defaultTargetPlatform == TargetPlatform.windows &&
+        base != null &&
+        base.scheme == 'http' &&
+        (base.host == '127.0.0.1' || base.host == 'localhost');
+    if (base == null ||
+        !base.hasScheme ||
+        !base.hasAuthority ||
+        (base.scheme != 'https' && !isWindowsLocalDevelopment)) {
+      throw const ServicesCatalogueException(
+        'JURIS must use HTTPS, except for localhost during Windows development.',
+      );
     }
 
     final uri = base.resolve('/v1/services/catalogue');
