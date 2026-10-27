@@ -43,6 +43,34 @@ service cloud.firestore {
         && teamManager(data.teamId, request.auth.uid);
     }
 
+    // Ownership and court-case identity are immutable after registration.
+    // Legacy documents may lack ownerUid or CUID aliases, so allow canonical
+    // fields to be added only when they match the existing owner/CNR identity.
+    function caseIdentityUnchanged(existing, updated) {
+      return (
+        (
+          ('ownerUid' in existing.keys() && updated.ownerUid == existing.ownerUid)
+          || (!('ownerUid' in existing.keys()) && updated.ownerUid == existing.userId)
+        )
+        && (
+          !('userId' in existing.keys())
+          || updated.userId == existing.userId
+        )
+        && (
+          !('cuid' in existing.keys())
+          || updated.cuid == existing.cuid
+        )
+        && (
+          !('cnrNumber' in existing.keys())
+          || updated.cnrNumber == existing.cnrNumber
+        )
+        && (
+          !('caseNumber' in existing.keys())
+          || updated.caseNumber == existing.caseNumber
+        )
+      );
+    }
+
 
     function cloudSubscriber(uid) {
       return signedIn()
@@ -183,6 +211,7 @@ service cloud.firestore {
         && getAfter(/databases/$(database)/documents/users/$(request.auth.uid)/case_cuid_registry/$(request.resource.data.cuid)).data.caseId == caseId;
 
       allow update: if signedIn()
+        && caseIdentityUnchanged(resource.data, request.resource.data)
         && caseStorageAllowed(request.resource.data, request.auth.uid)
         && request.resource.data.cuid is string
         && request.resource.data.cuid.matches('^[A-Z0-9]{16}$')
