@@ -97,264 +97,7 @@ class _WindowsAddCaseScreenState extends State<WindowsAddCaseScreen> {
                               'CNR number *',
                               _number,
                               'Enter the 16-character CNR',
-                              validator: (value) =>
-                                  RegExp(r'^[A-Z0-9]{16}
-                            _dropdown('Case type', _type, const [
-                              'Civil Case',
-                              'Criminal',
-                              'Corporate',
-                              'Family',
-                              'Constitutional',
-                              'Tax',
-                              'Labor',
-                              'Appellate',
-                            ], (v) => setState(() => _type = v)),
-                            _dropdown('Status', _status, const [
-                              'active',
-                              'upcoming',
-                              'urgent',
-                            ], (v) => setState(() => _status = v)),
-                          ]),
-                          const SizedBox(height: 15),
-                          _panel('Court & hearing', [
-                            _field(
-                              'Court / forum',
-                              _court,
-                              'Court or tribunal name',
-                            ),
-                            _dateField(),
-                            _field(
-                              'Handled by',
-                              _handler,
-                              'Advocate or assigned handler',
-                            ),
-                          ]),
-                        ],
-                      );
-                      final right = Column(
-                        children: [
-                          _panel('Parties & contact', [
-                            _field(
-                              'Client name *',
-                              _client,
-                              'Client or entity name',
-                            ),
-                            _field(
-                              'Opposing party',
-                              _opponent,
-                              'Opposing party name',
-                              isRequired: false,
-                            ),
-                            _field(
-                              'Client phone',
-                              _phone,
-                              'Contact number',
-                              isRequired: false,
-                              type: TextInputType.phone,
-                            ),
-                          ]),
-                          const SizedBox(height: 15),
-                          _panel('Initial notes', [
-                            _field(
-                              'Notes',
-                              _notes,
-                              'Key facts, next steps or preparation notes',
-                              isRequired: false,
-                              maxLines: 6,
-                            ),
-                          ]),
-                        ],
-                      );
-                      if (!wide) {
-                        return Column(
-                          children: [left, const SizedBox(height: 15), right],
-                        );
-                      }
-                      return Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(child: left),
-                          const SizedBox(width: 16),
-                          Expanded(child: right),
-                        ],
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 14),
-                  const Text(
-                    'New cases are saved through the existing authenticated local case repository.',
-                    style: TextStyle(color: AppPalette.textMuted, fontSize: 11),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    ),
-  );
-  Widget _panel(String title, List<Widget> fields) => WindowsPanel(
-    title: title,
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: fields,
-    ),
-  );
-  Widget _field(
-    String label,
-    TextEditingController c,
-    String hint, {
-    bool isRequired = true,
-    TextInputType type = TextInputType.text,
-    int maxLines = 1,
-    String? Function(String?)? validator,
-  }) => Padding(
-    padding: const EdgeInsets.only(bottom: 13),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        WindowsFieldLabel(label),
-        const SizedBox(height: 7),
-        TextFormField(
-          controller: c,
-          maxLines: maxLines,
-          keyboardType: type,
-          decoration: WindowsFieldDecoration(hint: hint).build(),
-          validator: validator ??
-              (isRequired
-                  ? (v) => (v == null || v.trim().isEmpty)
-                        ? 'This field is required'
-                        : null
-                  : null),
-        ),
-      ],
-    ),
-  );
-  Widget _dropdown(
-    String label,
-    String value,
-    List<String> options,
-    ValueChanged<String> changed,
-  ) => Padding(
-    padding: const EdgeInsets.only(bottom: 13),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        WindowsFieldLabel(label),
-        const SizedBox(height: 7),
-        DropdownButtonFormField<String>(
-          initialValue: value,
-          decoration: const WindowsFieldDecoration(hint: 'Select an option')
-              .build(),
-          items: options
-              .map((v) => DropdownMenuItem(value: v, child: Text(v)))
-              .toList(),
-          onChanged: (v) {
-            if (v != null) changed(v);
-          },
-        ),
-      ],
-    ),
-  );
-  Widget _dateField() => Padding(
-    padding: const EdgeInsets.only(bottom: 13),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const WindowsFieldLabel('Next hearing date'),
-        const SizedBox(height: 7),
-        InkWell(
-          onTap: _pickDate,
-          child: Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 15),
-            decoration: BoxDecoration(
-              color: AppPalette.canvas,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppPalette.borderLight),
-            ),
-            child: Row(
-              children: [
-                const Icon(
-                  Icons.calendar_month_outlined,
-                  color: AppPalette.primaryGreen,
-                  size: 18,
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    _hearing == null
-                        ? 'Select a date'
-                        : '${_hearing!.day.toString().padLeft(2, '0')}/${_hearing!.month.toString().padLeft(2, '0')}/${_hearing!.year}',
-                    style: const TextStyle(
-                      color: AppPalette.textPrimary,
-                      fontSize: 13,
-                    ),
-                  ),
-                ),
-                if (_hearing != null)
-                  IconButton(
-                    onPressed: () => setState(() => _hearing = null),
-                    icon: const Icon(Icons.close_rounded, size: 17),
-                  ),
-              ],
-            ),
-          ),
-        ),
-      ],
-    ),
-  );
-  Future<void> _pickDate() async {
-    final now = DateTime.now();
-    final d = await showDatePicker(
-      context: context,
-      initialDate: _hearing ?? now,
-      firstDate: DateTime(now.year - 5),
-      lastDate: DateTime(now.year + 10),
-    );
-    if (d != null && mounted) setState(() => _hearing = d);
-  }
-
-  Future<void> _save() async {
-    if (!_form.currentState!.validate()) return;
-    setState(() => _saving = true);
-    try {
-      await _repo.createCase(
-        caseTitle: _title.text.trim(),
-        caseNumber: _number.text.trim(),
-        clientName: _client.text.trim(),
-        opponentName: _opponent.text.trim(),
-        courtName: _court.text.trim(),
-        caseType: _type,
-        status: _status,
-        handledBy: _handler.text.trim().isEmpty
-            ? 'Counsel'
-            : _handler.text.trim(),
-        clientPhone: _phone.text.trim().isEmpty ? null : _phone.text.trim(),
-        nextHearingDate: _hearing,
-        notes: _notes.text.trim().isEmpty
-            ? const []
-            : _notes.text.trim().split('\n'),
-      );
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Case saved to your docket.')),
-        );
-        Navigator.of(context).pop();
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Could not save case: $e')));
-      }
-    } finally {
-      if (mounted) setState(() => _saving = false);
-    }
-  }
-}
-).hasMatch(
-                                    (value ?? '').trim().toUpperCase(),
-                                  )
+                              validator: (value) => _isValidCnr(value)
                                   ? null
                                   : 'Enter a valid 16-character CNR',
                             ),
@@ -459,6 +202,9 @@ class _WindowsAddCaseScreenState extends State<WindowsAddCaseScreen> {
       children: fields,
     ),
   );
+  bool _isValidCnr(String? value) =>
+      RegExp(r'^[A-Z0-9]{16}$').hasMatch((value ?? '').trim().toUpperCase());
+
   Widget _field(
     String label,
     TextEditingController c,
@@ -466,6 +212,7 @@ class _WindowsAddCaseScreenState extends State<WindowsAddCaseScreen> {
     bool isRequired = true,
     TextInputType type = TextInputType.text,
     int maxLines = 1,
+    String? Function(String?)? validator,
   }) => Padding(
     padding: const EdgeInsets.only(bottom: 13),
     child: Column(
@@ -478,11 +225,12 @@ class _WindowsAddCaseScreenState extends State<WindowsAddCaseScreen> {
           maxLines: maxLines,
           keyboardType: type,
           decoration: WindowsFieldDecoration(hint: hint).build(),
-          validator: isRequired
-              ? (v) => (v == null || v.trim().isEmpty)
-                    ? 'This field is required'
-                    : null
-              : null,
+          validator: validator ??
+              (isRequired
+                  ? (v) => (v == null || v.trim().isEmpty)
+                        ? 'This field is required'
+                        : null
+                  : null),
         ),
       ],
     ),
