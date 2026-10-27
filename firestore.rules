@@ -332,6 +332,7 @@ service cloud.firestore {
 )
         && data.keys().hasOnly([
           'ownerUid',
+          'ownerLedId',
           'userId',
           'cuid',
           'cnrNumber',
