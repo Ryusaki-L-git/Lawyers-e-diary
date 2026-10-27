@@ -134,6 +134,27 @@ const _individualPlans = <_Plan>[
       'Actual cloud document storage is not active yet',
     ],
   ),
+  _Plan(
+    name: 'Custom Individual',
+    price: 0,
+    subtitle: 'Tailored for a specialist practice',
+    storage: 'Configured by quotation',
+    caseTokens: 'Custom allocation',
+    jurisCredits: 'Custom allocation',
+    included: [
+      'Custom monthly Case Token allowance',
+      'Custom monthly JURIS Credit allowance',
+      'Storage quota planned around your needs',
+      'Review before any commercial commitment',
+    ],
+    excluded: [
+      'Team seats and shared team wallets',
+      'Instant activation or self-service checkout',
+      'Any feature not confirmed in the final plan',
+      'Actual cloud document storage is not active yet',
+    ],
+    custom: true,
+  ),
 ];
 
 const _teamPlans = <_Plan>[
