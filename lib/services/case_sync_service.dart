@@ -218,11 +218,11 @@ class FirestoreCaseSyncDataSource implements CaseSyncDataSource {
           transaction.get(canonicalMatches),
           transaction.get(legacyMatches),
         ]);
-        final duplicate = matches
+        final duplicates = matches
             .expand((snapshot) => snapshot.docs)
             .where((document) => document.id != caseId)
-            .firstOrNull;
-        if (duplicate != null) {
+            .toList();
+        if (duplicates.isNotEmpty) {
           throw StateError(
             'This CNR is already registered in your cloud account. Sync the existing record instead of creating a duplicate.',
           );
