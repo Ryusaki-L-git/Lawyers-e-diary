@@ -358,6 +358,15 @@ class _TokenBalanceScreenState extends State<TokenBalanceScreen> {
                         subtitle: const Text('Use the selected team allocation before your personal wallet.'),
                         onChanged: _savingPreferences ? null : (value) => setState(() => _selectedPriority = value ?? 'team_first'),
                       ),
+                      RadioListTile<String>(
+                        value: 'ask',
+                        groupValue: _selectedPriority,
+                        contentPadding: EdgeInsets.zero,
+                        activeColor: AppPalette.primaryGreen,
+                        title: const Text('Ask before each charge'),
+                        subtitle: const Text('Choose personal or team Credits for each AI request.'),
+                        onChanged: _savingPreferences ? null : (value) => setState(() => _selectedPriority = value ?? 'ask'),
+                      ),
                       const SizedBox(height: 8),
                       StreamBuilder<List<TeamModel>>(
                         stream: _teamsStream,
