@@ -263,14 +263,34 @@ class CaseSyncEngine {
     final conflictsHandled = <String>{};
     String? pullError;
 
-    // Promote CNR-only cloud registrations only after the server confirms
-    // Cloud Subscriber entitlement. Free users' private data remains local.
-    if (await _dataSource.isCloudSubscriber()) {
+    final isCloudSubscriber = await _dataSource.isCloudSubscriber();
+    if (isCloudSubscriber) {
+      // Promote existing CNR-only registrations using this advocate's local
+      // workspace after the server confirms Cloud Subscriber entitlement.
       final localRecords = await _repository.getCasesForCurrentUser();
       for (final record in localRecords) {
         final remote = await _dataSource.readOwnedCase(record.id);
         if (remote?.data['cloudStorageMode'] == 'cnr_only') {
           await _repository.saveCase(record);
+        }
+      }
+    } else {
+      // Scrub private fields from legacy/full cloud documents after a downgrade
+      // or first Free-tier sync. Local records are untouched. Invalid legacy
+      // CNRs are skipped and reported for a deliberate migration rather than
+      // risking deletion of a record that cannot be identified safely.
+      final remoteCases = await _dataSource.fetchOwnedCases();
+      for (final remote in remoteCases) {
+        if (remote.data['cloudStorageMode'] == 'cnr_only') continue;
+        try {
+          await _dataSource.writeOwnedCase(
+            remote.id,
+            remote.data,
+            expectedCloudVersion: remote.cloudVersion,
+            expectedUpdatedAt: remote.updatedAt,
+          );
+        } catch (_) {
+          failed++;
         }
       }
     }
