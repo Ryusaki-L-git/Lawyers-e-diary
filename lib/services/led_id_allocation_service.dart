@@ -13,8 +13,8 @@ class LedIdAllocationService {
   static const _retryDelays = <Duration>[
     Duration(seconds: 5),
     Duration(seconds: 15),
-    Duration(seconds: 45),
-    Duration(seconds: 90),
+    Duration(seconds: 30),
+    Duration(seconds: 60),
   ];
 
   /// Makes up to five attempts over a few minutes, without blocking onboarding.
@@ -69,7 +69,10 @@ class LedIdAllocationService {
       final response = await request.close().timeout(
         const Duration(seconds: 25),
       );
-      final body = await response.transform(utf8.decoder).join();
+      final body = await response
+          .transform(utf8.decoder)
+          .join()
+          .timeout(const Duration(seconds: 10));
       if (response.statusCode < 200 || response.statusCode >= 300) {
         throw HttpException(
           'LED allocation returned HTTP ${response.statusCode}.',
