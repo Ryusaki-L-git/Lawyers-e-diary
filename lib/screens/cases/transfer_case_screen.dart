@@ -38,6 +38,43 @@ class _TransferCaseScreenState extends State<TransferCaseScreen> {
     super.dispose();
   }
 
+  TeamMemberModel? _lookedUpMember;
+  bool _isLookingUpMember = false;
+
+  Future<void> _lookupMember() async {
+    final ledId = _searchController.text.trim();
+    if (ledId.isEmpty) return;
+    setState(() {
+      _isLookingUpMember = true;
+      _lookedUpMember = null;
+      _selectedMemberId = '';
+      _selectedMemberName = '';
+    });
+    try {
+      final member = await _firestoreService.lookupTeamMemberByLedId(ledId);
+      if (!mounted) return;
+      setState(() {
+        _lookedUpMember = member;
+        _isLookingUpMember = false;
+        if (member != null) {
+          _selectedMemberId = member.id;
+          _selectedMemberName = member.name;
+        }
+      });
+      if (member == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No registered advocate was found for that LED ID.')),
+        );
+      }
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _isLookingUpMember = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not look up that LED ID: $error')),
+      );
+    }
+  }
+
   Future<void> _confirmTransfer() async {
     if (_selectedMemberId.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -239,7 +276,8 @@ class _TransferCaseScreenState extends State<TransferCaseScreen> {
                         ),
                         const SizedBox(height: 12),
 
-                        // Search bar
+                        // Resolve a recipient by a known LED ID. Global
+                        // directory enumeration is intentionally disabled.
                         Container(
                           decoration: BoxDecoration(
                             color: cardBg,
@@ -248,100 +286,60 @@ class _TransferCaseScreenState extends State<TransferCaseScreen> {
                           ),
                           child: TextField(
                             controller: _searchController,
-                            onChanged: (v) => setState(
-                              () => _searchQuery = v.toLowerCase().trim(),
-                            ),
-                            style: const TextStyle(
-                              fontSize: 14,
-                              color: textDark,
-                            ),
+                            onSubmitted: (_) => _lookupMember(),
+                            onChanged: (_) => setState(() {
+                              _lookedUpMember = null;
+                              _selectedMemberId = '';
+                              _selectedMemberName = '';
+                            }),
+                            textCapitalization: TextCapitalization.characters,
+                            style: const TextStyle(fontSize: 14, color: textDark),
                             decoration: InputDecoration(
-                              hintText: 'Search team member...',
-                              hintStyle: TextStyle(
-                                fontSize: 13.5,
-                                color: textMuted,
-                              ),
+                              hintText: 'Enter recipient LED ID (e.g. 0042-2026)',
+                              hintStyle: const TextStyle(fontSize: 13.5, color: textMuted),
                               prefixIcon: const Icon(
-                                Icons.search_rounded,
+                                Icons.badge_outlined,
                                 size: 20,
                                 color: textMuted,
                               ),
-                              suffixIcon: _searchQuery.isNotEmpty
-                                  ? IconButton(
-                                      icon: const Icon(
-                                        Icons.clear_rounded,
-                                        size: 18,
-                                        color: textMuted,
-                                      ),
-                                      onPressed: () {
-                                        _searchController.clear();
-                                        setState(() => _searchQuery = '');
-                                      },
-                                    )
-                                  : null,
-                              border: InputBorder.none,
-                              contentPadding: const EdgeInsets.symmetric(
-                                vertical: 13,
+                              suffixIcon: IconButton(
+                                tooltip: 'Find advocate',
+                                onPressed: _isLookingUpMember ? null : _lookupMember,
+                                icon: _isLookingUpMember
+                                    ? const SizedBox(
+                                        width: 18,
+                                        height: 18,
+                                        child: CircularProgressIndicator(strokeWidth: 2),
+                                      )
+                                    : const Icon(Icons.search_rounded, size: 20, color: textMuted),
                               ),
+                              border: InputBorder.none,
+                              contentPadding: const EdgeInsets.symmetric(vertical: 13),
                             ),
                           ),
                         ),
                         const SizedBox(height: 12),
-
-                        // Team list
-                        StreamBuilder<List<TeamMemberModel>>(
-                          stream: _firestoreService.getTeamMembers(),
-                          builder: (context, snapshot) {
-                            if (snapshot.connectionState ==
-                                ConnectionState.waiting) {
-                              return const Padding(
-                                padding: EdgeInsets.symmetric(vertical: 32),
-                                child: Center(
-                                  child: CircularProgressIndicator(
-                                    color: primaryGreen,
-                                    strokeWidth: 2,
-                                  ),
-                                ),
-                              );
-                            }
-                            final members = (snapshot.data ?? []).where((m) {
-                              if (_searchQuery.isEmpty) return true;
-                              return m.name.toLowerCase().contains(
-                                    _searchQuery,
-                                  ) ||
-                                  m.role.toLowerCase().contains(_searchQuery);
-                            }).toList();
-
-                            if (members.isEmpty) {
-                              return Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 32,
-                                ),
-                                child: Center(
-                                  child: Text(
-                                    _searchQuery.isEmpty
-                                        ? 'No team members found'
-                                        : 'No results for "$_searchQuery"',
-                                    style: TextStyle(
-                                      fontSize: 13.5,
-                                      color: textMuted,
-                                    ),
-                                  ),
-                                ),
-                              );
-                            }
-                            return Column(
-                              children: members
-                                  .map(
-                                    (m) => _buildMemberTile(
-                                      m,
-                                      _selectedMemberId == m.id,
-                                    ),
-                                  )
-                                  .toList(),
-                            );
-                          },
-                        ),
+                        if (_isLookingUpMember)
+                          const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 24),
+                            child: Center(child: CircularProgressIndicator(color: primaryGreen)),
+                          )
+                        else if (_lookedUpMember != null)
+                          _buildMemberTile(
+                            _lookedUpMember!,
+                            _selectedMemberId == _lookedUpMember!.id,
+                          )
+                        else
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 24),
+                            child: Center(
+                              child: Text(
+                                'Enter the recipient’s LED ID to find their account.',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(fontSize: 13.5, color: textMuted),
+                              ),
+                            ),
+                          ),
 
                         const SizedBox(height: 24),
 
