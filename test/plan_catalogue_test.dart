@@ -58,12 +58,14 @@ void main() {
       ),
     );
 
-    await tester.tap(find.text('Review this plan').first);
+    final reviewButton = find.text('Review this plan').first;
+    await tester.ensureVisible(reviewButton);
+    await tester.tap(reviewButton);
     await tester.pumpAndSettle();
 
     expect(find.text('Plan details'), findsOneWidget);
     expect(
-      find.textContaining('checkout, payment processing, and server-side subscription activation are not connected yet'),
+      find.textContaining('Checkout, payment processing, and server-side subscription activation are not connected yet'),
       findsOneWidget,
     );
     expect(find.text('Copy request details'), findsOneWidget);
