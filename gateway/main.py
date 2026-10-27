@@ -607,6 +607,9 @@ async def refresh_case(
             )
 
         # 8. Provider call and persistence. Any failure triggers an idempotent refund.
+        # Record the start instant explicitly; it is persisted with the billing
+        # marker so duplicate requests can be recognized without another debit.
+        refresh_started_at = datetime.now(timezone.utc)
         try:
             try:
                 ecourts_data = provider.refresh(access.cnr)
