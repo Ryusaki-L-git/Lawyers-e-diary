@@ -180,8 +180,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
     final userSnapshot = await userReference.get();
     final existingUserData = userSnapshot.data();
     final dataToSave = Map<String, dynamic>.from(profileData)
-      ..['updatedAt'] = FieldValue.serverTimestamp()
-      ..['profileCompleted'] = true;
+      ..['updatedAt'] = FieldValue.serverTimestamp();
 
     if (!userSnapshot.exists || existingUserData?['createdAt'] == null) {
       dataToSave['createdAt'] = FieldValue.serverTimestamp();
