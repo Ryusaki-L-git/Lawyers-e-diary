@@ -92,6 +92,32 @@ test("case owner and CNR identity cannot be reassigned by a client update", asyn
   }));
 });
 
+test("a stale legacy userId cannot expose a case owned by another advocate", async () => {
+  await testEnv.withSecurityRulesDisabled(async (context) => {
+    await setDoc(doc(context.firestore(), "users/user-a"), {
+      subscription: { tier: "cloud_subscriber" },
+    });
+    await setDoc(doc(context.firestore(), "users/user-b"), {
+      subscription: { tier: "cloud_subscriber" },
+    });
+    await setDoc(doc(context.firestore(), "cases/legacy-mismatched-owner"), {
+      ownerUid: "user-a",
+      userId: "user-b",
+      cuid: CNR,
+      cnrNumber: CNR,
+      caseNumber: CNR,
+      cloudStorageMode: "full",
+      caseTitle: "Owner A confidential case",
+      clientName: "Private client A",
+    });
+  });
+
+  const dbA = testEnv.authenticatedContext("user-a").firestore();
+  const dbB = testEnv.authenticatedContext("user-b").firestore();
+  await assertSucceeds(getDoc(doc(dbA, "cases/legacy-mismatched-owner")));
+  await assertFails(getDoc(doc(dbB, "cases/legacy-mismatched-owner")));
+});
+
 test("the same CNR can exist in two independent advocate records", async () => {
   const dbA = testEnv.authenticatedContext("user-a").firestore();
   const dbB = testEnv.authenticatedContext("user-b").firestore();
