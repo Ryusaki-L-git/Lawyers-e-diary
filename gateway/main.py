@@ -62,6 +62,7 @@ if __package__:
         register_session,
     )
     from .led_id import allocate_led_id
+    from .token_billing import InsufficientCaseTokens, TokenBillingConflict, consume_case_tokens, refund_case_tokens
     from .provider import EcourtsProvider, EcourtsProviderError
     from .rate_limiter import (
         admit_case_request,
@@ -82,6 +83,7 @@ else:
         register_session,
     )
     from led_id import allocate_led_id
+    from token_billing import InsufficientCaseTokens, TokenBillingConflict, consume_case_tokens, refund_case_tokens
     from provider import EcourtsProvider, EcourtsProviderError
     from rate_limiter import (
         admit_case_request,
@@ -331,26 +333,74 @@ async def refresh_case(
                 detail="Global capacity state is temporarily unavailable.",
             )
 
-        # 5. Provider call (outside the transaction).
+        # 7. Atomically reserve 0.5 Case Token before any provider call.
+        # A missing/invalid account fails closed; no refresh is performed for free.
+        billing_reference = f"smart-refresh:{case_id}:{lock_token}"
         try:
-            ecourts_data = provider.refresh(access.cnr)
-        except EcourtsProviderError as exc:
-            raise HTTPException(status_code=exc.status_code, detail=exc.detail)
-
-        # 6. Transaction: re-authorize, CNR race check, write ecourts data.
-        try:
-            reauthorize_and_update(
-                db, user.uid, case_id, access.cnr, ecourts_data,
-                auth_email=user.email, email_verified=user.email_verified,
+            consume_case_tokens(
+                db,
+                user.uid,
+                amount_minor_units=50,
+                reason="Smart Refresh",
+                reference_id=billing_reference,
             )
-        except AuthorizationError:
-            raise
-        except Exception:  # noqa: BLE001
-            logger.exception("Firestore update failed")
+        except InsufficientCaseTokens as exc:
             raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Unable to persist eCourts data.",
+                status_code=status.HTTP_402_PAYMENT_REQUIRED,
+                detail={
+                    "code": "insufficient_tokens",
+                    "required": exc.required,
+                    "available": exc.available,
+                },
             )
+        except TokenBillingConflict:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="This Smart Refresh billing reference conflicts with an existing operation.",
+            )
+        except Exception:  # noqa: BLE001
+            logger.exception("Smart Refresh token debit failed")
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Token billing is temporarily unavailable. No refresh was started.",
+            )
+
+        # 8. Provider call and persistence. Any failure triggers an idempotent refund.
+        try:
+            try:
+                ecourts_data = provider.refresh(access.cnr)
+            except EcourtsProviderError as exc:
+                raise HTTPException(status_code=exc.status_code, detail=exc.detail)
+
+            try:
+                reauthorize_and_update(
+                    db, user.uid, case_id, access.cnr, ecourts_data,
+                    auth_email=user.email, email_verified=user.email_verified,
+                )
+            except AuthorizationError:
+                raise
+            except Exception as exc:  # noqa: BLE001
+                logger.exception("Firestore update failed")
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail="Unable to persist eCourts data.",
+                ) from exc
+        except Exception:
+            try:
+                refund_case_tokens(
+                    db,
+                    user.uid,
+                    amount_minor_units=50,
+                    reason="Smart Refresh refund",
+                    reference_id=f"{billing_reference}:refund",
+                )
+            except Exception:  # noqa: BLE001
+                logger.exception("Smart Refresh failed and its token refund could not be confirmed")
+                raise HTTPException(
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    detail="Refresh failed and token refund could not be confirmed. Please contact support before retrying.",
+                )
+            raise
     finally:
         # 7. Release the lock in all paths (success, provider error, write error).
         release_case_lock(db, case_id, lock_token)
