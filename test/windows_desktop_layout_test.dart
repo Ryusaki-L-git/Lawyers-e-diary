@@ -1,6 +1,7 @@
 import 'package:firebase_core_platform_interface/test.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:lawyers_e_diary/login_screen.dart';
 import 'package:lawyers_e_diary/windows/windows_desktop_shell.dart';
 import 'package:lawyers_e_diary/windows/windows_notifications_screen.dart';
 import 'package:lawyers_e_diary/windows/windows_record_payment_screen.dart';
@@ -26,6 +27,21 @@ void main() {
     );
     await tester.pump();
   }
+
+  testWidgets('Windows login lays out without infinite-height constraints', (
+    tester,
+  ) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(const MaterialApp(home: LoginScreen()));
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+  });
 
   group('WindowsDesktopShell responsive rail', () {
     testWidgets('shows full labels on a wide window', (tester) async {
