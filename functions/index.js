@@ -588,3 +588,96 @@ exports.allocateLedId = onCall(
 		}
 	},
 );
+
+
+// Create a separate, private-by-default case registration for the recipient.
+// CNR identifies the court case; it is not a shared workspace or permission.
+exports.transferCaseToAdvocate = onCall(
+	{
+		region: "us-central1",
+		timeoutSeconds: 60,
+	},
+	async (request) => {
+		if (!request.auth) {
+			throw new HttpsError("unauthenticated", "Sign in to transfer a case.");
+		}
+		const sourceUid = request.auth.uid;
+		const caseId = validateCaseId(request.data?.caseId);
+		const targetUid =
+			typeof request.data?.targetLawyerId === "string"
+				? request.data.targetLawyerId.trim()
+				: "";
+		if (!targetUid || targetUid.length > 128 || targetUid.includes("/")) {
+			throw new HttpsError("invalid-argument", "A valid recipient account is required.");
+		}
+		if (targetUid === sourceUid) {
+			throw new HttpsError("invalid-argument", "Choose a different recipient.");
+		}
+
+		const sourceRef = db.collection("cases").doc(caseId);
+		const targetUserRef = db.collection("users").doc(targetUid);
+		try {
+			return await db.runTransaction(async (transaction) => {
+				const [sourceSnap, targetUserSnap] = await Promise.all([
+					transaction.get(sourceRef),
+					transaction.get(targetUserRef),
+				]);
+				if (!sourceSnap.exists) {
+					throw new HttpsError("not-found", "The source case was not found.");
+				}
+				const source = sourceSnap.data();
+				if (source.ownerUid !== sourceUid && source.userId !== sourceUid) {
+					throw new HttpsError("permission-denied", "You cannot transfer this case.");
+				}
+				if (!targetUserSnap.exists) {
+					throw new HttpsError("not-found", "The recipient account was not found.");
+				}
+				const cnr = storedCnr(source);
+				const targetCases = db.collection("cases")
+					.where("ownerUid", "==", targetUid)
+					.where("cuid", "==", cnr)
+					.limit(1);
+				const existing = await transaction.get(targetCases);
+				if (!existing.empty) {
+					return { caseId: existing.docs[0].id, created: false, cuid: cnr };
+				}
+
+				const targetData = targetUserSnap.data();
+				const targetName =
+					typeof targetData.name === "string" && targetData.name.trim()
+						? targetData.name.trim()
+						: "Advocate";
+				const recipientCaseRef = db.collection("cases").doc();
+				// Do not copy notes, client identifiers, phone numbers, fees,
+				// reminders, drafts, or documents into another advocate's account.
+				transaction.create(recipientCaseRef, {
+					ownerUid: targetUid,
+					userId: targetUid,
+					cuid: cnr,
+					cnrNumber: cnr,
+					caseNumber: cnr,
+					caseTitle: `Court case ${cnr}`,
+					clientName: "",
+					opponentName: "",
+					courtName: "",
+					caseType: "Civil Case",
+					status: "active",
+				handledBy: targetName,
+					clientPhone: null,
+					isStarred: false,
+					documents: [],
+					notes: [],
+					caseSource: "authorized_transfer",
+					createdAt: new Date(),
+					lastUpdated: new Date(),
+					cloudStorageMode: "cnr_only",
+				});
+				return { caseId: recipientCaseRef.id, created: true, cuid: cnr };
+			});
+		} catch (error) {
+			if (error instanceof HttpsError) throw error;
+			logger.error("Case transfer failed.");
+			throw new HttpsError("internal", "Unable to create the recipient's independent case record.");
+		}
+	},
+);
