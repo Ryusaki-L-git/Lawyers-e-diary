@@ -20,7 +20,6 @@ class _TokenBalanceScreenState extends State<TokenBalanceScreen> {
   TokenBalance? _balance;
   bool _loading = true;
   String? _error;
-  BillingPreferences? _preferences;
   String _selectedPriority = 'personal_first';
   String? _selectedTeamId;
   Map<String, dynamic>? _teamPool;
@@ -75,7 +74,6 @@ class _TokenBalanceScreenState extends State<TokenBalanceScreen> {
       final preferences = await _service.fetchBillingPreferences();
       if (!mounted) return;
       setState(() {
-        _preferences = preferences;
         _selectedPriority = preferences.usageDeductionPriority;
         _selectedTeamId = preferences.preferredTeamId;
         _preferenceError = null;
@@ -122,7 +120,6 @@ class _TokenBalanceScreenState extends State<TokenBalanceScreen> {
       );
       if (!mounted) return;
       setState(() {
-        _preferences = saved;
         _selectedPriority = saved.usageDeductionPriority;
         _selectedTeamId = saved.preferredTeamId;
         _preferenceError = null;
@@ -133,6 +130,7 @@ class _TokenBalanceScreenState extends State<TokenBalanceScreen> {
       } else {
         setState(() => _teamPool = null);
       }
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Billing preference saved.')),
       );
@@ -482,32 +480,40 @@ class _TokenBalanceScreenState extends State<TokenBalanceScreen> {
                         'Choose which balance LED should use first. The other eligible wallet is used only if the first one cannot cover the charge.',
                         style: TextStyle(fontSize: 12, color: AppPalette.textMuted),
                       ),
-                      RadioListTile<String>(
-                        value: 'personal_first',
+                      RadioGroup<String>(
                         groupValue: _selectedPriority,
-                        contentPadding: EdgeInsets.zero,
-                        activeColor: AppPalette.primaryGreen,
-                        title: const Text('Personal balance first'),
-                        subtitle: const Text('Use your own wallet before your team allocation.'),
-                        onChanged: _savingPreferences ? null : (value) => setState(() => _selectedPriority = value ?? 'personal_first'),
-                      ),
-                      RadioListTile<String>(
-                        value: 'team_first',
-                        groupValue: _selectedPriority,
-                        contentPadding: EdgeInsets.zero,
-                        activeColor: AppPalette.primaryGreen,
-                        title: const Text('Team allocation first'),
-                        subtitle: const Text('Use the selected team allocation before your personal wallet.'),
-                        onChanged: _savingPreferences ? null : (value) => setState(() => _selectedPriority = value ?? 'team_first'),
-                      ),
-                      RadioListTile<String>(
-                        value: 'ask',
-                        groupValue: _selectedPriority,
-                        contentPadding: EdgeInsets.zero,
-                        activeColor: AppPalette.primaryGreen,
-                        title: const Text('Ask before each charge'),
-                        subtitle: const Text('Choose personal or team Credits for each AI request.'),
-                        onChanged: _savingPreferences ? null : (value) => setState(() => _selectedPriority = value ?? 'ask'),
+                        onChanged: _savingPreferences
+                            ? null
+                            : (value) {
+                                if (value != null) {
+                                  setState(() => _selectedPriority = value);
+                                }
+                              },
+                        child: const Column(
+                          children: [
+                            RadioListTile<String>(
+                              value: 'personal_first',
+                              contentPadding: EdgeInsets.zero,
+                              activeColor: AppPalette.primaryGreen,
+                              title: Text('Personal balance first'),
+                              subtitle: Text('Use your own wallet before your team allocation.'),
+                            ),
+                            RadioListTile<String>(
+                              value: 'team_first',
+                              contentPadding: EdgeInsets.zero,
+                              activeColor: AppPalette.primaryGreen,
+                              title: Text('Team allocation first'),
+                              subtitle: Text('Use the selected team allocation before your personal wallet.'),
+                            ),
+                            RadioListTile<String>(
+                              value: 'ask',
+                              contentPadding: EdgeInsets.zero,
+                              activeColor: AppPalette.primaryGreen,
+                              title: Text('Ask before each charge'),
+                              subtitle: Text('Choose personal or team Credits for each AI request.'),
+                            ),
+                          ],
+                        ),
                       ),
                       const SizedBox(height: 8),
                       StreamBuilder<List<TeamModel>>(
@@ -518,7 +524,7 @@ class _TokenBalanceScreenState extends State<TokenBalanceScreen> {
                               ? _selectedTeamId
                               : null;
                           return DropdownButtonFormField<String>(
-                            value: selected,
+                            initialValue: selected,
                             isExpanded: true,
                             decoration: const InputDecoration(
                               labelText: 'Team pool to use',
