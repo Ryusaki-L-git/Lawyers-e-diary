@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
@@ -17,7 +18,7 @@ class _JurisChatScreenState extends State<JurisChatScreen> {
   final _scrollController = ScrollController();
   final _service = JurisService();
   final _tokenService = TokenService();
-  final _sessionId = '-';
+  final _sessionId = _createSessionId();
   final List<_ChatEntry> _entries = [
     const _ChatEntry(
       false,
@@ -36,6 +37,17 @@ class _JurisChatScreenState extends State<JurisChatScreen> {
     'gemini-2.5-flash-lite': 'Gemini 2.5 Lite',
     'gemini-2.5-flash': 'Gemini 2.5',
   };
+
+  static String _createSessionId() {
+    final random = math.Random.secure();
+    final hex = List.generate(
+      32,
+      (_) => random.nextInt(16).toRadixString(16),
+    ).join();
+    return '${hex.substring(0, 8)}-${hex.substring(8, 12)}-'
+        '${hex.substring(12, 16)}-${hex.substring(16, 20)}-'
+        '${hex.substring(20)}';
+  }
 
   @override
   void initState() {
@@ -97,6 +109,7 @@ class _JurisChatScreenState extends State<JurisChatScreen> {
         message: message,
         sessionId: _sessionId,
         confirmedActionIds: confirmedActionIds,
+        selectedModel: _selectedModel,
       );
       if (!mounted) {
         return;
@@ -132,7 +145,10 @@ class _JurisChatScreenState extends State<JurisChatScreen> {
       }
       setState(() {
         _pendingConfirmation = null;
-        _entries.add(_ChatEntry(false, 'I could not complete that request. '));
+        final message = error is JurisServiceException
+            ? error.message
+            : 'JURIS could not complete that request. Please try again.';
+        _entries.add(_ChatEntry(false, message));
       });
     } finally {
       if (mounted) {
