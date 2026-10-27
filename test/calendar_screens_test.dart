@@ -4,6 +4,15 @@ import 'package:lawyers_e_diary/widgets/home_bottom_navigation.dart';
 import 'package:lawyers_e_diary/widgets/calendar_components.dart';
 
 void main() {
+  test('calendar view routes use a restrained short transition', () {
+    final route = CalendarPageRoute<void>(
+      builder: (_) => const SizedBox.shrink(),
+    );
+
+    expect(route.transitionDuration, const Duration(milliseconds: 160));
+    expect(route.reverseTransitionDuration, const Duration(milliseconds: 140));
+  });
+
   testWidgets('CalendarDayCard renders date, cases count, and button', (
     tester,
   ) async {
