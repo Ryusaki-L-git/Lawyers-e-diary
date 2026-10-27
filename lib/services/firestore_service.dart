@@ -397,14 +397,31 @@ class FirestoreService {
     String? initialNote,
   }) async {
     try {
-      String? uid = _auth.currentUser?.uid;
-      if (uid == null) {
-        debugPrint("User not logged in");
+      final uid = _auth.currentUser?.uid;
+      if (uid == null || uid.isEmpty) {
+        debugPrint('User not logged in');
         return null;
       }
 
       final normalizedCnr = cnrNumber.trim().toUpperCase();
-      if (!RegExp(r'^[A-Z0-9]{16}
+      if (!RegExp(r'^[A-Z0-9]{16}$').hasMatch(normalizedCnr)) {
+        throw ArgumentError.value(
+          cnrNumber,
+          'cnrNumber',
+          'A valid 16-character CNR number is required.',
+        );
+      }
+
+      final Map<String, dynamic> caseData = {
+        // A unique Firestore document represents this advocate's record.
+        // CUID/CNR identifies the court case but never merges workspaces.
+        'ownerUid': uid,
+        'userId': uid,
+        'cuid': normalizedCnr,
+        'cnrNumber': normalizedCnr,
+        'caseTitle': caseTitle,
+        'clientName': clientName,
+        'courtName': courtName,
         'status': status.toLowerCase(),
         'opponentName': opponentName ?? '',
         'caseType': caseType ?? 'Civil Case',
@@ -423,12 +440,11 @@ class FirestoreService {
         caseData['nextHearingDate'] = Timestamp.fromDate(nextHearingDate);
       }
 
-      DocumentReference doc = await _db.collection('cases').add(caseData);
-
+      final doc = await _db.collection('cases').add(caseData);
       return doc.id;
     } catch (e) {
-      debugPrint("Error adding case: $e");
-      return null;
+      debugPrint('Error adding case: $e');
+      rethrow;
     }
   }
 
