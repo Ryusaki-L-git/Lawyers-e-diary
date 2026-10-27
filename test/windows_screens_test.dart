@@ -237,7 +237,7 @@ void main() {
         ),
       );
       expect(title.style?.fontWeight, FontWeight.w700);
-      expect(title.style?.fontSize, 28);
+      expect(title.style?.fontSize, 30);
     });
   });
 
