@@ -7,12 +7,14 @@ on:
       - "functions/**"
       - "firestore.rules"
       - ".github/workflows/led-functions-validation.yml"
+      - "rules-tests/**"
   push:
     branches: ["**"]
     paths:
       - "functions/**"
       - "firestore.rules"
       - ".github/workflows/led-functions-validation.yml"
+      - "rules-tests/**"
 
 permissions:
   contents: read
