@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
 
@@ -33,7 +34,7 @@ class _JurisChatScreenState extends State<JurisChatScreen> {
 
   static const _models = <String, String>{
     'gemini-3.8-flash': 'Gemini 3.8',
-    'gemini-3.5-flash-lite': 'Gemini 3.5 Lite',
+    'gemini-3.1-flash-lite': 'Gemini 3.1 Lite',
     'gemini-2.5-flash-lite': 'Gemini 2.5 Lite',
     'gemini-2.5-flash': 'Gemini 2.5',
   };
@@ -97,34 +98,18 @@ class _JurisChatScreenState extends State<JurisChatScreen> {
       _controller.clear();
     });
     _scrollToEnd();
-    await _sendToJuris(message: message);
-  }
-
-  Future<void> _sendToJuris({
-    required String message,
-    List<String>? confirmedActionIds,
-    String? billingSource,
-  }) async {
+    String? billingSource;
     try {
-      final result = await _service.sendMessage(
-        message: message,
-        sessionId: _sessionId,
-        confirmedActionIds: confirmedActionIds,
-        selectedModel: _selectedModel,
-        billingSource: billingSource,
-      );
-      if (!mounted) {
-        return;
-      }
-      setState(() => _pendingConfirmation = null);
-      if (result.status == 'billing_source_required' && billingSource == null) {
-        final selectedSource = await showDialog<String>(
+      final preferences = await _tokenService.fetchBillingPreferences();
+      if (preferences.usageDeductionPriority == 'ask' &&
+          preferences.preferredTeamId != null) {
+        billingSource = await showDialog<String>(
           context: context,
           barrierDismissible: false,
           builder: (dialogContext) => AlertDialog(
             title: const Text('Choose a balance'),
             content: const Text(
-              'Which balance should pay for this JURIS AI request? Your personal balance and team allocation stay separate.',
+              'Choose the wallet before JURIS estimates usage. Personal Credits and team allocation remain separate.',
             ),
             actions: [
               TextButton(
@@ -139,18 +124,78 @@ class _JurisChatScreenState extends State<JurisChatScreen> {
           ),
         );
         if (!mounted) return;
-        if (selectedSource == null) {
-          setState(() => _entries.add(_ChatEntry(
-                false,
-                'No balance was selected, so I did not run the AI request.',
-              )));
+        if (billingSource == null) {
+          setState(() {
+            _entries.add(const _ChatEntry(
+              false,
+              'No balance was selected, so I did not run the AI request.',
+            ));
+            _busy = false;
+          });
           return;
         }
-        await _sendToJuris(message: message, billingSource: selectedSource);
+      }
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _entries.add(const _ChatEntry(
+          false,
+          'I could not verify your billing preference. No AI request was sent; please retry.',
+        ));
+        _busy = false;
+      });
+      return;
+    }
+    await _sendToJuris(message: message, billingSource: billingSource);
+  }
+
+  Future<void> _sendToJuris({
+    required String message,
+    List<String>? confirmedActionIds,
+    String? billingConfirmationToken,
+    String? billingSource,
+  }) async {
+    try {
+      final result = await _service.sendMessage(
+        message: message,
+        sessionId: _sessionId,
+        confirmedActionIds: confirmedActionIds,
+        selectedModel: _selectedModel,
+        billingConfirmationToken: billingConfirmationToken,
+        billingSource: billingSource,
+      );
+      if (!mounted) {
         return;
+      }
+      setState(() => _pendingConfirmation = null);
+      if (result.status != 'confirmation_required') {
+        unawaited(_loadBalance());
       }
       if (result.status == 'confirmation_required') {
         final sa = result.suggestedAction;
+        if (sa != null && sa['type'] == 'confirm_ai_usage') {
+          final quoteToken = sa['quote_token'] as String?;
+          final credits = sa['max_credits'] is num
+              ? (sa['max_credits'] as num).toDouble()
+              : (sa['estimated_credits'] is num
+                    ? (sa['estimated_credits'] as num).toDouble()
+                    : 0.0);
+          if (quoteToken != null && quoteToken.isNotEmpty) {
+            setState(() {
+              _pendingConfirmation = _PendingConfirmation(
+                message: message,
+                actionId: '',
+                tool: 'JURIS AI usage',
+                arguments: const <String, dynamic>{},
+                billingQuoteToken: quoteToken,
+                estimatedCredits: credits,
+                confirmedActionIds: confirmedActionIds ?? const <String>[],
+                billingSource: billingSource,
+              );
+            });
+            return;
+          }
+        }
         if (sa != null && sa['type'] == 'confirm_action') {
           final actionId = sa['action_id'] as String?;
           final tool = sa['tool'] as String?;
@@ -164,6 +209,7 @@ class _JurisChatScreenState extends State<JurisChatScreen> {
                 arguments: args is Map<String, dynamic>
                     ? Map<String, dynamic>.from(args)
                     : <String, dynamic>{},
+                billingSource: billingSource,
               );
             });
             return;
@@ -198,7 +244,20 @@ class _JurisChatScreenState extends State<JurisChatScreen> {
     }
     final pc = _pendingConfirmation!;
     setState(() => _busy = true);
-    await _sendToJuris(message: pc.message, confirmedActionIds: [pc.actionId]);
+    if (pc.billingQuoteToken != null) {
+      await _sendToJuris(
+        message: pc.message,
+        confirmedActionIds: pc.confirmedActionIds,
+        billingConfirmationToken: pc.billingQuoteToken,
+        billingSource: pc.billingSource,
+      );
+    } else {
+      await _sendToJuris(
+        message: pc.message,
+        confirmedActionIds: [pc.actionId],
+        billingSource: pc.billingSource,
+      );
+    }
   }
 
   void _cancelConfirmation() {
@@ -288,7 +347,7 @@ class _JurisChatScreenState extends State<JurisChatScreen> {
                 ],
               ),
             ),
-            // Case Token balance and model selector
+            // JURIS Credit balance and model selector
             Container(
               width: double.infinity,
               margin: const EdgeInsets.fromLTRB(16, 0, 16, 8),
@@ -310,8 +369,8 @@ class _JurisChatScreenState extends State<JurisChatScreen> {
                     _loadingBalance
                         ? 'Loading...'
                         : (_balance != null
-                              ? 'Case Tokens: ${_balance!.caseTokensDisplay}'
-                              : 'Case Tokens: --'),
+                              ? 'JURIS Credits: ${_balance!.creditsDisplay}'
+                              : 'JURIS Credits: --'),
                     style: const TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
@@ -478,8 +537,10 @@ class _JurisChatScreenState extends State<JurisChatScreen> {
             ],
           ),
           const SizedBox(height: 8),
-          const Text(
-            'JURIS proposes to execute a write action. Review before approving.',
+          Text(
+            pc.billingQuoteToken != null
+                ? 'JURIS has estimated the maximum Credit budget for this request. No AI work starts until you continue.'
+                : 'JURIS proposes to execute a write action. Review before approving.',
           ),
           const SizedBox(height: 8),
           Container(
@@ -490,33 +551,60 @@ class _JurisChatScreenState extends State<JurisChatScreen> {
               borderRadius: BorderRadius.circular(8),
               border: Border.all(color: AppPalette.borderLight),
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Tool: ',
-                  style: const TextStyle(fontWeight: FontWeight.w600),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  'Action ID: ',
-                  style: const TextStyle(
-                    fontSize: 11,
-                    color: AppPalette.textMuted,
+            child: pc.billingQuoteToken != null
+                ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Estimated maximum charge',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        '${(pc.estimatedCredits ?? 0).toStringAsFixed(2)} JURIS Credits',
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w700,
+                          color: AppPalette.primaryGreen,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      const Text(
+                        'The final charge is based on actual reported usage and will not exceed this approved budget. The estimate expires after 5 minutes.',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppPalette.textMuted,
+                        ),
+                      ),
+                    ],
+                  )
+                : Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Tool: ${pc.tool}',
+                        style: const TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        'Action ID: ${pc.actionId}',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: AppPalette.textMuted,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      const Text(
+                        'Arguments:',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                      const SizedBox(height: 4),
+                      SelectableText(
+                        _formatArgs(pc.arguments),
+                        style: const TextStyle(fontFamily: 'monospace', fontSize: 11),
+                      ),
+                    ],
                   ),
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  'Arguments:',
-                  style: TextStyle(fontWeight: FontWeight.w600),
-                ),
-                const SizedBox(height: 4),
-                SelectableText(
-                  _formatArgs(pc.arguments),
-                  style: const TextStyle(fontFamily: 'monospace', fontSize: 11),
-                ),
-              ],
-            ),
           ),
           const SizedBox(height: 10),
           Row(
@@ -533,7 +621,7 @@ class _JurisChatScreenState extends State<JurisChatScreen> {
                   backgroundColor: AppPalette.primaryGreen,
                   foregroundColor: Colors.white,
                 ),
-                child: const Text('Approve'),
+                child: Text(pc.billingQuoteToken != null ? 'Continue' : 'Approve'),
               ),
             ],
           ),
@@ -555,9 +643,17 @@ class _PendingConfirmation {
     required this.actionId,
     required this.tool,
     required this.arguments,
+    this.billingQuoteToken,
+    this.estimatedCredits,
+    this.confirmedActionIds = const <String>[],
+    this.billingSource,
   });
   final String message;
   final String actionId;
   final String tool;
   final Map<String, dynamic> arguments;
+  final String? billingQuoteToken;
+  final double? estimatedCredits;
+  final List<String> confirmedActionIds;
+  final String? billingSource;
 }
