@@ -21,6 +21,7 @@ class JurisService {
     String? activeCaseTitle,
     List<String>? confirmedActionIds,
     String? selectedModel,
+    String? billingSource,
   }) async {
     final trimmed = message.trim();
     if (trimmed.isEmpty) {
@@ -80,6 +81,7 @@ class JurisService {
             },
         },
         'confirmed_action_ids': confirmedActionIds ?? [],
+        if (billingSource != null && billingSource.isNotEmpty) 'billing_source': billingSource,
         if (selectedModel != null && selectedModel.trim().isNotEmpty)
           'ai': {
             'provider': 'gemini',
