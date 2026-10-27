@@ -141,7 +141,7 @@ class _ServicesCatalogueScreenState extends State<ServicesCatalogueScreen> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    '\${visibleItems.length} services',
+                    '${visibleItems.length} services',
                     style: const TextStyle(
                       color: AppPalette.textMuted,
                       fontSize: 12,
@@ -235,7 +235,7 @@ class _ServicesCatalogueScreenState extends State<ServicesCatalogueScreen> {
                                               Text(
                                                 item.tokenPrice == null
                                                     ? 'Pricing pending'
-                                                    : '\${item.tokenPrice} tokens',
+                                                    : '${item.tokenPrice} tokens',
                                                 textAlign: TextAlign.end,
                                                 style: TextStyle(
                                                   fontWeight: FontWeight.w700,
