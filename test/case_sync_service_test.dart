@@ -12,7 +12,11 @@ class FakeCaseSyncDataSource implements CaseSyncDataSource {
   final Map<String, Map<String, dynamic>> documents = {};
   bool failWrites = false;
   bool returnForeignDocuments = false;
+  bool cloudSubscriber = true;
   int writeCount = 0;
+
+  @override
+  Future<bool> isCloudSubscriber() async => cloudSubscriber;
 
   @override
   Future<RemoteCaseDocument?> readOwnedCase(String caseId) async {
