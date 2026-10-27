@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'app_palette.dart';
+import 'custom_plan_builder_dialog.dart';
 
 enum _PlanAudience { individual, team }
 
@@ -311,6 +312,17 @@ class _PlanCatalogueState extends State<PlanCatalogue> {
       _audience == _PlanAudience.individual ? _individualPlans : _teamPlans;
 
   Future<void> _requestPlan(_Plan plan) async {
+    if (plan.custom) {
+      final isTeam = _audience == _PlanAudience.team;
+      await showDialog<void>(
+        context: context,
+        builder: (_) => CustomPlanBuilderDialog(
+          isTeam: isTeam,
+          planName: plan.name,
+        ),
+      );
+      return;
+    }
     final audience = _audience == _PlanAudience.individual
         ? 'Individual'
         : 'Team / chamber';
