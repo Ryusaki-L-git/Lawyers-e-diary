@@ -101,9 +101,6 @@ logging.basicConfig(level=logging.INFO)
 app = FastAPI(title="LED eCourts Gateway", version="1.1.0")
 
 
-app.include_router(make_team_pool_router(get_db))
-
-
 def get_settings():
     return load_settings()
 
@@ -130,6 +127,9 @@ def get_db():
             cred, options={"projectId": settings.firebase_project_id}
         )
     return firestore.client()
+
+
+app.include_router(make_team_pool_router(get_db))
 
 
 @app.get("/healthz")
