@@ -293,3 +293,165 @@ def refund_team_case_tokens(
         return TeamBillingResult(after / 100, max(0, limit - used_after) / 100)
 
     return _run_transaction(db, work)
+
+
+class BillingSourceChoiceRequired(Exception):
+    pass
+
+
+class InsufficientCombinedCaseTokens(Exception):
+    def __init__(self, required: float, personal_available: float, team_available: float) -> None:
+        super().__init__("Neither the personal wallet nor the team allocation can cover this operation.")
+        self.required = required
+        self.personal_available = personal_available
+        self.team_available = team_available
+
+
+@dataclass(frozen=True)
+class PreferredBillingResult:
+    source: str
+    team_id: str | None
+    balance_after: float
+    duplicate: bool = False
+
+
+def _personal_balance(db: Any, user_id: str) -> float:
+    snap = (
+        db.collection("_server_token_accounts").document(user_id)
+        .collection("balances").document("case").get()
+    )
+    data = snap.to_dict() if getattr(snap, "exists", False) else {}
+    return _minor_units(data or {}) / 100
+
+
+def consume_case_tokens_with_preference(
+    db: Any,
+    user_id: str,
+    *,
+    amount_minor_units: int,
+    reason: str,
+    reference_id: str,
+    case_team_id: str | None = None,
+    allow_preferred_team: bool = False,
+    requested_source: str | None = None,
+) -> PreferredBillingResult:
+    """Charge a personal or eligible team wallet according to server-stored preference."""
+    from .token_billing import (
+        InsufficientCaseTokens,
+        consume_case_tokens,
+    ) if __package__ else (None, None)
+
+    # Keep top-level imports compatible with FastAPI Cloud's flat-module entrypoint.
+    if __package__:
+        from .token_billing import InsufficientCaseTokens as PersonalInsufficient
+        from .token_billing import consume_case_tokens as consume_personal
+    else:
+        from token_billing import InsufficientCaseTokens as PersonalInsufficient
+        from token_billing import consume_case_tokens as consume_personal
+
+    if requested_source not in {None, "personal", "team"}:
+        raise ValueError("Billing source must be personal or team.")
+    profile_snap = db.collection("users").document(user_id).get()
+    profile = profile_snap.to_dict() if getattr(profile_snap, "exists", False) else {}
+    preferences = (profile or {}).get("billingPreferences")
+    preferences = preferences if isinstance(preferences, dict) else {}
+    priority = preferences.get("usageDeductionPriority", "personal_first")
+    if priority not in _PRIORITY_VALUES:
+        priority = "personal_first"
+    preferred_team = preferences.get("preferredTeamId")
+    selected_team = case_team_id.strip() if isinstance(case_team_id, str) and case_team_id.strip() else None
+    if selected_team is None and allow_preferred_team and isinstance(preferred_team, str) and preferred_team.strip():
+        selected_team = preferred_team.strip()
+
+    if requested_source == "personal":
+        result = consume_personal(
+            db, user_id, amount_minor_units=amount_minor_units,
+            reason=reason, reference_id=reference_id,
+        )
+        return PreferredBillingResult("personal", None, result.balance_after, result.duplicate)
+    if requested_source == "team":
+        if not selected_team:
+            raise PermissionError("No eligible team is selected for this operation.")
+        result = consume_team_case_tokens(
+            db, user_id, selected_team, amount_minor_units=amount_minor_units,
+            reason=reason, reference_id=reference_id,
+        )
+        return PreferredBillingResult("team", selected_team, result.balance_after, result.duplicate)
+    if priority == "ask" and selected_team:
+        raise BillingSourceChoiceRequired()
+
+    if not selected_team:
+        result = consume_personal(
+            db, user_id, amount_minor_units=amount_minor_units,
+            reason=reason, reference_id=reference_id,
+        )
+        return PreferredBillingResult("personal", None, result.balance_after, result.duplicate)
+
+    if priority == "team_first":
+        try:
+            result = consume_team_case_tokens(
+                db, user_id, selected_team, amount_minor_units=amount_minor_units,
+                reason=reason, reference_id=reference_id,
+            )
+            return PreferredBillingResult("team", selected_team, result.balance_after, result.duplicate)
+        except (InsufficientTeamPool, InsufficientTeamAllocation):
+            team_available = 0.0
+            try:
+                pool_snap = _pool_ref(db, selected_team).get()
+                team_available = _minor_units(pool_snap.to_dict() or {}) / 100
+            except Exception:
+                team_available = 0.0
+            try:
+                result = consume_personal(
+                    db, user_id, amount_minor_units=amount_minor_units,
+                    reason=reason, reference_id=reference_id,
+                )
+                return PreferredBillingResult("personal", None, result.balance_after, result.duplicate)
+            except PersonalInsufficient as personal_error:
+                raise InsufficientCombinedCaseTokens(
+                    amount_minor_units / 100, personal_error.available, team_available
+                ) from None
+
+    try:
+        result = consume_personal(
+            db, user_id, amount_minor_units=amount_minor_units,
+            reason=reason, reference_id=reference_id,
+        )
+        return PreferredBillingResult("personal", None, result.balance_after, result.duplicate)
+    except PersonalInsufficient as personal_error:
+        try:
+            result = consume_team_case_tokens(
+                db, user_id, selected_team, amount_minor_units=amount_minor_units,
+                reason=reason, reference_id=reference_id,
+            )
+            return PreferredBillingResult("team", selected_team, result.balance_after, result.duplicate)
+        except (InsufficientTeamPool, InsufficientTeamAllocation):
+            pool_snap = _pool_ref(db, selected_team).get()
+            team_available = _minor_units(pool_snap.to_dict() or {}) / 100
+            raise InsufficientCombinedCaseTokens(
+                amount_minor_units / 100, personal_error.available, team_available
+            ) from None
+
+
+def refund_case_charge(
+    db: Any,
+    user_id: str,
+    result: PreferredBillingResult,
+    *,
+    amount_minor_units: int,
+    reason: str,
+    reference_id: str,
+):
+    if result.source == "team" and result.team_id:
+        return refund_team_case_tokens(
+            db, user_id, result.team_id, amount_minor_units=amount_minor_units,
+            reason=reason, reference_id=reference_id,
+        )
+    if __package__:
+        from .token_billing import refund_case_tokens
+    else:
+        from token_billing import refund_case_tokens
+    return refund_case_tokens(
+        db, user_id, amount_minor_units=amount_minor_units,
+        reason=reason, reference_id=reference_id,
+    )
