@@ -1,0 +1,67 @@
+name: Flutter validation
+
+on:
+  pull_request:
+    branches:
+      - master
+    paths:
+      - '**.dart'
+      - 'pubspec.yaml'
+      - 'pubspec.lock'
+      - 'analysis_options.yaml'
+      - '.github/workflows/flutter-validation.yml'
+  push:
+    branches:
+      - 'feature/led-team-pools-2026-10-27'
+    paths:
+      - '**.dart'
+      - 'pubspec.yaml'
+      - 'pubspec.lock'
+      - 'analysis_options.yaml'
+      - '.github/workflows/flutter-validation.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  flutter-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.7'
+          channel: stable
+          cache: true
+      - name: Resolve dependencies
+        run: flutter pub get
+      - name: Analyze Dart and Flutter source
+        run: flutter analyze
+      - name: Run Flutter tests
+        run: flutter test
+      - name: Build Android debug APK
+        run: flutter build apk --debug
+
+  windows-build:
+    runs-on: windows-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.7'
+          channel: stable
+          cache: true
+      - name: Enable Windows desktop
+        run: flutter config --enable-windows-desktop
+      - name: Resolve dependencies
+        run: flutter pub get
+      - name: Analyze Dart and Flutter source
+        run: flutter analyze
+      - name: Run Flutter tests
+        run: flutter test
+      - name: Build Windows debug app
+        run: flutter build windows --debug
