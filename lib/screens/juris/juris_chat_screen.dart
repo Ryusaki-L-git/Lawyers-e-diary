@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
 
@@ -117,6 +118,9 @@ class _JurisChatScreenState extends State<JurisChatScreen> {
         return;
       }
       setState(() => _pendingConfirmation = null);
+      if (result.status != 'confirmation_required') {
+        unawaited(_loadBalance());
+      }
       if (result.status == 'confirmation_required') {
         final sa = result.suggestedAction;
         if (sa != null && sa['type'] == 'confirm_ai_usage') {
