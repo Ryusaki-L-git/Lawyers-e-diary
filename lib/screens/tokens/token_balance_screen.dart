@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../models/team_model.dart';
+import '../../services/team_service.dart';
 import '../../services/token_service.dart';
 import '../../widgets/app_palette.dart';
 import '../../widgets/platform_app_bar.dart';
@@ -18,10 +20,19 @@ class _TokenBalanceScreenState extends State<TokenBalanceScreen> {
   TokenBalance? _balance;
   bool _loading = true;
   String? _error;
+  BillingPreferences? _preferences;
+  String _selectedPriority = 'personal_first';
+  String? _selectedTeamId;
+  Map<String, dynamic>? _teamPool;
+  String? _preferenceError;
+  bool _savingPreferences = false;
+  bool _loadingPool = false;
+  late final Stream<List<TeamModel>> _teamsStream;
 
   @override
   void initState() {
     super.initState();
+    _teamsStream = TeamService.instance.watchUserTeams();
     _loadBalance();
   }
 
@@ -38,23 +49,171 @@ class _TokenBalanceScreenState extends State<TokenBalanceScreen> {
     });
     try {
       final balance = await _service.fetchBalance();
-      if (!mounted) {
-        return;
-      }
+      if (!mounted) return;
       setState(() {
         _balance = balance;
         _loading = false;
       });
     } catch (e) {
-      if (!mounted) {
-        return;
-      }
+      if (!mounted) return;
       setState(() {
         _error = e.toString();
         _loading = false;
       });
+      return;
+    }
+    try {
+      final preferences = await _service.fetchBillingPreferences();
+      if (!mounted) return;
+      setState(() {
+        _preferences = preferences;
+        _selectedPriority = preferences.usageDeductionPriority;
+        _selectedTeamId = preferences.preferredTeamId;
+        _preferenceError = null;
+      });
+      if (preferences.preferredTeamId != null) {
+        await _loadTeamPool(preferences.preferredTeamId!);
+      } else if (mounted) {
+        setState(() => _teamPool = null);
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _preferenceError = e.toString());
     }
   }
+
+  Future<void> _loadTeamPool(String teamId) async {
+    setState(() {
+      _loadingPool = true;
+      _teamPool = null;
+    });
+    try {
+      final pool = await _service.fetchTeamPool(teamId);
+      if (!mounted) return;
+      setState(() {
+        _teamPool = pool;
+        _loadingPool = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _teamPool = null;
+        _loadingPool = false;
+        _preferenceError = e.toString();
+      });
+    }
+  }
+
+  Future<void> _savePreferences() async {
+    setState(() => _savingPreferences = true);
+    try {
+      final saved = await _service.saveBillingPreferences(
+        usageDeductionPriority: _selectedPriority,
+        preferredTeamId: _selectedTeamId,
+      );
+      if (!mounted) return;
+      setState(() {
+        _preferences = saved;
+        _selectedPriority = saved.usageDeductionPriority;
+        _selectedTeamId = saved.preferredTeamId;
+        _preferenceError = null;
+        _savingPreferences = false;
+      });
+      if (saved.preferredTeamId != null) {
+        await _loadTeamPool(saved.preferredTeamId!);
+      } else {
+        setState(() => _teamPool = null);
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Billing preference saved.')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _preferenceError = e.toString();
+        _savingPreferences = false;
+      });
+    }
+  }
+
+  static double _minorToUnits(dynamic value) =>
+      value is num ? value.toDouble() / 100.0 : 0.0;
+
+  static String _formatStorage(dynamic value) {
+    final bytes = value is num ? value.toDouble() : 0.0;
+    if (bytes >= 1024 * 1024 * 1024) {
+      return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
+    }
+    if (bytes >= 1024 * 1024) {
+      return '${(bytes / (1024 * 1024)).toStringAsFixed(0)} MB';
+    }
+    return '${bytes.toInt()} bytes';
+  }
+
+  Widget _buildTeamPoolPanel() {
+    if (_selectedTeamId == null) {
+      return const WindowsPanel(
+        child: Text('Choose a team to view its shared pool and your allocation.'),
+      );
+    }
+    if (_loadingPool) {
+      return const WindowsPanel(
+        child: Center(child: CircularProgressIndicator(color: AppPalette.primaryGreen)),
+      );
+    }
+    final pool = _teamPool;
+    if (pool == null) {
+      return const SizedBox.shrink();
+    }
+    final shared = pool['shared'] is Map<String, dynamic>
+        ? pool['shared'] as Map<String, dynamic>
+        : <String, dynamic>{};
+    final personal = pool['personal'] is Map<String, dynamic>
+        ? pool['personal'] as Map<String, dynamic>
+        : <String, dynamic>{};
+    final allocation = pool['allocation'] is Map<String, dynamic>
+        ? pool['allocation'] as Map<String, dynamic>
+        : <String, dynamic>{};
+    return WindowsPanel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '${pool['teamName'] ?? 'Team'} · Shared pool',
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppPalette.textPrimary),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'Personal balances stay separate. Team charges also require available shared funds and your allocation.',
+            style: TextStyle(fontSize: 12, color: AppPalette.textMuted),
+          ),
+          const SizedBox(height: 14),
+          _poolLine('Personal Case Tokens', _minorToUnits(personal['caseTokensMinorUnits']).toStringAsFixed(2)),
+          _poolLine('Your team Case Token allocation left', _minorToUnits(allocation['caseTokenAvailableMinorUnits']).toStringAsFixed(2)),
+          _poolLine('Shared team Case Token pool', _minorToUnits(shared['caseTokensMinorUnits']).toStringAsFixed(2)),
+          const Divider(height: 22),
+          _poolLine('Personal JURIS Credits', _minorToUnits(personal['jurisCreditsMinorUnits']).toStringAsFixed(2)),
+          _poolLine('Your team JURIS allocation left', _minorToUnits(allocation['jurisCreditAvailableMinorUnits']).toStringAsFixed(2)),
+          _poolLine('Shared team JURIS pool', _minorToUnits(shared['jurisCreditsMinorUnits']).toStringAsFixed(2)),
+          const Divider(height: 22),
+          _poolLine('Your storage allowance', _formatStorage(allocation['storageLimitBytes'])),
+          _poolLine('Shared storage capacity', _formatStorage(shared['storageLimitBytes'])),
+        ],
+      ),
+    );
+  }
+
+  Widget _poolLine(String label, String value) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 4),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(child: Text(label, style: const TextStyle(fontSize: 13, color: AppPalette.textMuted))),
+        const SizedBox(width: 12),
+        Text(value, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppPalette.textPrimary)),
+      ],
+    ),
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -76,7 +235,7 @@ class _TokenBalanceScreenState extends State<TokenBalanceScreen> {
         ],
       ),
       body: SafeArea(
-        child: Padding(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -168,6 +327,89 @@ class _TokenBalanceScreenState extends State<TokenBalanceScreen> {
                   ),
                 ),
                 const SizedBox(height: 16),
+                WindowsPanel(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Wallet deduction priority',
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppPalette.textPrimary),
+                      ),
+                      const SizedBox(height: 4),
+                      const Text(
+                        'Choose which balance LED should use first. The other eligible wallet is used only if the first one cannot cover the charge.',
+                        style: TextStyle(fontSize: 12, color: AppPalette.textMuted),
+                      ),
+                      RadioListTile<String>(
+                        value: 'personal_first',
+                        groupValue: _selectedPriority,
+                        contentPadding: EdgeInsets.zero,
+                        activeColor: AppPalette.primaryGreen,
+                        title: const Text('Personal balance first'),
+                        subtitle: const Text('Use your own wallet before your team allocation.'),
+                        onChanged: _savingPreferences ? null : (value) => setState(() => _selectedPriority = value ?? 'personal_first'),
+                      ),
+                      RadioListTile<String>(
+                        value: 'team_first',
+                        groupValue: _selectedPriority,
+                        contentPadding: EdgeInsets.zero,
+                        activeColor: AppPalette.primaryGreen,
+                        title: const Text('Team allocation first'),
+                        subtitle: const Text('Use the selected team allocation before your personal wallet.'),
+                        onChanged: _savingPreferences ? null : (value) => setState(() => _selectedPriority = value ?? 'team_first'),
+                      ),
+                      const SizedBox(height: 8),
+                      StreamBuilder<List<TeamModel>>(
+                        stream: _teamsStream,
+                        builder: (context, snapshot) {
+                          final teams = snapshot.data ?? const <TeamModel>[];
+                          final selected = teams.any((team) => team.id == _selectedTeamId)
+                              ? _selectedTeamId
+                              : null;
+                          return DropdownButtonFormField<String>(
+                            value: selected,
+                            isExpanded: true,
+                            decoration: const InputDecoration(
+                              labelText: 'Team pool to use',
+                              border: OutlineInputBorder(),
+                            ),
+                            items: teams.map((team) => DropdownMenuItem<String>(
+                              value: team.id,
+                              child: Text(team.name, overflow: TextOverflow.ellipsis),
+                            )).toList(),
+                            onChanged: _savingPreferences ? null : (value) {
+                              setState(() {
+                                _selectedTeamId = value;
+                                _teamPool = null;
+                              });
+                              if (value != null) _loadTeamPool(value);
+                            },
+                            hint: const Text('Select an authorised team'),
+                          );
+                        },
+                      ),
+                      if (_preferenceError != null) ...[
+                        const SizedBox(height: 8),
+                        Text(_preferenceError!, style: const TextStyle(color: AppPalette.error, fontSize: 12)),
+                      ],
+                      const SizedBox(height: 12),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: FilledButton.icon(
+                          onPressed: _savingPreferences ? null : _savePreferences,
+                          icon: _savingPreferences
+                              ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                              : const Icon(Icons.save_outlined),
+                          label: const Text('Save deduction preference'),
+                          style: FilledButton.styleFrom(backgroundColor: AppPalette.primaryGreen, foregroundColor: Colors.white),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                _buildTeamPoolPanel(),
+                const SizedBox(height: 16),
                 FilledButton.icon(
                   onPressed: () =>
                       Navigator.pushNamed(context, '/usage_history'),
@@ -188,7 +430,7 @@ class _TokenBalanceScreenState extends State<TokenBalanceScreen> {
                   title: 'No balances yet',
                   message: 'Credits and Case Tokens appear here once your account has a balance.',
                 ),
-              const Spacer(),
+              const SizedBox(height: 24),
               const Text(
                 'Credits are for JURIS AI; Case Tokens are for eCourts. The balances are separate and cannot be exchanged.',
                 style: TextStyle(
