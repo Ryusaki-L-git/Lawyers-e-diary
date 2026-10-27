@@ -176,8 +176,8 @@ void main() {
     final secondCases = await secondRepository.getCasesForCurrentUser();
     expect(firstCases, hasLength(1));
     expect(secondCases, hasLength(1));
-    expect(firstCases.single.cuid, 'ABCD1234EFGH5678');
-    expect(secondCases.single.cuid, 'ABCD1234EFGH5678');
+    expect(firstCases.single.caseNumber, 'ABCD1234EFGH5678');
+    expect(secondCases.single.caseNumber, 'ABCD1234EFGH5678');
     expect(firstCases.single.clientName, 'Private client A');
     expect(secondCases.single.clientName, 'Private client B');
   });
