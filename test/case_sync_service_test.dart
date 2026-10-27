@@ -186,6 +186,76 @@ void main() {
     expect(secondCases.single.clientName, 'Private client B');
   });
 
+  test('Free sync does not promote a CNR-only cloud stub', () async {
+    final record = buildRecord(
+      id: 'case-free-stub',
+      ownerUid: 'user-a',
+      updatedAt: now,
+    );
+    await repository.saveCase(record);
+    final pending = (await repository.getPendingCaseChanges()).single;
+    await repository.markCaseSynchronized(
+      caseId: record.id,
+      expectedRevision: pending.revision,
+      expectedUpdatedAt: record.updatedAt,
+      cloudVersion: 1,
+    );
+    dataSource.cloudSubscriber = false;
+    dataSource.documents[record.id] = <String, dynamic>{
+      'ownerUid': 'user-a',
+      'userId': 'user-a',
+      'cuid': 'ABCD1234EFGH5678',
+      'cnrNumber': 'ABCD1234EFGH5678',
+      'caseNumber': 'ABCD1234EFGH5678',
+      'cloudStorageMode': 'cnr_only',
+      'cloudVersion': 1,
+      'createdAt': now,
+      'updatedAt': now,
+      'lastUpdated': now,
+    };
+
+    final result = await engine.sync();
+
+    expect(result.failed, 0);
+    expect(dataSource.writeCount, 0);
+    expect((await repository.getCaseById(record.id))!.notes, ['Initial note']);
+  });
+
+  test('Cloud Subscriber promotes own CNR-only record using local private data', () async {
+    final record = buildRecord(
+      id: 'case-cloud-promotion',
+      ownerUid: 'user-a',
+      updatedAt: now,
+    );
+    await repository.saveCase(record);
+    final pending = (await repository.getPendingCaseChanges()).single;
+    await repository.markCaseSynchronized(
+      caseId: record.id,
+      expectedRevision: pending.revision,
+      expectedUpdatedAt: record.updatedAt,
+      cloudVersion: 1,
+    );
+    dataSource.documents[record.id] = <String, dynamic>{
+      'ownerUid': 'user-a',
+      'userId': 'user-a',
+      'cuid': 'ABCD1234EFGH5678',
+      'cnrNumber': 'ABCD1234EFGH5678',
+      'caseNumber': 'ABCD1234EFGH5678',
+      'cloudStorageMode': 'cnr_only',
+      'cloudVersion': 1,
+      'createdAt': now,
+      'updatedAt': now,
+      'lastUpdated': now,
+    };
+
+    final result = await engine.sync();
+
+    expect(result.uploaded, 1);
+    expect(dataSource.writeCount, 1);
+    expect(dataSource.documents[record.id]!['notes'], ['Initial note']);
+    expect(dataSource.documents[record.id]!['clientName'], 'Client');
+  });
+
   test('new local cases reject missing or malformed CNR values', () async {
     await expectLater(
       repository.createCase(
