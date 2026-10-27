@@ -149,6 +149,37 @@ void main() {
     },
   );
 
+  test('same advocate CNR reuses their existing independent record', () async {
+    final firstId = await repository.createCase(
+      caseTitle: 'Original record',
+      caseNumber: 'ABCD1234EFGH5678',
+      clientName: 'Original private client',
+      opponentName: 'Original opponent',
+      courtName: 'District Court',
+      caseType: 'Civil',
+      status: 'active',
+      handledBy: 'Advocate A',
+      notes: const ['Private original note'],
+    );
+    final duplicateId = await repository.createCase(
+      caseTitle: 'Conflicting duplicate',
+      caseNumber: 'abcd1234efgh5678',
+      clientName: 'Must not overwrite',
+      opponentName: 'Must not overwrite',
+      courtName: 'Other Court',
+      caseType: 'Criminal',
+      status: 'active',
+      handledBy: 'Advocate A',
+    );
+
+    expect(duplicateId, firstId);
+    final records = await repository.getCasesForCurrentUser();
+    expect(records, hasLength(1));
+    expect(records.single.caseTitle, 'Original record');
+    expect(records.single.clientName, 'Original private client');
+    expect(records.single.notes, ['Private original note']);
+  });
+
   test('same CNR creates independent records for different advocates', () async {
     final firstId = await repository.createCase(
       caseTitle: 'Advocate A case',
