@@ -86,7 +86,7 @@ class _WindowsCaseDetailScreenState extends State<WindowsCaseDetailScreen> {
             FilledButton(
               onPressed: () {
                 Navigator.of(dialogContext).pop();
-                Navigator.of(context).pushNamed('/upgrade'),
+                Navigator.of(context).pushNamed('/upgrade');
               },
               child: const Text('Buy Plans / Tokens'),
             ),
