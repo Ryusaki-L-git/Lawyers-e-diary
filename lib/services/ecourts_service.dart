@@ -60,6 +60,19 @@ class EcourtsService {
       throw const EcourtsServiceException('Invalid response from Smart Refresh.');
     }
 
+    if (response.statusCode == 402) {
+      final detail = data['detail'];
+      if (detail is Map<String, dynamic> &&
+          detail['code'] == 'insufficient_tokens') {
+        final required = detail['required'];
+        final available = detail['available'];
+        throw InsufficientCaseTokensException(
+          required: required is num ? required.toDouble() : 0.5,
+          available: available is num ? available.toDouble() : 0,
+        );
+      }
+    }
+
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw EcourtsServiceException(
         'Smart Refresh failed (HTTP ${response.statusCode}).',
@@ -81,4 +94,14 @@ class EcourtsServiceException implements Exception {
   final String message;
   @override
   String toString() => message;
+}
+
+class InsufficientCaseTokensException extends EcourtsServiceException {
+  const InsufficientCaseTokensException({
+    required this.required,
+    required this.available,
+  }) : super('Not enough Case Tokens for Smart Refresh.');
+
+  final double required;
+  final double available;
 }
