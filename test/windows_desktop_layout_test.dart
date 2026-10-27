@@ -39,7 +39,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(tester.takeException(), isNull);
-  }, variant: TargetPlatformVariant(TargetPlatform.windows));
+  }, variant: TargetPlatformVariant({TargetPlatform.windows}));
 
   group('WindowsDesktopShell responsive rail', () {
     testWidgets('shows full labels on a wide window', (tester) async {
