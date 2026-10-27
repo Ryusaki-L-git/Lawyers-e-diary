@@ -36,11 +36,7 @@ class SubscriptionInfo {
 
   /// Parse from a Firestore document's data map.
   factory SubscriptionInfo.fromMap(Map<String, dynamic> data) {
-    final subMap = data['subscription'] as Map<String, dynamic>?;
-    if (subMap == null) {
-      return const SubscriptionInfo(tier: SubscriptionTier.free);
-    }
-
+    final subMap = data['subscription'] as Map<String, dynamic>? ?? {};
     final tierStr = subMap['tier'] as String? ?? 'free';
     final tier = tierStr == 'cloud_subscriber'
         ? SubscriptionTier.cloudSubscriber
