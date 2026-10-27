@@ -135,6 +135,26 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+
+    // Per-user CNR registry: prevents duplicate records within one account
+    // without globally merging the same CNR across different advocates.
+    match /users/{uid}/case_cuid_registry/{cnr} {
+      allow read: if self(uid);
+      allow create: if self(uid)
+        && cnr.matches('^[A-Z0-9]{16}$')
+        && request.resource.data.keys().hasOnly(['uid', 'cuid', 'caseId', 'updatedAt'])
+        && request.resource.data.uid == uid
+        && request.resource.data.cuid == cnr
+        && request.resource.data.caseId is string
+        && request.resource.data.caseId.size() > 0
+        && request.resource.data.caseId.size() <= 256
+        && !request.resource.data.caseId.matches('.*[/].*')
+        && getAfter(/databases/$(database)/documents/cases/$(request.resource.data.caseId)).data.ownerUid == uid
+        && getAfter(/databases/$(database)/documents/cases/$(request.resource.data.caseId)).data.cuid == cnr;
+      allow update, delete: if false;
+    }
+
+
     // Minimal directory used for LED-ID lookup. It contains no phone,
     // address, email, subscription, or other private profile information.
     match /led_id_directory/{ledId} {
