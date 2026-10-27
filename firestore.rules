@@ -174,24 +174,30 @@ service cloud.firestore {
         && request.resource.data.cnrNumber == request.resource.data.cuid
         && request.resource.data.caseNumber == request.resource.data.cuid;
 
-      allow update: if (
-        caseManager(resource.data)
-        || (
-          caseReadable(resource.data)
-          && (
-            resource.data.ownerUid == request.auth.uid
-            || resource.data.userId == request.auth.uid
-            || (
-              resource.data.assignedTo == request.auth.uid
-              && request.resource.data.ownerUid == resource.data.ownerUid
-              && request.resource.data.userId == resource.data.userId
-              && request.resource.data.teamId == resource.data.teamId
-              && request.resource.data.teamOwnerUid == resource.data.teamOwnerUid
-              && request.resource.data.assignedTo == resource.data.assignedTo
+      allow update: if signedIn()
+        && caseStorageAllowed(request.resource.data, request.auth.uid)
+        && request.resource.data.cuid is string
+        && request.resource.data.cuid.matches('^[A-Z0-9]{16}$')
+        && request.resource.data.cnrNumber == request.resource.data.cuid
+        && request.resource.data.caseNumber == request.resource.data.cuid
+        && (
+          caseManager(resource.data)
+          || (
+            caseReadable(resource.data)
+            && (
+              resource.data.ownerUid == request.auth.uid
+              || resource.data.userId == request.auth.uid
+              || (
+                resource.data.assignedTo == request.auth.uid
+                && request.resource.data.ownerUid == resource.data.ownerUid
+                && request.resource.data.userId == resource.data.userId
+                && request.resource.data.teamId == resource.data.teamId
+                && request.resource.data.teamOwnerUid == resource.data.teamOwnerUid
+                && request.resource.data.assignedTo == resource.data.assignedTo
+              )
             )
           )
-        )
-      );
+        );
       allow delete: if caseReadable(resource.data)
         && resource.data.ownerUid == request.auth.uid
         && cnrOnlyCase(resource.data)
