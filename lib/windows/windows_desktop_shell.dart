@@ -156,6 +156,12 @@ class WindowsDesktopShell extends StatefulWidget {
       'INTELLIGENCE',
     ),
     _DesktopNavItem(
+      'Services catalogue',
+      Icons.apps_outlined,
+      '/services',
+      'INTELLIGENCE',
+    ),
+    _DesktopNavItem(
       'Case tokens',
       Icons.toll_outlined,
       '/token_balance',
