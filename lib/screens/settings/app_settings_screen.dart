@@ -122,38 +122,39 @@ class AppSettingsScreen extends StatelessWidget {
                       ),
                     ),
                   ),
-                  if (sub.isFree)
-                    _SettingsTile(
-                      icon: Icons.workspace_premium_rounded,
-                      iconColor: _gold,
-                      title: 'Upgrade to Cloud',
-                      subtitle: 'Sync, teams, backup & more',
-                      trailing: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 9,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: _gold.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: const Text(
-                          'UPGRADE',
-                          style: TextStyle(
-                            fontSize: 9,
-                            fontWeight: FontWeight.w800,
-                            color: Color(0xFF7A4E00),
-                            letterSpacing: 0.4,
-                          ),
-                        ),
+                  _SettingsTile(
+                    icon: Icons.workspace_premium_rounded,
+                    iconColor: _gold,
+                    title: 'Plans & upgrades',
+                    subtitle: sub.isCloud
+                        ? 'Compare tiers and review higher allowances'
+                        : 'Compare all individual and chamber plans',
+                    trailing: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 9,
+                        vertical: 4,
                       ),
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const UpgradePromptScreen(),
+                      decoration: BoxDecoration(
+                        color: _gold.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: const Text(
+                        'PLANS',
+                        style: TextStyle(
+                          fontSize: 9,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFF7A4E00),
+                          letterSpacing: 0.4,
                         ),
                       ),
                     ),
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const UpgradePromptScreen(),
+                      ),
+                    ),
+                  ),
                 ],
               ),
               const SizedBox(height: 24),
