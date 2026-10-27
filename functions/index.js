@@ -677,16 +677,21 @@ exports.transferCaseToAdvocate = onCall(
 					throw new HttpsError("permission-denied", "The recipient LED ID could not be verified.");
 				}
 				const cnr = storedCnr(source);
-				const targetRegistryRef = targetUserRef.collection("case_cuid_registry").doc(cnr);
-				const targetRegistry = await transaction.get(targetRegistryRef);
-				if (targetRegistry.exists) {
-					const registeredCaseId = targetRegistry.data()?.caseId;
-					if (typeof registeredCaseId !== "string" || !registeredCaseId) {
+				const registryRef = targetUserRef.collection("case_cuid_registry").doc(cnr);
+				const registrySnap = await transaction.get(registryRef);
+				if (registrySnap.exists) {
+					const registeredCaseId = registrySnap.data()?.caseId;
+					if (typeof registeredCaseId !== "string" || !registeredCaseId.trim()) {
 						throw new HttpsError("failed-precondition", "The recipient CNR registry requires migration.");
 					}
-					const registeredCase = await transaction.get(db.collection("cases").doc(registeredCaseId));
-					if (!registeredCase.exists || registeredCase.data()?.ownerUid !== targetUid) {
-						throw new HttpsError("failed-precondition", "The recipient CNR registry points to an invalid record.");
+					const registeredCaseRef = db.collection("cases").doc(registeredCaseId);
+					const registeredCaseSnap = await transaction.get(registeredCaseRef);
+					if (!registeredCaseSnap.exists) {
+						throw new HttpsError("failed-precondition", "The recipient CNR registry points to a missing case record.");
+					}
+					const registeredCase = registeredCaseSnap.data();
+					if ((registeredCase.ownerUid ?? registeredCase.userId) !== targetUid || storedCnr(registeredCase) !== cnr) {
+						throw new HttpsError("failed-precondition", "The recipient CNR registry does not match its case record.");
 					}
 					return { caseId: registeredCaseId, created: false, cuid: cnr };
 				}
@@ -696,33 +701,23 @@ exports.transferCaseToAdvocate = onCall(
 					.limit(1);
 				const legacyTargetCases = db.collection("cases")
 					.where("userId", "==", targetUid)
-					.where("cnrNumber", "==", cnr);
+					.where("cnrNumber", "==", cnr)
+					.limit(1);
 				const [existing, legacyExisting] = await Promise.all([
 					transaction.get(targetCases),
 					transaction.get(legacyTargetCases),
 				]);
-				const legacyDuplicate = legacyExisting.docs.find((doc) => {
-					const data = doc.data();
-					// A historical transfer may have changed userId without changing
-					// ownerUid. Never mistake that source record for the recipient's.
-					return typeof data.ownerUid !== "string" || data.ownerUid === targetUid;
-				});
-				const duplicate = !existing.empty
-					? existing.docs[0]
-					: legacyDuplicate ?? null;
+				const duplicate = !existing.empty ? existing.docs[0] : !legacyExisting.empty ? legacyExisting.docs[0] : null;
 				if (duplicate) {
-					transaction.set(targetRegistryRef, {
-						uid: targetUid,
-						cuid: cnr,
-						caseId: duplicate.id,
-						updatedAt: new Date(),
-					});
+					const duplicateData = duplicate.data();
+					if ((duplicateData.ownerUid ?? duplicateData.userId) !== targetUid || storedCnr(duplicateData) !== cnr) {
+						throw new HttpsError("failed-precondition", "The existing recipient case requires migration.");
+					}
+					transaction.create(registryRef, { uid: targetUid, cuid: cnr, caseId: duplicate.id, updatedAt: new Date() });
 					return { caseId: duplicate.id, created: false, cuid: cnr };
 				}
-
-				// The recipient receives only a CNR-only cloud registration.
-				// Their private workspace is created locally and never copied from
-				// the source advocate's record.
+				// The cloud registration is only CNR + minimum ownership/sync metadata.
+				// Recipient private case fields are created locally and are never copied.
 				const recipientCaseRef = db.collection("cases").doc();
 				const recipientRecord = buildCnrOnlyCaseRecord({
 					ownerUid: targetUid,
@@ -731,13 +726,8 @@ exports.transferCaseToAdvocate = onCall(
 					now: new Date(),
 				});
 				transaction.create(recipientCaseRef, recipientRecord);
-				transaction.create(targetRegistryRef, {
-					uid: targetUid,
-					cuid: cnr,
-					caseId: recipientCaseRef.id,
-					updatedAt: new Date(),
-				});
-				return { caseId: recipientCaseRef.id, created: true, cuid: cnr };
+				transaction.create(registryRef, { uid: targetUid, cuid: cnr, caseId: recipientCaseRef.id, updatedAt: new Date() });
+								return { caseId: recipientCaseRef.id, created: true, cuid: cnr };
 			});
 		} catch (error) {
 			if (error instanceof HttpsError) throw error;
