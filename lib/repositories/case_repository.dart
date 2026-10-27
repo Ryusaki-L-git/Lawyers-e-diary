@@ -241,9 +241,12 @@ class LocalCaseRecord {
     return {
       'ownerUid': ownerUid,
       'userId': ownerUid,
+      // One cloud document per advocate-owned record; CUID/CNR is only the
+      // real-world case identity and is never the Firestore document ID.
+      'cuid': caseNumber.trim().toUpperCase(),
+      'cnrNumber': caseNumber.trim().toUpperCase(),
       'caseTitle': caseTitle,
-      'cnrNumber': caseNumber,
-      'caseNumber': caseNumber,
+      'caseNumber': caseNumber.trim().toUpperCase(),
       'clientName': clientName,
       'opponentName': opponentName,
       'courtName': courtName,
