@@ -145,7 +145,7 @@ void main() {
 
         final id = await repo.createCase(
           caseTitle: 'Created locally',
-          caseNumber: 'CNR-CREATED',
+          caseNumber: 'ABCD1234EFGH5678',
           clientName: 'Client user-a',
           opponentName: 'Opponent',
           courtName: 'District Court',
@@ -165,6 +165,79 @@ void main() {
         expect(persisted.notes, contains('Created note'));
       },
     );
+
+    test(
+      'same CNR is idempotent within one advocate but independent across advocates',
+      () async {
+        final repoA = CaseRepository(
+          database: database,
+          identity: const TestAuthIdentity('user-a'),
+        );
+        final firstId = await repoA.createCase(
+          caseTitle: 'Private A case',
+          caseNumber: 'ABCD1234EFGH5678',
+          clientName: 'Client A',
+          opponentName: 'Opponent A',
+          courtName: 'District Court',
+          caseType: 'Civil',
+          status: 'active',
+          handledBy: 'Advocate A',
+          notes: const ['Private note A'],
+        );
+        final duplicateId = await repoA.createCase(
+          caseTitle: 'Second attempt',
+          caseNumber: 'abcd1234efgh5678',
+          clientName: 'Different client',
+          opponentName: 'Opponent',
+          courtName: 'Other Court',
+          caseType: 'Civil',
+          status: 'active',
+          handledBy: 'Advocate A',
+        );
+        expect(duplicateId, firstId);
+        expect((await repoA.getCaseById(firstId))!.notes, ['Private note A']);
+
+        final repoB = CaseRepository(
+          database: database,
+          identity: const TestAuthIdentity('user-b'),
+        );
+        final secondId = await repoB.createCase(
+          caseTitle: 'Private B case',
+          caseNumber: 'ABCD1234EFGH5678',
+          clientName: 'Client B',
+          opponentName: 'Opponent B',
+          courtName: 'District Court',
+          caseType: 'Civil',
+          status: 'active',
+          handledBy: 'Advocate B',
+          notes: const ['Private note B'],
+        );
+        expect(secondId, isNot(firstId));
+        expect((await repoB.getCaseById(secondId))!.ownerUid, 'user-b');
+        expect((await repoB.getCaseById(secondId))!.notes, ['Private note B']);
+        expect((await repoA.getCaseById(firstId))!.clientName, 'Client user-a');
+      },
+    );
+
+    test('createCase rejects malformed CNR values', () async {
+      final repo = CaseRepository(
+        database: database,
+        identity: const TestAuthIdentity('user-a'),
+      );
+      await expectLater(
+        repo.createCase(
+          caseTitle: 'Invalid CNR',
+          caseNumber: 'CNR-123',
+          clientName: 'Client',
+          opponentName: 'Opponent',
+          courtName: 'District Court',
+          caseType: 'Civil',
+          status: 'active',
+          handledBy: 'Advocate A',
+        ),
+        throwsArgumentError,
+      );
+    });
 
     test(
       'star, unstar, soft-delete, and restore stay in the local repository',
