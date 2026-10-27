@@ -161,7 +161,7 @@ def _grant_captured_order(db, order_id: str, payment: dict[str, Any]) -> dict[st
             raise HTTPException(status_code=409, detail="Payment order ownership mismatch.")
         if ledger_snapshot.exists:
             prior = ledger_snapshot.to_dict() or {}
-            if prior.get("referenceId") != f"razorpay-purchase:{order_id}" or prior.get("amountMinorUnits") != units * 100:
+            if prior.get("referenceId") != f"razorpay-purchase:{order_id}" or prior.get("amountMinorUnits") != units * 100 or prior.get("paymentId") != payment_id:
                 raise HTTPException(status_code=409, detail="Payment ledger conflict.")
             return {"status": "paid", "duplicate": True, "tokenType": token_type, "creditedUnits": units}
         if current_order.get("state") == "paid":
