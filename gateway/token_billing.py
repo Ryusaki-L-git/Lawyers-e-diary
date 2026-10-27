@@ -50,7 +50,11 @@ def _run_transaction(db, work: Callable[[Any], Any]):
     # The in-memory test database exposes run_transaction(work); the deployed
     # Firestore client exposes transaction() and the transactional decorator.
     if hasattr(db, "run_transaction"):
-        return db.run_transaction(work)
+        result: dict[str, Any] = {}
+        def capture(txn):
+            result["value"] = work(txn)
+        db.run_transaction(capture)
+        return result.get("value")
     from google.cloud import firestore
 
     transaction = db.transaction(max_attempts=5)
