@@ -627,7 +627,9 @@ class _CaseDetailScreenState extends State<CaseDetailScreen> {
                           color: primaryGreen,
                           onTap: () => Navigator.of(context).push(
                             MaterialPageRoute<void>(
-                              builder: (_) => ServicesCatalogueScreen(caseItem: caseItem),
+                              builder: (_) => ServicesCatalogueScreen(
+                                caseItem: widget.localOnly ? null : caseItem,
+                              ),
                             ),
                           ),
                         ),
