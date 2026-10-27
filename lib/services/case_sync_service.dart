@@ -202,6 +202,32 @@ class FirestoreCaseSyncDataSource implements CaseSyncDataSource {
       if (!existing.exists && expectedCloudVersion != null) {
         throw StateError('Firestore Case changed during synchronization.');
       }
+      if (!existing.exists) {
+        // Prevent a second device from creating another cloud registration for
+        // the same CNR within this account. Other owners are intentionally not
+        // part of this lookup and keep independent records.
+        final canonicalMatches = _cases
+            .where('ownerUid', isEqualTo: uid)
+            .where('cuid', isEqualTo: cnr)
+            .limit(1);
+        final legacyMatches = _cases
+            .where('ownerUid', isEqualTo: uid)
+            .where('cnrNumber', isEqualTo: cnr)
+            .limit(1);
+        final matches = await Future.wait([
+          transaction.get(canonicalMatches),
+          transaction.get(legacyMatches),
+        ]);
+        final duplicate = matches
+            .expand((snapshot) => snapshot.docs)
+            .where((document) => document.id != caseId)
+            .firstOrNull;
+        if (duplicate != null) {
+          throw StateError(
+            'This CNR is already registered in your cloud account. Sync the existing record instead of creating a duplicate.',
+          );
+        }
+      }
       if (existing.exists) {
         final current = existing.data()!;
         final currentVersion = (current['cloudVersion'] as num?)?.toInt() ?? 0;
