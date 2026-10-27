@@ -287,28 +287,33 @@ class LocalCaseRecord {
     }
 
     final model = CaseModel.fromMap(id, data);
+    final isCnrOnlyStub = data['cloudStorageMode'] == 'cnr_only';
+    // CNR-only cloud records contain no private case metadata. Build neutral
+    // display fields locally so the recipient can use the registration without
+    // uploading client details, notes, or documents.
     return LocalCaseRecord(
       id: id,
       ownerUid: ownerUid,
       caseNumber: model.caseNumber,
-      caseTitle: model.caseTitle,
-      clientName: model.clientName,
-      opponentName: model.opponentName,
-      courtName: model.courtName,
+      caseTitle: isCnrOnlyStub ? 'Court case ${model.caseNumber}' : model.caseTitle,
+      clientName: isCnrOnlyStub ? '' : model.clientName,
+      opponentName: isCnrOnlyStub ? '' : model.opponentName,
+      courtName: isCnrOnlyStub ? '' : model.courtName,
       status: model.status,
-      caseType: model.caseType,
-      handledBy: model.handledBy,
-      clientPhone: model.clientPhone,
+      caseType: isCnrOnlyStub ? 'Civil Case' : model.caseType,
+      handledBy: isCnrOnlyStub ? 'Advocate' : model.handledBy,
+      clientPhone: isCnrOnlyStub ? null : model.clientPhone,
       isStarred: model.isStarred,
       assignedUserUid: data['assignedUserUid'] as String?,
       teamId: data['teamId'] as String?,
       nextHearingDate: model.nextHearingDate,
       cnr: model.caseNumber,
-      caseSource: data['caseSource'] as String? ?? 'manual',
+      caseSource: data['caseSource'] as String? ??
+          (isCnrOnlyStub ? 'authorized_transfer' : 'manual'),
       hearingPurpose: model.hearingPurpose,
       lifecycleMode: data['lifecycleMode'] as String? ?? 'manual',
-      documents: model.documents,
-      notes: model.notes,
+      documents: isCnrOnlyStub ? const [] : model.documents,
+      notes: isCnrOnlyStub ? const [] : model.notes,
       createdAt: model.createdAt ?? lastSyncedAt,
       updatedAt: model.updatedAt ?? lastSyncedAt,
       deletedAt: model.deletedAt,
