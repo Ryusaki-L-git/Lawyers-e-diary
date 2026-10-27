@@ -59,6 +59,10 @@ service cloud.firestore {
           || updated.userId == existing.userId
         )
         && (
+          !('ownerLedId' in existing.keys())
+          || updated.ownerLedId == existing.ownerLedId
+        )
+        && (
           !('cuid' in existing.keys())
           || updated.cuid == existing.cuid
         )
