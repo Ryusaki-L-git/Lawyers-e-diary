@@ -330,7 +330,7 @@ class _WindowsCalendarScreenState extends State<WindowsCalendarScreen> {
                               message: snapshot.error.toString(),
                               isError: true,
                               action: OutlinedButton.icon(
-                                onPressed: () => setState(() => _retry++),
+                                onPressed: _retryLoad,
                                 icon: const Icon(
                                   Icons.refresh_rounded,
                                   size: 18,
