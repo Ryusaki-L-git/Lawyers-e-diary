@@ -449,6 +449,7 @@ async def execute_paid_service(
 @app.post("/v1/ecourts/cases/{case_id}/refresh")
 async def refresh_case(
     case_id: str,
+    billing_source: str | None = None,
     user: LedUser = Depends(current_led_user),
     provider: EcourtsProvider = Depends(get_provider),
     db=Depends(get_db),
@@ -607,28 +608,35 @@ async def refresh_case(
         # 7. Atomically reserve 0.5 Case Token before any provider call.
         # A missing/invalid account fails closed; no refresh is performed for free.
         billing_reference = f"smart-refresh:{case_id}:{lock_token}"
+        billing_result = None
         try:
-            consume_case_tokens(
-                db,
-                user.uid,
-                amount_minor_units=50,
-                reason="Smart Refresh",
-                reference_id=billing_reference,
+            raw_team_id = access.case_data.get("teamId")
+            case_team_id = raw_team_id.strip() if isinstance(raw_team_id, str) and raw_team_id.strip() else None
+            billing_result = consume_case_tokens_with_preference(
+                db, user.uid, amount_minor_units=50,
+                reason="Smart Refresh", reference_id=billing_reference,
+                case_team_id=case_team_id, requested_source=billing_source,
             )
+        except BillingSourceChoiceRequired:
+            raise HTTPException(status_code=409, detail={
+                "code": "billing_source_required",
+                "message": "Choose personal or team allocation before refreshing.",
+            })
+        except InsufficientCombinedCaseTokens as exc:
+            raise HTTPException(status_code=402, detail={
+                "code": "insufficient_tokens", "required": exc.required,
+                "personalAvailable": exc.personal_available, "teamAvailable": exc.team_available,
+            })
         except InsufficientCaseTokens as exc:
-            raise HTTPException(
-                status_code=status.HTTP_402_PAYMENT_REQUIRED,
-                detail={
-                    "code": "insufficient_tokens",
-                    "required": exc.required,
-                    "available": exc.available,
-                },
-            )
-        except TokenBillingConflict:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="This Smart Refresh billing reference conflicts with an existing operation.",
-            )
+            raise HTTPException(status_code=402, detail={
+                "code": "insufficient_tokens", "required": exc.required, "available": exc.available,
+            })
+        except (TeamBillingConflict, TokenBillingConflict):
+            raise HTTPException(status_code=409, detail="This Smart Refresh billing reference conflicts with an existing operation.")
+        except (InsufficientTeamAllocation, InsufficientTeamPool) as exc:
+            raise HTTPException(status_code=402, detail={"code": "insufficient_team_allocation", "message": str(exc)})
+        except PermissionError as exc:
+            raise HTTPException(status_code=403, detail=str(exc))
         except Exception:  # noqa: BLE001
             logger.exception("Smart Refresh token debit failed")
             raise HTTPException(
@@ -663,11 +671,9 @@ async def refresh_case(
                 ) from exc
         except Exception:
             try:
-                refund_case_tokens(
-                    db,
-                    user.uid,
-                    amount_minor_units=50,
-                    reason="Smart Refresh refund",
+                refund_case_charge(
+                    db, user.uid, billing_result,
+                    amount_minor_units=50, reason="Smart Refresh refund",
                     reference_id=f"{billing_reference}:refund",
                 )
             except Exception:  # noqa: BLE001
@@ -686,5 +692,7 @@ async def refresh_case(
         "cnr": access.cnr,
         "ecourts_data": ecourts_data,
         "provider": "ecourtsindia",
+        "chargedFrom": billing_result.source if billing_result else "personal",
+        "teamId": billing_result.team_id if billing_result else None,
         "retrieved_at": ecourts_data.get("retrieved_at"),
     }
