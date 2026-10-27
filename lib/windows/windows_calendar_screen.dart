@@ -28,17 +28,41 @@ class _WindowsCalendarScreenState extends State<WindowsCalendarScreen> {
   );
 
   final _repository = CaseRepository(database: AppDatabase.instance);
+  late Stream<List<CaseModel>> _casesStream =
+      _repository.watchCasesForCurrentUser();
 
-  int _retry = 0;
+  void _retryLoad() {
+    setState(() {
+      _casesStream = _repository.watchCasesForCurrentUser();
+    });
+  }
 
   @override
   Widget build(BuildContext context) => Scaffold(
     backgroundColor: AppPalette.canvas,
     body: SafeArea(
       child: StreamBuilder<List<CaseModel>>(
-        key: ValueKey(_retry),
-        stream: _repository.watchCasesForCurrentUser(),
+        stream: _casesStream,
         builder: (context, snapshot) {
+          if (snapshot.hasError) {
+            return Padding(
+              padding: const EdgeInsets.all(30),
+              child: WindowsMessageState(
+                icon: Icons.cloud_off_outlined,
+                title: 'Could not load your calendar',
+                message:
+                    'Your hearing schedule is temporarily unavailable. '
+                    'Retry to reconnect to your local case register.',
+                isError: true,
+                action: OutlinedButton.icon(
+                  onPressed: _retryLoad,
+                  icon: const Icon(Icons.refresh_rounded, size: 17),
+                  label: const Text('Try again'),
+                  style: WindowsButtonStyles.secondary(),
+                ),
+              ),
+            );
+          }
           final cases = (snapshot.data ?? const <CaseModel>[])
               .where(
                 (c) =>
