@@ -190,7 +190,7 @@ class _ServicesCatalogueScreenState extends State<ServicesCatalogueScreen> {
                               : ListView.separated(
                                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
                                   itemCount: visibleItems.length,
-                                  separatorBuilder: (_, __) => const SizedBox(height: 10),
+                                  separatorBuilder: (_, _) => const SizedBox(height: 10),
                                   itemBuilder: (context, index) {
                                     final item = visibleItems[index];
                                     return Container(
