@@ -176,7 +176,11 @@ service cloud.firestore {
         && request.resource.data.cuid is string
         && request.resource.data.cuid.matches('^[A-Z0-9]{16}$')
         && request.resource.data.cnrNumber == request.resource.data.cuid
-        && request.resource.data.caseNumber == request.resource.data.cuid;
+        && request.resource.data.caseNumber == request.resource.data.cuid
+        && existsAfter(/databases/$(database)/documents/users/$(request.auth.uid)/case_cuid_registry/$(request.resource.data.cuid))
+        && getAfter(/databases/$(database)/documents/users/$(request.auth.uid)/case_cuid_registry/$(request.resource.data.cuid)).data.uid == request.auth.uid
+        && getAfter(/databases/$(database)/documents/users/$(request.auth.uid)/case_cuid_registry/$(request.resource.data.cuid)).data.cuid == request.resource.data.cuid
+        && getAfter(/databases/$(database)/documents/users/$(request.auth.uid)/case_cuid_registry/$(request.resource.data.cuid)).data.caseId == caseId;
 
       allow update: if signedIn()
         && caseStorageAllowed(request.resource.data, request.auth.uid)
