@@ -11,7 +11,7 @@ class ServiceCatalogueItem {
   final String serviceId;
   final String displayName;
   final String description;
-  final double tokenPrice;
+  final double? tokenPrice;
   final String billingUnit;
   final bool available;
 
@@ -20,7 +20,7 @@ class ServiceCatalogueItem {
       serviceId: json['serviceId'] as String? ?? '',
       displayName: json['displayName'] as String? ?? '',
       description: json['description'] as String? ?? '',
-      tokenPrice: (json['tokenPrice'] as num?)?.toDouble() ?? 0,
+      tokenPrice: (json['tokenPrice'] as num?)?.toDouble(),
       billingUnit: json['billingUnit'] as String? ?? '',
       available: json['available'] as bool? ?? false,
     );
