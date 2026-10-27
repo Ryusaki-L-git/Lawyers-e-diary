@@ -103,6 +103,7 @@ class _JurisChatScreenState extends State<JurisChatScreen> {
   Future<void> _sendToJuris({
     required String message,
     List<String>? confirmedActionIds,
+    String? billingSource,
   }) async {
     try {
       final result = await _service.sendMessage(
@@ -110,11 +111,44 @@ class _JurisChatScreenState extends State<JurisChatScreen> {
         sessionId: _sessionId,
         confirmedActionIds: confirmedActionIds,
         selectedModel: _selectedModel,
+        billingSource: billingSource,
       );
       if (!mounted) {
         return;
       }
       setState(() => _pendingConfirmation = null);
+      if (result.status == 'billing_source_required' && billingSource == null) {
+        final selectedSource = await showDialog<String>(
+          context: context,
+          barrierDismissible: false,
+          builder: (dialogContext) => AlertDialog(
+            title: const Text('Choose a balance'),
+            content: const Text(
+              'Which balance should pay for this JURIS AI request? Your personal balance and team allocation stay separate.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop('personal'),
+                child: const Text('Personal JURIS Credits'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.of(dialogContext).pop('team'),
+                child: const Text('Team allocation'),
+              ),
+            ],
+          ),
+        );
+        if (!mounted) return;
+        if (selectedSource == null) {
+          setState(() => _entries.add(_ChatEntry(
+                false,
+                'No balance was selected, so I did not run the AI request.',
+              )));
+          return;
+        }
+        await _sendToJuris(message: message, billingSource: selectedSource);
+        return;
+      }
       if (result.status == 'confirmation_required') {
         final sa = result.suggestedAction;
         if (sa != null && sa['type'] == 'confirm_action') {
