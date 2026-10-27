@@ -73,7 +73,8 @@ test("Cloud Subscribers may store their own full case record", async () => {
 test("case owner and CNR identity cannot be reassigned by a client update", async () => {
   const db = testEnv.authenticatedContext("user-subscriber").firestore();
   await createRegisteredCase(db, "immutable-case", {
-    ownerUid: "user-subscriber", userId: "user-subscriber", cuid: CNR,
+    ownerUid: "user-subscriber", userId: "user-subscriber",
+    ownerLedId: "0001-2026", cuid: CNR,
     cnrNumber: CNR, caseNumber: CNR, cloudStorageMode: "full",
     caseTitle: "Private subscriber case", clientName: "Client A",
   });
@@ -88,6 +89,13 @@ test("case owner and CNR identity cannot be reassigned by a client update", asyn
     ownerUid: "user-subscriber", userId: "user-subscriber",
     cuid: "WXYZ1234EFGH5678", cnrNumber: "WXYZ1234EFGH5678",
     caseNumber: "WXYZ1234EFGH5678", cloudStorageMode: "full",
+    caseTitle: "Private subscriber case", clientName: "Client A",
+  }));
+
+  await assertFails(setDoc(doc(db, "cases/immutable-case"), {
+    ownerUid: "user-subscriber", userId: "user-subscriber",
+    ownerLedId: "0002-2026", cuid: CNR,
+    cnrNumber: CNR, caseNumber: CNR, cloudStorageMode: "full",
     caseTitle: "Private subscriber case", clientName: "Client A",
   }));
 });
