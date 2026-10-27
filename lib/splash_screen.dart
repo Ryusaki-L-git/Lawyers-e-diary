@@ -184,13 +184,17 @@ class _SplashScreenState extends State<SplashScreen>
               .timeout(const Duration(seconds: 10));
 
       final profileData = profileSnapshot.data() ?? <String, dynamic>{};
-      profileCompleted = profileData['profileCompleted'] == true;
+      final profileName = profileData['name'];
+      final hasSavedRequiredDetails =
+          profileName is String && profileName.trim().isNotEmpty &&
+          profileData['dob'] != null;
+      profileCompleted =
+          profileData['profileCompleted'] == true || hasSavedRequiredDetails;
 
       // If onboarding is complete but the server could not assign an ID
       // earlier, retry in the background. The profile stream updates the
       // visible ID automatically once the gateway commits it.
       final existingLedId = profileData['ledId'];
-      final profileName = profileData['name'];
       if (profileCompleted &&
           (existingLedId is! String || existingLedId.trim().isEmpty) &&
           profileName is String &&
