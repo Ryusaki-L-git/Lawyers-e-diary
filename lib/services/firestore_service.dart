@@ -384,7 +384,7 @@ class FirestoreService {
 
       final teamsSubscription = TeamService.instance.watchUserTeams().listen((teams) async {
         final activeIds = teams.map((team) => team.id).toSet();
-        for (final teamId in [...memberSubscriptions.keys, ...membershipSubscriptions.keys].toSet()) {
+        for (final teamId in {...memberSubscriptions.keys, ...membershipSubscriptions.keys}) {
           if (!activeIds.contains(teamId)) await stopWatchingTeam(teamId);
         }
         for (final team in teams) {
