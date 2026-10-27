@@ -4,7 +4,6 @@ import pytest
 
 from gateway.team_pool_billing import (
     BillingSourceChoiceRequired,
-    InsufficientCombinedCaseTokens,
     InsufficientTeamAllocation,
     InsufficientTeamPool,
     TeamBillingConflict,
@@ -135,7 +134,7 @@ def test_explicit_team_source_debits_team_and_member_allocation(make_db):
             "preferredTeamId": TEAM,
         }
     }
-    data[("_server_token_accounts", UID, "balances", "case")] = {"balance": 20}
+    data[(f"_server_token_accounts/{UID}/balances", "case")] = {"balance": 20}
     db = make_db(data)
     result = consume_case_tokens_with_preference(
         db, UID, amount_minor_units=50, reason="Smart Refresh",
