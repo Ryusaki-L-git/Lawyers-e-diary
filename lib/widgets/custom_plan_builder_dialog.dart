@@ -49,10 +49,11 @@ class _CustomPlanBuilderDialogState extends State<CustomPlanBuilderDialog> {
     final credits = int.parse(_jurisCredits.text.trim());
     final storage = int.parse(_storageGb.text.trim());
     final periodLabel = _period == 'Monthly' ? 'month' : 'year';
+    final audienceLabel = widget.isTeam ? 'Chamber / firm' : 'Individual';
     final request = [
       "Lawyer's E-Diary — Custom Plan Request",
       'Plan: ${widget.planName}',
-      'Type: ${widget.isTeam ? 'Chamber / firm' : 'Individual'}',
+      'Type: $audienceLabel',
       if (widget.isTeam) 'Requested seats: $members',
       'Case Tokens: $tokens per $periodLabel',
       'JURIS Credits: $credits per $periodLabel',
@@ -80,7 +81,9 @@ class _CustomPlanBuilderDialogState extends State<CustomPlanBuilderDialog> {
   @override
   Widget build(BuildContext context) => AlertDialog(
     title: Text(
-      'Build your ${widget.isTeam ? 'custom chamber' : 'custom individual'} plan',
+      widget.isTeam
+          ? 'Build your custom chamber plan'
+          : 'Build your custom individual plan',
     ),
     content: SizedBox(
       width: 440,
@@ -127,7 +130,7 @@ class _CustomPlanBuilderDialogState extends State<CustomPlanBuilderDialog> {
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
-                value: _period,
+                initialValue: _period,
                 decoration: const InputDecoration(
                   labelText: 'Allowance period',
                   border: OutlineInputBorder(),
