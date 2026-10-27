@@ -69,6 +69,38 @@ def test_case_not_found_is_404(make_db):
     assert exc.value.status_code == 404
 
 
+def test_cuid_is_canonical_identity(make_db):
+    db = make_db(
+        {
+            ("cases", CASE_ID): {
+                "ownerUid": OWNER_UID,
+                "cuid": CNR.lower(),
+                "cnrNumber": CNR,
+            },
+            ("users", OWNER_UID): {"subscription": {"tier": "cloud_subscriber"}},
+        }
+    )
+    access = read_case_and_authorize(db, OWNER_UID, CASE_ID)
+    assert access.cnr == CNR
+
+
+def test_conflicting_cuid_and_cnr_are_rejected(make_db):
+    db = make_db(
+        {
+            ("cases", CASE_ID): {
+                "ownerUid": OWNER_UID,
+                "cuid": "ZZZZ1234EFGH5678",
+                "cnrNumber": CNR,
+            },
+            ("users", OWNER_UID): {"subscription": {"tier": "cloud_subscriber"}},
+        }
+    )
+    with pytest.raises(HTTPException) as exc:
+        read_case_and_authorize(db, OWNER_UID, CASE_ID)
+    assert exc.value.status_code == 409
+    assert "do not match" in exc.value.detail
+
+
 def test_case_without_cnr_is_409(make_db):
     db = make_db(
         {
