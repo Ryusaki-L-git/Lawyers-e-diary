@@ -225,8 +225,8 @@ class _FullCalendarScreenState extends State<FullCalendarScreen> {
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
                       IconButton(
-                        tooltip: 'Grid view',
-                        onPressed: () {},
+                        tooltip: 'Grid view (current)',
+                        onPressed: null,
                         icon: const Icon(
                           Icons.grid_view_rounded,
                           size: 19,

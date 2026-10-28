@@ -29,7 +29,9 @@ class _CauseListScreenState extends State<CauseListScreen> {
   @override
   void initState() {
     super.initState();
-    _selectedDate = widget.selectedDate ?? DateTime(2026, 1, 21);
+    final now = DateTime.now();
+    _selectedDate =
+        widget.selectedDate ?? DateTime(now.year, now.month, now.day);
 
     final user = FirebaseAuth.instance.currentUser;
     if (user?.displayName != null && user!.displayName!.trim().isNotEmpty) {

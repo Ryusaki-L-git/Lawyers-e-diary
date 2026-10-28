@@ -45,9 +45,9 @@ class _AddReminderScreenState extends State<AddReminderScreen> {
       builder: (ctx, child) => Theme(
         data: Theme.of(ctx).copyWith(
           colorScheme: const ColorScheme.light(
-            primary: AppPalette.teal,
+            primary: AppPalette.primaryGreen,
             onPrimary: Colors.white,
-            onSurface: AppPalette.ink,
+            onSurface: AppPalette.textPrimary,
           ),
         ),
         child: child!,
@@ -66,9 +66,9 @@ class _AddReminderScreenState extends State<AddReminderScreen> {
       builder: (ctx, child) => Theme(
         data: Theme.of(ctx).copyWith(
           colorScheme: const ColorScheme.light(
-            primary: AppPalette.teal,
+            primary: AppPalette.primaryGreen,
             onPrimary: Colors.white,
-            onSurface: AppPalette.ink,
+            onSurface: AppPalette.textPrimary,
           ),
         ),
         child: child!,
@@ -108,24 +108,37 @@ class _AddReminderScreenState extends State<AddReminderScreen> {
   }
 
   Future<void> _save() async {
-    if (!_formKey.currentState!.validate()) {
+    if (_isSaving || !_formKey.currentState!.validate()) {
       return;
     }
     setState(() => _isSaving = true);
-    final id = await _service.addReminder(
-      title: _titleController.text.trim(),
-      dueDateTime: _dueDate,
-      description: _descController.text.trim().isEmpty
-          ? null
-          : _descController.text.trim(),
-      caseId: _linkedCaseId,
-      caseTitle: _linkedCaseTitle,
-      clientName: _linkedClientName,
-      repeatRule: _repeat,
-    );
-    if (!mounted) {
+
+    String? id;
+    try {
+      id = await _service.addReminder(
+        title: _titleController.text.trim(),
+        dueDateTime: _dueDate,
+        description: _descController.text.trim().isEmpty
+            ? null
+            : _descController.text.trim(),
+        caseId: _linkedCaseId,
+        caseTitle: _linkedCaseTitle,
+        clientName: _linkedClientName,
+        repeatRule: _repeat,
+      );
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _isSaving = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Failed to save reminder. Please try again.'),
+          backgroundColor: AppPalette.statusDanger,
+        ),
+      );
       return;
     }
+
+    if (!mounted) return;
     setState(() => _isSaving = false);
     if (id != null) {
       Navigator.pop(context, true); // signals success to caller
@@ -133,7 +146,7 @@ class _AddReminderScreenState extends State<AddReminderScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Failed to save reminder. Please try again.'),
-          backgroundColor: AppPalette.unread,
+          backgroundColor: AppPalette.statusDanger,
         ),
       );
     }
@@ -144,7 +157,7 @@ class _AddReminderScreenState extends State<AddReminderScreen> {
     final dateLabel = DateFormat('EEE, dd MMM yyyy · hh:mm a').format(_dueDate);
 
     return Scaffold(
-      backgroundColor: AppPalette.background,
+      backgroundColor: AppPalette.canvas,
       appBar: PlatformAppBar(
         title: 'New Reminder',
         eyebrow: 'PRACTICE WORKFLOW',
@@ -158,7 +171,7 @@ class _AddReminderScreenState extends State<AddReminderScreen> {
                     height: 22,
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
-                      color: AppPalette.teal,
+                      color: AppPalette.primaryGreen,
                     ),
                   )
                 : TextButton(
@@ -166,7 +179,7 @@ class _AddReminderScreenState extends State<AddReminderScreen> {
                     child: const Text(
                       'Save',
                       style: TextStyle(
-                        color: AppPalette.teal,
+                        color: AppPalette.primaryGreen,
                         fontWeight: FontWeight.w700,
                         fontSize: 15,
                       ),
@@ -189,7 +202,7 @@ class _AddReminderScreenState extends State<AddReminderScreen> {
               textCapitalization: TextCapitalization.sentences,
               maxLength: 120,
               decoration: _fieldDecoration('e.g. File petition for Ali Hassan'),
-              style: const TextStyle(color: AppPalette.ink, fontSize: 15),
+              style: const TextStyle(color: AppPalette.textPrimary, fontSize: 15),
               validator: (v) =>
                   (v == null || v.trim().isEmpty) ? 'Title is required' : null,
             ),
@@ -203,7 +216,7 @@ class _AddReminderScreenState extends State<AddReminderScreen> {
               maxLines: 3,
               maxLength: 300,
               decoration: _fieldDecoration('Add notes or instructions...'),
-              style: const TextStyle(color: AppPalette.ink, fontSize: 15),
+              style: const TextStyle(color: AppPalette.textPrimary, fontSize: 15),
             ),
             const SizedBox(height: 16),
             // Date & Time picker
@@ -249,23 +262,23 @@ class _AddReminderScreenState extends State<AddReminderScreen> {
   InputDecoration _fieldDecoration(String hint) {
     return InputDecoration(
       hintText: hint,
-      hintStyle: const TextStyle(color: AppPalette.mutedInk, fontSize: 14),
+      hintStyle: const TextStyle(color: AppPalette.textMuted, fontSize: 14),
       filled: true,
-      fillColor: AppPalette.surface,
+      fillColor: AppPalette.cardBackground,
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: AppPalette.border),
+        borderSide: const BorderSide(color: AppPalette.borderLight),
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: AppPalette.border),
+        borderSide: const BorderSide(color: AppPalette.borderLight),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: AppPalette.teal, width: 1.5),
+        borderSide: const BorderSide(color: AppPalette.primaryGreen, width: 1.5),
       ),
-      counterStyle: const TextStyle(color: AppPalette.mutedInk, fontSize: 11),
+      counterStyle: const TextStyle(color: AppPalette.textMuted, fontSize: 11),
     );
   }
 }
@@ -283,7 +296,7 @@ class _SectionLabel extends StatelessWidget {
     return Text(
       text,
       style: const TextStyle(
-        color: AppPalette.mutedInk,
+        color: AppPalette.textMuted,
         fontSize: 12,
         fontWeight: FontWeight.w600,
         letterSpacing: 0.4,
@@ -312,15 +325,15 @@ class _PickerTile extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
-          color: AppPalette.surface,
+          color: AppPalette.cardBackground,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppPalette.border),
+          border: Border.all(color: AppPalette.borderLight),
         ),
         child: Row(
           children: [
             Icon(
               icon,
-              color: isPlaceholder ? AppPalette.border : AppPalette.teal,
+              color: isPlaceholder ? AppPalette.borderLight : AppPalette.primaryGreen,
               size: 20,
             ),
             const SizedBox(width: 12),
@@ -328,7 +341,7 @@ class _PickerTile extends StatelessWidget {
               child: Text(
                 label,
                 style: TextStyle(
-                  color: isPlaceholder ? AppPalette.mutedInk : AppPalette.ink,
+                  color: isPlaceholder ? AppPalette.textMuted : AppPalette.textPrimary,
                   fontSize: 14,
                   fontWeight: FontWeight.w500,
                 ),
@@ -336,7 +349,7 @@ class _PickerTile extends StatelessWidget {
             ),
             const Icon(
               Icons.chevron_right_rounded,
-              color: AppPalette.mutedInk,
+              color: AppPalette.textMuted,
               size: 20,
             ),
           ],
@@ -364,11 +377,11 @@ class _LinkedCaseTile extends StatelessWidget {
       decoration: BoxDecoration(
         color: const Color(0xFFE2F0EC),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppPalette.teal.withValues(alpha: 0.3)),
+        border: Border.all(color: AppPalette.primaryGreen.withValues(alpha: 0.3)),
       ),
       child: Row(
         children: [
-          const Icon(Icons.gavel_rounded, color: AppPalette.teal, size: 20),
+          const Icon(Icons.gavel_rounded, color: AppPalette.primaryGreen, size: 20),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -377,7 +390,7 @@ class _LinkedCaseTile extends StatelessWidget {
                 Text(
                   caseTitle,
                   style: const TextStyle(
-                    color: AppPalette.ink,
+                    color: AppPalette.textPrimary,
                     fontWeight: FontWeight.w600,
                     fontSize: 14,
                   ),
@@ -387,7 +400,7 @@ class _LinkedCaseTile extends StatelessWidget {
                 Text(
                   clientName,
                   style: const TextStyle(
-                    color: AppPalette.mutedInk,
+                    color: AppPalette.textMuted,
                     fontSize: 12,
                   ),
                 ),
@@ -398,7 +411,7 @@ class _LinkedCaseTile extends StatelessWidget {
             onPressed: onClear,
             icon: const Icon(
               Icons.close_rounded,
-              color: AppPalette.mutedInk,
+              color: AppPalette.textMuted,
               size: 18,
             ),
             padding: EdgeInsets.zero,
@@ -428,16 +441,16 @@ class _RepeatSelector extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             decoration: BoxDecoration(
-              color: isSelected ? AppPalette.teal : AppPalette.surface,
+              color: isSelected ? AppPalette.primaryGreen : AppPalette.cardBackground,
               borderRadius: BorderRadius.circular(20),
               border: Border.all(
-                color: isSelected ? AppPalette.teal : AppPalette.border,
+                color: isSelected ? AppPalette.primaryGreen : AppPalette.borderLight,
               ),
             ),
             child: Text(
               r.label,
               style: TextStyle(
-                color: isSelected ? Colors.white : AppPalette.mutedInk,
+                color: isSelected ? Colors.white : AppPalette.textMuted,
                 fontSize: 13,
                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
               ),
