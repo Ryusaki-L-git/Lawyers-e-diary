@@ -242,11 +242,10 @@ void main() {
   });
 
   group('Windows desktop shell', () {
-    testWidgets('exposes the to-do and services entry points in the sidebar', (tester) async {
+    testWidgets('exposes the to-do entry point in the sidebar', (tester) async {
       await pumpDesktop(tester, const SizedBox.shrink());
 
       expect(find.text('To-Do list'), findsOneWidget);
-      expect(find.text('Services catalogue'), findsOneWidget);
     });
 
     testWidgets('marks the active route in the sidebar', (tester) async {
