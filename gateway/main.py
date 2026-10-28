@@ -64,6 +64,8 @@ if __package__:
     )
     from .led_id import allocate_led_id
     from .token_billing import InsufficientCaseTokens, TokenBillingConflict, consume_case_tokens, refund_case_tokens
+    from .team_pool_api import make_router as make_team_pool_router
+    from .team_pool_billing import BillingSourceChoiceRequired, InsufficientCombinedCaseTokens, InsufficientTeamAllocation, InsufficientTeamPool, TeamBillingConflict, consume_case_tokens_with_preference, refund_case_charge
     from .provider import EcourtsProvider, EcourtsProviderError
     from .rate_limiter import (
         admit_case_request,
@@ -85,6 +87,8 @@ else:
     )
     from led_id import allocate_led_id
     from token_billing import InsufficientCaseTokens, TokenBillingConflict, consume_case_tokens, refund_case_tokens
+    from team_pool_api import make_router as make_team_pool_router
+    from team_pool_billing import BillingSourceChoiceRequired, InsufficientCombinedCaseTokens, InsufficientTeamAllocation, InsufficientTeamPool, TeamBillingConflict, consume_case_tokens_with_preference, refund_case_charge
     from provider import EcourtsProvider, EcourtsProviderError
     from rate_limiter import (
         admit_case_request,
@@ -125,6 +129,9 @@ def get_db():
             cred, options={"projectId": settings.firebase_project_id}
         )
     return firestore.client()
+
+
+app.include_router(make_team_pool_router(get_db))
 
 
 @app.get("/healthz")
@@ -244,13 +251,17 @@ async def execute_paid_service(
     signed = body.get("signed", True)
     cnr = None
     cnrs = []
+    case_team_ids: list[str | None] = []
 
     def authorize_case(requested_case_id: str):
         try:
-            return read_case_and_authorize(
+            access = read_case_and_authorize(
                 db, user.uid, requested_case_id,
                 auth_email=user.email, email_verified=user.email_verified,
             )
+            raw_team_id = access.case_data.get("teamId")
+            case_team_ids.append(raw_team_id.strip() if isinstance(raw_team_id, str) and raw_team_id.strip() else None)
+            return access
         except AuthorizationError:
             raise
 
@@ -308,23 +319,40 @@ async def execute_paid_service(
         len(cnrs) if service_id in {"cnr_cause_list_check", "bulk_case_refresh"} else 1
     )
     charged_minor_units = amount_minor_units
+    billing_result = None
+    billing_team_id = (
+        case_team_ids[0]
+        if case_team_ids and all(team_id == case_team_ids[0] for team_id in case_team_ids)
+        else None
+    )
     try:
-        consume_case_tokens(
-            db,
-            user.uid,
-            amount_minor_units=amount_minor_units,
-            reason=service_id,
-            reference_id=billing_reference,
+        billing_result = consume_case_tokens_with_preference(
+            db, user.uid, amount_minor_units=amount_minor_units,
+            reason=service_id, reference_id=billing_reference,
+            case_team_id=billing_team_id,
+            allow_preferred_team=service_id == "cause_list_search",
+            requested_source=body.get("billingSource"),
         )
+    except BillingSourceChoiceRequired:
+        raise HTTPException(status_code=409, detail={
+            "code": "billing_source_required",
+            "message": "Choose personal or team allocation before continuing.",
+        })
+    except InsufficientCombinedCaseTokens as exc:
+        raise HTTPException(status_code=402, detail={
+            "code": "insufficient_tokens", "required": exc.required,
+            "personalAvailable": exc.personal_available, "teamAvailable": exc.team_available,
+        })
     except InsufficientCaseTokens as exc:
-        raise HTTPException(
-            status_code=status.HTTP_402_PAYMENT_REQUIRED,
-            detail={
-                "code": "insufficient_tokens",
-                "required": exc.required,
-                "available": exc.available,
-            },
-        )
+        raise HTTPException(status_code=402, detail={
+            "code": "insufficient_tokens", "required": exc.required, "available": exc.available,
+        })
+    except (TeamBillingConflict, TokenBillingConflict):
+        raise HTTPException(status_code=409, detail="This billing reference conflicts with an existing operation.")
+    except (InsufficientTeamAllocation, InsufficientTeamPool) as exc:
+        raise HTTPException(status_code=402, detail={"code": "insufficient_team_allocation", "message": str(exc)})
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc))
     except Exception:  # noqa: BLE001
         logger.exception("Paid service token debit failed")
         raise HTTPException(
@@ -356,8 +384,8 @@ async def execute_paid_service(
             invalid_count = len(invalid) if isinstance(invalid, list) else 0
             refund_units = min(amount_minor_units, invalid_count * prices[service_id])
             if refund_units:
-                refund_case_tokens(
-                    db, user.uid, amount_minor_units=refund_units,
+                refund_case_charge(
+                    db, user.uid, billing_result, amount_minor_units=refund_units,
                     reason="Bulk Case Refresh invalid-CNR adjustment",
                     reference_id=f"{billing_reference}:invalid-adjustment",
                 )
@@ -366,12 +394,14 @@ async def execute_paid_service(
             "serviceId": service_id,
             "status": "ok",
             "chargedTokens": charged_minor_units / 100,
+            "chargedFrom": billing_result.source if billing_result else "personal",
+            "teamId": billing_result.team_id if billing_result else None,
             "data": result.get("data", result) if isinstance(result, dict) else result,
         }
     except HTTPException:
         try:
-            refund_case_tokens(
-                db, user.uid, amount_minor_units=amount_minor_units,
+            refund_case_charge(
+                db, user.uid, billing_result, amount_minor_units=amount_minor_units,
                 reason=f"{service_id} failed refund",
                 reference_id=f"{billing_reference}:refund",
             )
@@ -384,8 +414,8 @@ async def execute_paid_service(
         raise
     except EcourtsProviderError as exc:
         try:
-            refund_case_tokens(
-                db, user.uid, amount_minor_units=amount_minor_units,
+            refund_case_charge(
+                db, user.uid, billing_result, amount_minor_units=amount_minor_units,
                 reason=f"{service_id} failed refund",
                 reference_id=f"{billing_reference}:refund",
             )
@@ -398,8 +428,8 @@ async def execute_paid_service(
         raise HTTPException(status_code=exc.status_code, detail=exc.detail)
     except Exception:  # noqa: BLE001
         try:
-            refund_case_tokens(
-                db, user.uid, amount_minor_units=amount_minor_units,
+            refund_case_charge(
+                db, user.uid, billing_result, amount_minor_units=amount_minor_units,
                 reason=f"{service_id} failed refund",
                 reference_id=f"{billing_reference}:refund",
             )
@@ -419,6 +449,7 @@ async def execute_paid_service(
 @app.post("/v1/ecourts/cases/{case_id}/refresh")
 async def refresh_case(
     case_id: str,
+    billing_source: str | None = None,
     user: LedUser = Depends(current_led_user),
     provider: EcourtsProvider = Depends(get_provider),
     db=Depends(get_db),
@@ -577,28 +608,35 @@ async def refresh_case(
         # 7. Atomically reserve 0.5 Case Token before any provider call.
         # A missing/invalid account fails closed; no refresh is performed for free.
         billing_reference = f"smart-refresh:{case_id}:{lock_token}"
+        billing_result = None
         try:
-            consume_case_tokens(
-                db,
-                user.uid,
-                amount_minor_units=50,
-                reason="Smart Refresh",
-                reference_id=billing_reference,
+            raw_team_id = access.case_data.get("teamId")
+            case_team_id = raw_team_id.strip() if isinstance(raw_team_id, str) and raw_team_id.strip() else None
+            billing_result = consume_case_tokens_with_preference(
+                db, user.uid, amount_minor_units=50,
+                reason="Smart Refresh", reference_id=billing_reference,
+                case_team_id=case_team_id, requested_source=billing_source,
             )
+        except BillingSourceChoiceRequired:
+            raise HTTPException(status_code=409, detail={
+                "code": "billing_source_required",
+                "message": "Choose personal or team allocation before refreshing.",
+            })
+        except InsufficientCombinedCaseTokens as exc:
+            raise HTTPException(status_code=402, detail={
+                "code": "insufficient_tokens", "required": exc.required,
+                "personalAvailable": exc.personal_available, "teamAvailable": exc.team_available,
+            })
         except InsufficientCaseTokens as exc:
-            raise HTTPException(
-                status_code=status.HTTP_402_PAYMENT_REQUIRED,
-                detail={
-                    "code": "insufficient_tokens",
-                    "required": exc.required,
-                    "available": exc.available,
-                },
-            )
-        except TokenBillingConflict:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="This Smart Refresh billing reference conflicts with an existing operation.",
-            )
+            raise HTTPException(status_code=402, detail={
+                "code": "insufficient_tokens", "required": exc.required, "available": exc.available,
+            })
+        except (TeamBillingConflict, TokenBillingConflict):
+            raise HTTPException(status_code=409, detail="This Smart Refresh billing reference conflicts with an existing operation.")
+        except (InsufficientTeamAllocation, InsufficientTeamPool) as exc:
+            raise HTTPException(status_code=402, detail={"code": "insufficient_team_allocation", "message": str(exc)})
+        except PermissionError as exc:
+            raise HTTPException(status_code=403, detail=str(exc))
         except Exception:  # noqa: BLE001
             logger.exception("Smart Refresh token debit failed")
             raise HTTPException(
@@ -633,11 +671,9 @@ async def refresh_case(
                 ) from exc
         except Exception:
             try:
-                refund_case_tokens(
-                    db,
-                    user.uid,
-                    amount_minor_units=50,
-                    reason="Smart Refresh refund",
+                refund_case_charge(
+                    db, user.uid, billing_result,
+                    amount_minor_units=50, reason="Smart Refresh refund",
                     reference_id=f"{billing_reference}:refund",
                 )
             except Exception:  # noqa: BLE001
@@ -656,5 +692,7 @@ async def refresh_case(
         "cnr": access.cnr,
         "ecourts_data": ecourts_data,
         "provider": "ecourtsindia",
+        "chargedFrom": billing_result.source if billing_result else "personal",
+        "teamId": billing_result.team_id if billing_result else None,
         "retrieved_at": ecourts_data.get("retrieved_at"),
     }
