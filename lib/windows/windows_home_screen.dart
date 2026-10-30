@@ -190,9 +190,9 @@ class _WindowsHomeScreenState extends State<WindowsHomeScreen> {
                                 ),
                                 const SizedBox(height: 12),
                                 if (caseSnapshot.hasError)
-                                  _Notice('The case register could not be loaded: ' + caseSnapshot.error.toString()),
+                                  _Notice('The case register could not be loaded: ${caseSnapshot.error}'),
                                 if (reminderSnapshot.hasError)
-                                  _Notice('Reminders could not be loaded: ' + reminderSnapshot.error.toString()),
+                                  _Notice('Reminders could not be loaded: ${reminderSnapshot.error}'),
                                 if (compact) ...[
                                   _SchedulePanel(cases: todayCases, upcoming: upcoming, onCalendar: () => _go('/calendar')),
                                   const SizedBox(height: 12),
