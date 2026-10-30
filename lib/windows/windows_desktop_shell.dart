@@ -72,8 +72,38 @@ class _WindowsDesktopShellState extends State<WindowsDesktopShell> {
     return 0;
   }
 
+  bool _isSelected(_DesktopNavItem item) {
+    final route = widget.activeRoute;
+    if (item.route == route) return true;
+    if (item.route == '/cases') {
+      return const {
+        '/add_case',
+        '/search_cases',
+        '/case_management',
+        '/completed_cases',
+        '/deleted_cases',
+        '/starred',
+      }.contains(route);
+    }
+    if (item.route == '/calendar') {
+      return const {'/calendar_list', '/full_calendar', '/cause_list'}
+          .contains(route);
+    }
+    if (item.route == '/fee') return route == '/record_payment';
+    if (item.route == '/team') return route == '/transfer_case';
+    if (item.route == '/settings') {
+      return const {
+        '/security',
+        '/settings_native',
+        '/cloud_storage',
+        '/upgrade',
+      }.contains(route);
+    }
+    return false;
+  }
+
   void _open(_DesktopNavItem item) {
-    if (item.route == widget.activeRoute) return;
+    if (_isSelected(item)) return;
     Navigator.of(context).pushReplacementNamed(item.route);
   }
 
@@ -209,7 +239,12 @@ class _WindowsDesktopShellState extends State<WindowsDesktopShell> {
           CircleAvatar(
             radius: 17,
             backgroundColor: const Color(0xFFE8E2D5),
-            child: Text(
+            backgroundImage: user?.photoURL == null
+                ? null
+                : NetworkImage(user!.photoURL!),
+            child: user?.photoURL != null
+                ? null
+                : Text(
               initials.isEmpty ? 'A' : initials,
               style: const TextStyle(
                 color: WindowsDesktopShell.forest,
@@ -351,7 +386,7 @@ class _WindowsDesktopShellState extends State<WindowsDesktopShell> {
           itemCount: WindowsDesktopShell._items.length,
           itemBuilder: (context, index) {
             final item = WindowsDesktopShell._items[index];
-            final selected = item.route == widget.activeRoute;
+            final selected = _isSelected(item);
             return Padding(
               padding: const EdgeInsets.symmetric(vertical: 3),
               child: _SidebarItem(
