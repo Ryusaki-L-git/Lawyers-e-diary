@@ -423,18 +423,11 @@ class _HeroPanel extends StatelessWidget {
               alignment: Alignment.centerRight,
               errorBuilder: (_, _, _) => const ColoredBox(color: Color(0xFF0B241A)),
             ),
-            DecoratedBox(
+            // A restrained solid veil keeps the editorial hero readable
+            // without introducing a gradient into the Windows visual system.
+            const DecoratedBox(
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.centerLeft,
-                  end: Alignment.centerRight,
-                  colors: [
-                    const Color(0xFF071D16).withValues(alpha: .98),
-                    const Color(0xFF071D16).withValues(alpha: .82),
-                    const Color(0xFF071D16).withValues(alpha: .10),
-                  ],
-                  stops: const [0, .55, 1],
-                ),
+                color: Color(0x99071D16),
               ),
             ),
             Padding(
@@ -680,18 +673,27 @@ class _WorkspacePanel extends StatelessWidget {
           child: Stack(fit: StackFit.expand, children: [
             Image.asset('assets/images/led_stay_focused.png', fit: BoxFit.cover,
               errorBuilder: (_, _, _) => const ColoredBox(color: Color(0xFF103426))),
-            DecoratedBox(decoration: BoxDecoration(gradient: LinearGradient(
-              begin: Alignment.bottomLeft, end: Alignment.topRight,
-              colors: [Colors.black.withValues(alpha: .75), Colors.transparent],
-            ))),
-            const Positioned(left: 14, bottom: 13, child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Stay focused. Stay prepared.', style: TextStyle(fontFamily: 'Palatino Linotype', fontStyle: FontStyle.italic, fontSize: 15, color: Colors.white)),
-                SizedBox(height: 3),
-                Text('Your work. Our priority.', style: TextStyle(fontSize: 10, color: Colors.white)),
-              ],
-            )),
+            const Positioned(
+              left: 10,
+              bottom: 10,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: Color(0xCC071D16),
+                  borderRadius: BorderRadius.all(Radius.circular(6)),
+                ),
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Stay focused. Stay prepared.', style: TextStyle(fontFamily: 'Palatino Linotype', fontStyle: FontStyle.italic, fontSize: 15, color: Colors.white)),
+                      SizedBox(height: 3),
+                      Text('Your work. Our priority.', style: TextStyle(fontSize: 10, color: Colors.white)),
+                    ],
+                  ),
+                ),
+              ),
+            ),
           ]),
         ),
       ),
