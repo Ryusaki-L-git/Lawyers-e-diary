@@ -486,7 +486,9 @@ abstract final class WindowsButtonStyles {
   static ButtonStyle ghost() {
     return TextButton.styleFrom(
       foregroundColor: AppPalette.primaryGreen,
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+      visualDensity: VisualDensity.compact,
+      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
       textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9)),
     );
@@ -519,7 +521,7 @@ abstract final class WindowsButtonStyles {
         padding: const EdgeInsets.symmetric(horizontal: 12),
         visualDensity: VisualDensity.compact,
         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-        textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+        textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(11)),
       );
     }
@@ -530,7 +532,7 @@ abstract final class WindowsButtonStyles {
       padding: const EdgeInsets.symmetric(horizontal: 12),
       visualDensity: VisualDensity.compact,
       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-      textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+      textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(11)),
     );
   }
