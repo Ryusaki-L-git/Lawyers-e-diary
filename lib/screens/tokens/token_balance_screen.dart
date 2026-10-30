@@ -499,7 +499,9 @@ class _TokenBalanceScreenState extends State<TokenBalanceScreen> {
                     .where((pack) => pack.tokenType == type)
                     .map(
                       (pack) => OutlinedButton(
-                        onPressed: _checkoutBusy ? null : () => _buyPack(pack),
+                        onPressed: _checkoutBusy || _pendingPaymentReference != null
+                            ? null
+                            : () => _buyPack(pack),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: AppPalette.primaryGreen,
                           side: const BorderSide(color: AppPalette.borderLight),
