@@ -242,6 +242,24 @@ void main() {
   });
 
   group('Windows desktop shell', () {
+    testWidgets('shows the shared workspace header on inner pages', (tester) async {
+      await pumpDesktop(tester, const SizedBox.shrink());
+      expect(find.text('Search cases, clients, matters…'), findsOneWidget);
+      expect(find.byTooltip('Notifications'), findsOneWidget);
+      expect(find.byTooltip('Profile'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('keeps the shared header within a compact desktop window', (tester) async {
+      await pumpDesktop(
+        tester,
+        const SizedBox.shrink(),
+        size: const Size(920, 640),
+      );
+      expect(find.text('Search cases, clients, matters…'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
     testWidgets('exposes the to-do entry point in the sidebar', (tester) async {
       await pumpDesktop(tester, const SizedBox.shrink());
 
