@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../models/case_model.dart';
@@ -9,6 +10,7 @@ import '../../services/firestore_service.dart';
 import '../../services/services_catalogue_service.dart';
 import '../../widgets/app_palette.dart';
 import '../../widgets/platform_app_bar.dart';
+import '../../widgets/windows_desktop_ui.dart';
 
 class ServicesCatalogueScreen extends StatefulWidget {
   const ServicesCatalogueScreen({super.key, this.caseItem});
@@ -323,6 +325,10 @@ class _ServicesCatalogueScreenState extends State<ServicesCatalogueScreen> {
       return matchesQuery && matchesFilter;
     }).toList();
 
+    if (defaultTargetPlatform == TargetPlatform.windows) {
+      return _buildWindowsCatalogue(visibleItems);
+    }
+
     return Scaffold(
       backgroundColor: AppPalette.canvas,
       appBar: PlatformAppBar(
@@ -532,4 +538,250 @@ class _ServicesCatalogueScreenState extends State<ServicesCatalogueScreen> {
       ),
     );
   }
+
+  Widget _buildWindowsCatalogue(List<ServiceCatalogueItem> visibleItems) {
+    return Scaffold(
+      backgroundColor: AppPalette.canvas,
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(30, 25, 30, 32),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              WindowsPageHeader(
+                eyebrow: 'INTELLIGENCE & SERVICES',
+                title: 'Service catalogue',
+                subtitle: 'Explore LED case services, availability and transparent Case Token pricing.',
+                actions: OutlinedButton.icon(
+                  onPressed: _loading || _executing ? null : _load,
+                  icon: const Icon(Icons.refresh_rounded, size: 18),
+                  label: const Text('Refresh'),
+                  style: WindowsButtonStyles.secondary(),
+                ),
+              ),
+              const SizedBox(height: 22),
+              TextField(
+                controller: _searchController,
+                onChanged: (_) => setState(() {}),
+                decoration: InputDecoration(
+                  hintText: 'Search services',
+                  prefixIcon: const Icon(Icons.search_rounded),
+                  suffixIcon: _searchController.text.isEmpty
+                      ? null
+                      : IconButton(
+                          tooltip: 'Clear search',
+                          onPressed: () {
+                            _searchController.clear();
+                            setState(() {});
+                          },
+                          icon: const Icon(Icons.close_rounded),
+                        ),
+                  filled: true,
+                  fillColor: AppPalette.cardBackground,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(13),
+                    borderSide: const BorderSide(color: AppPalette.borderLight),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(13),
+                    borderSide: const BorderSide(color: AppPalette.borderLight),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final option in const ['All', 'Available', 'Planned'])
+                    ChoiceChip(
+                      label: Text(option),
+                      selected: _filter == option,
+                      onSelected: (_) => setState(() => _filter = option),
+                      selectedColor: AppPalette.primaryGreen.withValues(alpha: 0.12),
+                      labelStyle: TextStyle(
+                        color: _filter == option
+                            ? AppPalette.primaryGreen
+                            : AppPalette.textMuted,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              Text(
+                '${visibleItems.length} services',
+                style: const TextStyle(
+                  color: AppPalette.textMuted,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 14),
+              if (_loading)
+                const WindowsLoadingPanel(label: 'Loading service catalogue')
+              else if (_error != null)
+                WindowsMessageState(
+                  icon: Icons.cloud_off_outlined,
+                  title: 'Catalogue unavailable',
+                  message: _error!,
+                  isError: true,
+                  action: OutlinedButton.icon(
+                    onPressed: _load,
+                    icon: const Icon(Icons.refresh_rounded),
+                    label: const Text('Try again'),
+                    style: WindowsButtonStyles.secondary(),
+                  ),
+                )
+              else if (_items.isEmpty)
+                const WindowsMessageState(
+                  icon: Icons.grid_view_rounded,
+                  title: 'No services available',
+                  message: 'Service actions will appear here when the gateway catalogue is available.',
+                )
+              else if (visibleItems.isEmpty)
+                const WindowsMessageState(
+                  icon: Icons.search_off_rounded,
+                  title: 'No matching services',
+                  message: 'Try another search term or change the availability filter.',
+                )
+              else
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final columns = constraints.maxWidth >= 1120
+                        ? 3
+                        : constraints.maxWidth >= 720
+                            ? 2
+                            : 1;
+                    return GridView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: columns,
+                        crossAxisSpacing: 14,
+                        mainAxisSpacing: 14,
+                        mainAxisExtent: 218,
+                      ),
+                      itemCount: visibleItems.length,
+                      itemBuilder: (context, index) {
+                        final item = visibleItems[index];
+                        return WindowsPanel(
+                          padding: const EdgeInsets.all(18),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      item.displayName,
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        color: AppPalette.textPrimary,
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w800,
+                                        height: 1.3,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  WindowsStatusChip(
+                                    label: item.available ? 'AVAILABLE' : 'PLANNED',
+                                    color: item.available
+                                        ? AppPalette.statusSuccess
+                                        : AppPalette.textMuted,
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 10),
+                              Expanded(
+                                child: Text(
+                                  item.description,
+                                  maxLines: 3,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    color: AppPalette.textMuted,
+                                    fontSize: 12,
+                                    height: 1.45,
+                                  ),
+                                ),
+                              ),
+                              const Divider(height: 18, color: AppPalette.borderLight),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          item.tokenPrice == null
+                                              ? 'Pricing pending'
+                                              : '${item.tokenPrice} Case Tokens',
+                                          style: TextStyle(
+                                            color: item.tokenPrice == null
+                                                ? AppPalette.textMuted
+                                                : AppPalette.primaryGreen,
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w800,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 3),
+                                        Text(
+                                          item.billingUnit,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(
+                                            color: AppPalette.textMuted,
+                                            fontSize: 10,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  FilledButton.icon(
+                                    onPressed: item.available && !_executing
+                                        ? () => _runService(item)
+                                        : null,
+                                    icon: _executing
+                                        ? const SizedBox(
+                                            width: 14,
+                                            height: 14,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                            ),
+                                          )
+                                        : Icon(
+                                            item.available
+                                                ? Icons.play_arrow_rounded
+                                                : Icons.lock_outline_rounded,
+                                            size: 16,
+                                          ),
+                                    label: Text(
+                                      item.available ? 'Run' : 'Planned',
+                                    ),
+                                    style: FilledButton.styleFrom(
+                                      backgroundColor: AppPalette.primaryGreen,
+                                      foregroundColor: Colors.white,
+                                      disabledBackgroundColor: AppPalette.borderLight,
+                                      disabledForegroundColor: AppPalette.textMuted,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    );
+                  },
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
 }
