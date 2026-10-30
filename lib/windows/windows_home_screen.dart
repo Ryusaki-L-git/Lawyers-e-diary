@@ -418,114 +418,116 @@ class _CommandPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(24, 22, 24, 22),
-      decoration: BoxDecoration(
-        color: AppPalette.primaryGreen,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppPalette.onForestBorder),
-      ),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final stacked = constraints.maxWidth < 720;
-
-          final identity = Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Icon(
-                Icons.balance_rounded,
-                color: AppPalette.accentGold,
-                size: 28,
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Your legal command center',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontFamily: AppTypography.heading,
-                        fontSize: 19,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 5),
-                    const Text(
-                      'Search your register, then move straight into the '
-                      'docket or the hearing calendar.',
-                      style: TextStyle(
-                        color: AppPalette.onForestMuted,
-                        fontSize: 12,
-                        height: 1.45,
-                      ),
-                    ),
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(18),
+      child: Container(
+        constraints: const BoxConstraints(minHeight: 250),
+        decoration: BoxDecoration(
+          color: AppPalette.primaryGreen,
+          border: Border.all(color: AppPalette.onForestBorder),
+          borderRadius: BorderRadius.circular(18),
+        ),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            Image.asset(
+              'assets/images/Statue.png',
+              fit: BoxFit.contain,
+              alignment: Alignment.centerRight,
+              errorBuilder: (_, _, _) => const SizedBox.shrink(),
+            ),
+            DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.centerLeft,
+                  end: Alignment.centerRight,
+                  colors: [
+                    AppPalette.primaryGreen.withValues(alpha: 0.98),
+                    AppPalette.primaryGreen.withValues(alpha: 0.82),
+                    AppPalette.primaryGreen.withValues(alpha: 0.20),
                   ],
+                  stops: const [0.0, 0.52, 1.0],
                 ),
               ),
-            ],
-          );
-
-          final actions = Wrap(
-            spacing: 9,
-            runSpacing: 9,
-            children: [
-              FilledButton(
-                onPressed: onDocket,
-                style: WindowsButtonStyles.onForest(filled: true),
-                child: const Text('View docket'),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(28, 24, 28, 24),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final compact = constraints.maxWidth < 650;
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Text(
+                        'YOUR PRACTICE. IN COMMAND.',
+                        style: TextStyle(
+                          color: AppPalette.accentGold,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 2.8,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        'A clearer view of justice.',
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontFamily: AppTypography.heading,
+                          fontSize: compact ? 27 : 34,
+                          fontWeight: FontWeight.w700,
+                          height: 1.08,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      const Text(
+                        'Your matters, hearings and deadlines — together in one place.',
+                        maxLines: 2,
+                        style: TextStyle(
+                          color: AppPalette.onForestMuted,
+                          fontSize: 12,
+                          height: 1.5,
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      Wrap(
+                        spacing: 10,
+                        runSpacing: 10,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          SizedBox(
+                            width: compact ? constraints.maxWidth : 340,
+                            child: WindowsSearchField(
+                              controller: search,
+                              hint: 'Search cases, clients, matters…',
+                              onDark: true,
+                              width: double.infinity,
+                              onSubmitted: (_) => onSearch(),
+                            ),
+                          ),
+                          FilledButton.icon(
+                            onPressed: onDocket,
+                            style: WindowsButtonStyles.onForest(filled: true),
+                            icon: const Icon(Icons.folder_open_outlined, size: 17),
+                            label: const Text('Open docket'),
+                          ),
+                          OutlinedButton.icon(
+                            onPressed: onCalendar,
+                            style: WindowsButtonStyles.onForest(),
+                            icon: const Icon(Icons.calendar_month_outlined, size: 17),
+                            label: const Text('Hearings'),
+                          ),
+                        ],
+                      ),
+                    ],
+                  );
+                },
               ),
-              OutlinedButton(
-                onPressed: onCalendar,
-                style: WindowsButtonStyles.onForest(),
-                child: const Text('Calendar'),
-              ),
-            ],
-          );
-
-          if (stacked) {
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                identity,
-                const SizedBox(height: 18),
-                WindowsSearchField(
-                  controller: search,
-                  hint: 'Search a matter, client or case number',
-                  onDark: true,
-                  width: double.infinity,
-                  onSubmitted: (_) => onSearch(),
-                ),
-                const SizedBox(height: 16),
-                actions,
-              ],
-            );
-          }
-
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              identity,
-              const SizedBox(height: 18),
-              Row(
-                children: [
-                  Flexible(
-                    child: WindowsSearchField(
-                      controller: search,
-                      hint: 'Search a matter, client or case number',
-                      onDark: true,
-                      onSubmitted: (_) => onSearch(),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  actions,
-                ],
-              ),
-            ],
-          );
-        },
+            ),
+          ],
+        ),
       ),
     );
   }
