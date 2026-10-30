@@ -183,6 +183,10 @@ class WindowsDeletedCasesScreen extends StatelessWidget {
                                   ),
                                 ),
                                 const SizedBox(width: 10),
+                                Wrap(
+                                  spacing: 8,
+                                  runSpacing: 8,
+                                  children: [
                                 OutlinedButton.icon(
                                   onPressed: () => Navigator.of(context).push(
                                     MaterialPageRoute<void>(
@@ -236,6 +240,8 @@ class WindowsDeletedCasesScreen extends StatelessWidget {
                                   ),
                                   label: const Text('Restore'),
                                   style: WindowsButtonStyles.primary(),
+                                ),
+                                  ],
                                 ),
                               ],
                             ),
