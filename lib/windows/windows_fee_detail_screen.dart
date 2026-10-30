@@ -232,108 +232,131 @@ class _WindowsFeeDetailScreenState extends State<WindowsFeeDetailScreen> {
   }
 
   Widget _balances(FeeModel fee) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _balanceTile('AGREED', fee.agreedTotal, AppPalette.textPrimary),
-        const SizedBox(width: 12),
-        _balanceTile('COLLECTED', fee.collectedTotal, AppPalette.statusSuccess),
-        const SizedBox(width: 12),
-        _balanceTile(
-          'OUTSTANDING',
-          fee.pendingTotal,
-          fee.pendingTotal > 0
-              ? AppPalette.statusDanger
-              : AppPalette.statusSuccess,
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          flex: 2,
-          child: Container(
-            padding: const EdgeInsets.all(18),
-            decoration: BoxDecoration(
-              color: AppPalette.cardBackground,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: AppPalette.borderLight),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'STATUS',
-                  style: TextStyle(
-                    color: AppPalette.textMuted,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 1,
-                  ),
-                ),
-                const SizedBox(height: 9),
-                Row(
-                  children: [
-                    Container(
-                      width: 9,
-                      height: 9,
-                      decoration: BoxDecoration(
-                        color: fee.status == FeeStatus.settled
-                            ? AppPalette.statusSuccess
-                            : AppPalette.statusWarning,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      fee.status.label,
-                      style: const TextStyle(
-                        color: AppPalette.textPrimary,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+    final tiles = <Widget>[
+      _balanceTile('AGREED', fee.agreedTotal, AppPalette.textPrimary),
+      _balanceTile('COLLECTED', fee.collectedTotal, AppPalette.statusSuccess),
+      _balanceTile(
+        'OUTSTANDING',
+        fee.pendingTotal,
+        fee.pendingTotal > 0
+            ? AppPalette.statusDanger
+            : AppPalette.statusSuccess,
+      ),
+      _statusTile(fee),
+    ];
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth < 820) {
+          final tileWidth = (constraints.maxWidth - 12) / 2;
+          return Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            children: [
+              for (final tile in tiles)
+                SizedBox(width: tileWidth, child: tile),
+            ],
+          );
+        }
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            for (var i = 0; i < 3; i++) ...[
+              Expanded(child: tiles[i]),
+              const SizedBox(width: 12),
+            ],
+            Expanded(flex: 2, child: tiles[3]),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _statusTile(FeeModel fee) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: AppPalette.cardBackground,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppPalette.borderLight),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'STATUS',
+            style: TextStyle(
+              color: AppPalette.textMuted,
+              fontSize: 10,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 1,
             ),
           ),
-        ),
-      ],
+          const SizedBox(height: 9),
+          Row(
+            children: [
+              Container(
+                width: 9,
+                height: 9,
+                decoration: BoxDecoration(
+                  color: fee.status == FeeStatus.settled
+                      ? AppPalette.statusSuccess
+                      : AppPalette.statusWarning,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  fee.status.label,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: AppPalette.textPrimary,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
   Widget _balanceTile(String label, double amount, Color color) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.all(18),
-        decoration: BoxDecoration(
-          color: AppPalette.cardBackground,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: AppPalette.borderLight),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              label,
-              style: const TextStyle(
-                color: AppPalette.textMuted,
-                fontSize: 10,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 1,
-              ),
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: AppPalette.cardBackground,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppPalette.borderLight),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              color: AppPalette.textMuted,
+              fontSize: 10,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 1,
             ),
-            const SizedBox(height: 9),
-            Text(
-              '₹ ${_money.format(amount)}',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: color,
-                fontSize: 21,
-                fontWeight: FontWeight.w800,
-              ),
+          ),
+          const SizedBox(height: 9),
+          Text(
+            '₹ ${_money.format(amount)}',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: color,
+              fontSize: 21,
+              fontWeight: FontWeight.w800,
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
