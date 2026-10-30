@@ -269,7 +269,7 @@ class _WindowsDesktopShellState extends State<WindowsDesktopShell> {
             children: [
               Text('“Justice is not\njust a word,\nit’s a commitment.”',
                 style: TextStyle(fontFamily: 'Palatino Linotype', fontStyle: FontStyle.italic,
-                  color: Colors.white, fontSize: 17, height: 1.35)),
+                  color: Colors.white, fontSize: 15, height: 1.3)),
               SizedBox(height: 10),
               SizedBox(width: 30, child: Divider(color: WindowsDesktopShell.gold, thickness: 2)),
             ],
@@ -331,7 +331,7 @@ class _SidebarItem extends StatelessWidget {
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 170),
               curve: Curves.easeOutCubic,
-              height: 42,
+              height: 44,
               padding: EdgeInsets.symmetric(horizontal: collapsed ? 0 : 14),
               alignment: collapsed ? Alignment.center : null,
               decoration: BoxDecoration(
