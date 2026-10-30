@@ -435,7 +435,7 @@ class _TokenBalanceScreenState extends State<TokenBalanceScreen> {
             : 'JURIS Credits';
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('${result.creditedUnits} ${balanceName} added after server confirmation.'),
+            content: Text('${result.creditedUnits} $balanceName added after server confirmation.'),
           ),
         );
       } else {
