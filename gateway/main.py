@@ -65,6 +65,7 @@ if __package__:
     from .led_id import allocate_led_id
     from .token_billing import InsufficientCaseTokens, TokenBillingConflict, consume_case_tokens, refund_case_tokens
     from .team_pool_api import make_router as make_team_pool_router
+    from .payments import router as payments_router
     from .team_pool_billing import BillingSourceChoiceRequired, InsufficientCombinedCaseTokens, InsufficientTeamAllocation, InsufficientTeamPool, TeamBillingConflict, consume_case_tokens_with_preference, refund_case_charge
     from .provider import EcourtsProvider, EcourtsProviderError
     from .rate_limiter import (
@@ -88,6 +89,7 @@ else:
     from led_id import allocate_led_id
     from token_billing import InsufficientCaseTokens, TokenBillingConflict, consume_case_tokens, refund_case_tokens
     from team_pool_api import make_router as make_team_pool_router
+    from payments import router as payments_router
     from team_pool_billing import BillingSourceChoiceRequired, InsufficientCombinedCaseTokens, InsufficientTeamAllocation, InsufficientTeamPool, TeamBillingConflict, consume_case_tokens_with_preference, refund_case_charge
     from provider import EcourtsProvider, EcourtsProviderError
     from rate_limiter import (
@@ -132,6 +134,7 @@ def get_db():
 
 
 app.include_router(make_team_pool_router(get_db))
+app.include_router(payments_router)
 
 
 @app.get("/healthz")
