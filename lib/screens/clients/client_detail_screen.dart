@@ -210,8 +210,15 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
         ],
       ),
       body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: defaultTargetPlatform == TargetPlatform.windows
+                  ? 1080
+                  : double.infinity,
+            ),
+            child: ListView(
+          padding: const EdgeInsets.fromLTRB(28, 18, 28, 32),
           children: [
             // Profile Card Header
             Container(
@@ -390,6 +397,8 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
                     ),
             ),
           ],
+            ),
+          ),
         ),
       ),
     );
