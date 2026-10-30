@@ -695,7 +695,8 @@ class _ServicesCatalogueScreenState extends State<ServicesCatalogueScreen> {
                                 ],
                               ),
                               const SizedBox(height: 10),
-                              Expanded(
+                              SizedBox(
+                                height: 54,
                                 child: Text(
                                   item.description,
                                   maxLines: 3,
