@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../services/team_service.dart';
@@ -76,8 +77,15 @@ class _CreateTeamScreenState extends State<CreateTeamScreen> {
         onBack: () => Navigator.of(context).pop(),
       ),
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: defaultTargetPlatform == TargetPlatform.windows
+                  ? 900
+                  : double.infinity,
+            ),
+            child: SingleChildScrollView(
+          padding: const EdgeInsets.all(28),
           child: Form(
             key: _formKey,
             child: Column(
@@ -257,6 +265,7 @@ class _CreateTeamScreenState extends State<CreateTeamScreen> {
                   ),
                 ),
               ],
+            ),
             ),
           ),
         ),
