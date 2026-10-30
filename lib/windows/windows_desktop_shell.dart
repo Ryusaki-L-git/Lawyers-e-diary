@@ -85,6 +85,7 @@ class _WindowsDesktopShellState extends State<WindowsDesktopShell> {
     }
     if (item.route == '/fee') return route == '/record_payment';
     if (item.route == '/team') return route == '/transfer_case';
+    if (item.route == '/services') return route == '/token_balance';
     if (item.route == '/settings') {
       return const {
         '/security',
