@@ -6,18 +6,13 @@ import '../data/local/app_database.dart';
 import '../models/case_model.dart';
 import '../models/reminder_model.dart';
 import '../repositories/case_repository.dart';
-import '../services/firestore_service.dart';
 import '../services/case_sync_service.dart';
+import '../services/firestore_service.dart';
 import '../widgets/app_palette.dart';
 import '../widgets/windows_desktop_ui.dart';
 import 'windows_desktop_shell.dart';
 
-/// Desktop-first legal command center.
-///
-/// Every figure and row on this screen comes from the signed-in user's own
-/// authorised sources: the local case register for matters and hearings, and
-/// the user-scoped reminders collection for deadlines. Nothing is mocked and
-/// no counts are invented.
+/// Windows home workspace styled to match the supplied legal editorial reference.
 class WindowsHomeScreen extends StatefulWidget {
   const WindowsHomeScreen({super.key});
 
@@ -27,18 +22,14 @@ class WindowsHomeScreen extends StatefulWidget {
 
 class _WindowsHomeScreenState extends State<WindowsHomeScreen> {
   final _search = TextEditingController();
-  final _repository = CaseRepository(database: AppDatabase.instance);
-  bool _syncingCases = false;
+  final _cases = CaseRepository(database: AppDatabase.instance);
+  final _firestore = FirestoreService();
+  bool _syncing = false;
 
   @override
   void initState() {
     super.initState();
-    // Windows uses a local-first case register. Reconcile its pending changes
-    // and pull the user's cloud cases after the workspace first renders so
-    // JURIS and Smart Refresh can use authorized, synchronized case records.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _syncCases(showResult: false);
-    });
+    WidgetsBinding.instance.addPostFrameCallback((_) => _sync(false));
   }
 
   @override
@@ -47,88 +38,62 @@ class _WindowsHomeScreenState extends State<WindowsHomeScreen> {
     super.dispose();
   }
 
-  Future<void> _syncCases({bool showResult = true}) async {
-    if (_syncingCases || FirebaseAuth.instance.currentUser == null) return;
-    setState(() => _syncingCases = true);
+  Future<void> _sync([bool notify = true]) async {
+    if (_syncing || FirebaseAuth.instance.currentUser == null) return;
+    setState(() => _syncing = true);
     try {
       final result = await CaseSyncEngine(
-        repository: _repository,
+        repository: _cases,
         dataSource: FirestoreCaseSyncDataSource(),
       ).sync();
       if (!mounted) return;
-
-      final hasChanges = result.uploaded > 0 || result.downloaded > 0;
-      final hasIssues = result.failed > 0 ||
-          result.conflicts > 0 ||
-          result.rejected > 0 ||
-          result.pullError != null;
-      if (showResult || hasIssues) {
-        final message = hasIssues
-            ? 'Case sync finished with issues: '
-                '${result.uploaded} uploaded, ${result.downloaded} downloaded, '
-                '${result.conflicts} conflicts, ${result.failed} failed.'
-            : hasChanges
-            ? 'Cases synchronized: ${result.uploaded} uploaded, '
-                '${result.downloaded} downloaded.'
-            : 'Cases are already synchronized.';
+      final issue = result.failed > 0 || result.conflicts > 0 ||
+          result.rejected > 0 || result.pullError != null;
+      if (notify || issue) {
+        final message = issue
+            ? 'Sync completed with issues: ' + result.uploaded.toString() +
+                ' uploaded, ' + result.downloaded.toString() + ' downloaded.'
+            : result.uploaded + result.downloaded > 0
+                ? 'Workspace synchronized successfully.'
+                : 'Your workspace is already up to date.';
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              result.pullError == null
-                  ? message
-                  : '$message Cloud pull: ${result.pullError}',
-            ),
-          ),
+          SnackBar(content: Text(message)),
         );
       }
     } catch (error) {
-      // A failed automatic sync must be visible too: otherwise a user may
-      // assume a local-only case is available to cloud-backed services.
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Case sync unavailable: $error')),
+          SnackBar(content: Text('Could not synchronize cases: ' + error.toString())),
         );
       }
     } finally {
-      if (mounted) setState(() => _syncingCases = false);
+      if (mounted) setState(() => _syncing = false);
     }
   }
 
-  /// Hands the typed query to the dedicated search surface.
-  ///
-  /// The search screen already filters the user's own case register, so the
-  /// workspace passes the term across instead of duplicating the filtering
-  /// here.
+  void _go(String route) => Navigator.of(context).pushNamed(route);
+
   void _runSearch() {
     final query = _search.text.trim();
-    if (query.isEmpty) return;
-    Navigator.of(context).pushNamed('/search_cases', arguments: query);
+    if (query.isNotEmpty) {
+      Navigator.of(context).pushNamed('/search_cases', arguments: query);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    // The authentication lookup is guarded so that a session that cannot be
-    // resolved degrades to the signed-out workspace instead of taking the
-    // whole window down.
     User? user;
     try {
       user = FirebaseAuth.instance.currentUser;
-    } catch (_) {
-      user = null;
-    }
-
+    } catch (_) {}
     if (user == null) {
       return const Scaffold(
         backgroundColor: WindowsDesktopShell.canvas,
-        body: SafeArea(
-          child: Center(
-            child: WindowsMessageState(
-              icon: Icons.lock_outline_rounded,
-              title: 'Sign in to open your workspace',
-              message:
-                  'Your matters, hearings and reminders stay scoped to your '
-                  'account.',
-            ),
+        body: Center(
+          child: WindowsMessageState(
+            icon: Icons.lock_outline_rounded,
+            title: 'Sign in to open your workspace',
+            message: 'Your matters, hearings and reminders stay scoped to your account.',
           ),
         ),
       );
@@ -136,255 +101,154 @@ class _WindowsHomeScreenState extends State<WindowsHomeScreen> {
 
     final name = (user.displayName ?? '').trim().isNotEmpty
         ? user.displayName!.trim()
-        : ((user.email ?? '').split('@').first);
-
+        : (user.email ?? 'Advocate').split('@').first;
     final now = DateTime.now();
-    final hour = now.hour;
-    final greeting = hour < 12
-        ? 'Good morning'
-        : hour < 17
-        ? 'Good afternoon'
-        : 'Good evening';
-
-    final dateLabel = DateFormat('EEEE, d MMMM yyyy').format(now).toUpperCase();
+    final greeting = now.hour < 12
+        ? 'GOOD MORNING'
+        : now.hour < 17
+            ? 'GOOD AFTERNOON'
+            : 'GOOD EVENING';
 
     return Scaffold(
-      backgroundColor: WindowsDesktopShell.canvas,
+      backgroundColor: const Color(0xFFF7F5F1),
       body: SafeArea(
         child: StreamBuilder<List<CaseModel>>(
-          stream: _repository.watchCasesForCurrentUser(),
-          builder: (context, snapshot) {
-            final cases = snapshot.data ?? const <CaseModel>[];
+          stream: _cases.watchCasesForCurrentUser(),
+          builder: (context, caseSnapshot) {
+            final all = caseSnapshot.data ?? const <CaseModel>[];
             final today = DateTime(now.year, now.month, now.day);
             final tomorrow = today.add(const Duration(days: 1));
-            final horizon = today.add(const Duration(days: 14));
+            final live = all.where((c) => !c.isDeleted && !c.isCompleted).toList();
+            final todayCases = live.where((c) {
+              final d = c.nextHearingDate;
+              return d != null && !d.isBefore(today) && d.isBefore(tomorrow);
+            }).toList()
+              ..sort((a, b) => a.nextHearingDate!.compareTo(b.nextHearingDate!));
+            final upcoming = live.where((c) {
+              final d = c.nextHearingDate;
+              return d != null && !d.isBefore(tomorrow) &&
+                  d.isBefore(today.add(const Duration(days: 15)));
+            }).toList()
+              ..sort((a, b) => a.nextHearingDate!.compareTo(b.nextHearingDate!));
 
-            final live = cases
-                .where((item) => !item.isDeleted && !item.isCompleted)
-                .toList();
-
-            final hearings = live
-                .where((item) {
-                  final date = item.nextHearingDate;
-                  return date != null &&
-                      !date.isBefore(today) &&
-                      date.isBefore(tomorrow);
-                })
-                .toList()
-              ..sort(
-                (a, b) => a.nextHearingDate!.compareTo(b.nextHearingDate!),
-              );
-
-            final upcoming = live
-                .where((item) {
-                  final date = item.nextHearingDate;
-                  return date != null &&
-                      !date.isBefore(tomorrow) &&
-                      date.isBefore(horizon);
-                })
-                .toList()
-              ..sort(
-                (a, b) => a.nextHearingDate!.compareTo(b.nextHearingDate!),
-              );
-
-            final active = live.length;
-            final urgent = live.where((c) => c.isUrgent).length;
-            final starred = live.where((c) => c.isStarred).length;
-
-            final recent = [...cases]
-              ..sort(
-                (a, b) => (b.updatedAt ?? DateTime(2000)).compareTo(
-                  a.updatedAt ?? DateTime(2000),
-                ),
-              );
-
-            return LayoutBuilder(
-              builder: (context, constraints) {
-                final breakpoint = WindowsLayout.breakpointOf(
-                  constraints.maxWidth,
-                );
-                final gutters = breakpoint.isCompact ? 20.0 : 30.0;
-
-                // The stat tiles sit inside the page gutters, so the width
-                // available to them is the content width, not the full
-                // window width. Measuring the wrong one is what makes a
-                // four-column row wrap after three tiles.
-                final contentWidth = constraints.maxWidth - gutters * 2;
-                final columns = WindowsLayout.statColumnsOf(contentWidth);
-
-                return SingleChildScrollView(
-                  padding: EdgeInsets.fromLTRB(
-                    gutters,
-                    26,
-                    gutters,
-                    34,
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      WindowsPageHeader(
-                        eyebrow: dateLabel,
-                        title:
-                            '$greeting, ${name.isEmpty ? 'Counsel' : name}',
-                        subtitle: 'Your practice, clearly in view.',
-                        actions: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            IconButton(
-                              tooltip: _syncingCases
-                                  ? 'Synchronizing cases'
-                                  : 'Synchronize cases',
-                              onPressed: _syncingCases
-                                  ? null
-                                  : () => _syncCases(),
-                              icon: _syncingCases
-                                  ? const SizedBox(
-                                      width: 18,
-                                      height: 18,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
+            return StreamBuilder<List<ReminderModel>>(
+              stream: _firestore.watchReminders(),
+              builder: (context, reminderSnapshot) {
+                final reminders = (reminderSnapshot.data ?? const <ReminderModel>[])
+                    .where((r) => !r.isCompleted).toList()
+                  ..sort((a, b) => a.dueDateTime.compareTo(b.dueDateTime));
+                return Column(
+                  children: [
+                    _TopBar(
+                      controller: _search,
+                      user: user!,
+                      syncing: _syncing,
+                      onSearch: _runSearch,
+                      onSync: () => _sync(),
+                      onNotifications: () => _go('/notifications'),
+                      onProfile: () => _go('/profile'),
+                    ),
+                    Expanded(
+                      child: LayoutBuilder(
+                        builder: (context, constraints) {
+                          final compact = constraints.maxWidth < 1120;
+                          final narrow = constraints.maxWidth < 820;
+                          final gutter = narrow ? 14.0 : 16.0;
+                          return SingleChildScrollView(
+                            padding: EdgeInsets.fromLTRB(gutter, 12, gutter, 22),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _HeroPanel(
+                                  greeting: greeting,
+                                  name: name,
+                                  date: DateFormat('EEEE, d MMMM yyyy').format(now),
+                                ),
+                                const SizedBox(height: 12),
+                                const _SectionHeading(
+                                  title: 'Quick Actions',
+                                  subtitle: 'Access your most-used features',
+                                ),
+                                const SizedBox(height: 9),
+                                _QuickActions(compact: narrow, onTap: _go),
+                                const SizedBox(height: 12),
+                                if (caseSnapshot.hasError)
+                                  _Notice('The case register could not be loaded: ' + caseSnapshot.error.toString()),
+                                if (reminderSnapshot.hasError)
+                                  _Notice('Reminders could not be loaded: ' + reminderSnapshot.error.toString()),
+                                if (compact) ...[
+                                  _SchedulePanel(cases: todayCases, upcoming: upcoming, onCalendar: () => _go('/calendar')),
+                                  const SizedBox(height: 12),
+                                  _WorkspacePanel(
+                                    active: live.length,
+                                    hearings: upcoming.length,
+                                    reminders: reminders.length,
+                                    onTap: _go,
+                                  ),
+                                  const SizedBox(height: 12),
+                                  _RightRail(
+                                    now: now,
+                                    reminders: reminders,
+                                    onCalendar: () => _go('/calendar'),
+                                    onReminders: () => _go('/reminders'),
+                                  ),
+                                ] else Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Expanded(
+                                      flex: 5,
+                                      child: _SchedulePanel(
+                                        cases: todayCases,
+                                        upcoming: upcoming,
+                                        onCalendar: () => _go('/calendar'),
                                       ),
-                                    )
-                                  : const Icon(Icons.sync_rounded),
-                              style: IconButton.styleFrom(
-                                foregroundColor: AppPalette.primaryGreen,
-                                backgroundColor: AppPalette.cardBackground,
-                                side: const BorderSide(
-                                  color: AppPalette.borderLight,
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      flex: 4,
+                                      child: _WorkspacePanel(
+                                        active: live.length,
+                                        hearings: upcoming.length,
+                                        reminders: reminders.length,
+                                        onTap: _go,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    SizedBox(
+                                      width: constraints.maxWidth < 1350 ? 220 : 250,
+                                      child: _RightRail(
+                                        now: now,
+                                        reminders: reminders,
+                                        onCalendar: () => _go('/calendar'),
+                                        onReminders: () => _go('/reminders'),
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(11),
+                                const SizedBox(height: 12),
+                                _MetricsStrip(
+                                  active: live.length,
+                                  hearings: upcoming.length,
+                                  urgent: live.where((c) => c.isUrgent).length,
+                                  starred: live.where((c) => c.isStarred).length,
+                                  onTap: _go,
                                 ),
-                                minimumSize: const Size(44, 44),
-                              ),
+                                if (caseSnapshot.connectionState == ConnectionState.waiting &&
+                                    !caseSnapshot.hasData)
+                                  const Padding(
+                                    padding: EdgeInsets.only(top: 10),
+                                    child: LinearProgressIndicator(
+                                      minHeight: 2,
+                                      color: AppPalette.accentGold,
+                                    ),
+                                  ),
+                              ],
                             ),
-                            const SizedBox(width: 10),
-                            IconButton(
-                              tooltip: 'Notifications',
-                              onPressed: () => Navigator.of(
-                                context,
-                              ).pushNamed('/notifications'),
-                              icon: const Icon(Icons.notifications_none_rounded),
-                              style: IconButton.styleFrom(
-                                foregroundColor: AppPalette.primaryGreen,
-                                backgroundColor: AppPalette.cardBackground,
-                                side: const BorderSide(
-                                  color: AppPalette.borderLight,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(11),
-                                ),
-                                minimumSize: const Size(44, 44),
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            FilledButton.icon(
-                              onPressed: () => Navigator.of(
-                                context,
-                              ).pushNamed('/add_case'),
-                              icon: const Icon(Icons.add_rounded, size: 18),
-                              label: const Text('New case'),
-                              style: WindowsButtonStyles.primary(),
-                            ),
-                          ],
-                        ),
+                          );
+                        },
                       ),
-                      const SizedBox(height: 22),
-                      _CommandPanel(
-                        search: _search,
-                        onSearch: _runSearch,
-                        onDocket: () => Navigator.of(
-                          context,
-                        ).pushNamed('/cases'),
-                        onCalendar: () => Navigator.of(
-                          context,
-                        ).pushNamed('/calendar'),
-                      ),
-                      const SizedBox(height: 18),
-                      const WindowsSectionHeading('Quick actions'),
-                      const SizedBox(height: 12),
-                      const _PrimaryQuickActions(),
-                      const SizedBox(height: 22),
-                      if (snapshot.hasError)
-                        _ErrorNotice(
-                          message:
-                              'The case register could not be loaded: '
-                              '${snapshot.error}',
-                        ),
-                      if (snapshot.connectionState == ConnectionState.waiting &&
-                          !snapshot.hasData)
-                        const LinearProgressIndicator(
-                          minHeight: 2,
-                          color: AppPalette.accentGold,
-                        ),
-                      const SizedBox(height: 18),
-                      Wrap(
-                        spacing: 14,
-                        runSpacing: 14,
-                        children: [
-                          WindowsStatTile(
-                            title: 'Active matters',
-                            value: active.toString(),
-                            caption: 'Your current docket',
-                            icon: Icons.folder_open_outlined,
-                            color: AppPalette.primaryGreen,
-                            width: _tileWidth(contentWidth, columns),
-                            onTap: () => Navigator.of(
-                              context,
-                            ).pushNamed('/cases'),
-                          ),
-                          WindowsStatTile(
-                            title: "Today's hearings",
-                            value: hearings.length.toString(),
-                            caption: 'Scheduled for today',
-                            icon: Icons.calendar_today_outlined,
-                            color: AppPalette.statusWarningDark,
-                            width: _tileWidth(contentWidth, columns),
-                            onTap: () => Navigator.of(
-                              context,
-                            ).pushNamed('/calendar'),
-                          ),
-                          WindowsStatTile(
-                            title: 'Urgent matters',
-                            value: urgent.toString(),
-                            caption: 'Marked for attention',
-                            icon: Icons.priority_high_rounded,
-                            color: AppPalette.statusDanger,
-                            width: _tileWidth(contentWidth, columns),
-                            onTap: () => Navigator.of(
-                              context,
-                            ).pushNamed(
-                              '/cases',
-                            ),
-                          ),
-                          WindowsStatTile(
-                            title: 'Starred cases',
-                            value: starred.toString(),
-                            caption: 'Quick-access matters',
-                            icon: Icons.star_outline_rounded,
-                            color: AppPalette.statusSuccess,
-                            width: _tileWidth(contentWidth, columns),
-                            onTap: () => Navigator.of(
-                              context,
-                            ).pushNamed('/starred'),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 26),
-                      _WorkspaceGrid(
-                        breakpoint: breakpoint,
-                        hearings: hearings,
-                        upcoming: upcoming,
-                        recent: recent,
-                        loading:
-                            snapshot.connectionState == ConnectionState.waiting,
-                      ),
-                      const SizedBox(height: 26),
-                      const WindowsSectionHeading('Explore your workspace'),
-                      const SizedBox(height: 13),
-                      const _QuickAccessRow(),
-                    ],
-                  ),
+                    ),
+                  ],
                 );
               },
             );
@@ -393,847 +257,600 @@ class _WindowsHomeScreenState extends State<WindowsHomeScreen> {
       ),
     );
   }
-
-  /// The width of one stat tile in a wrap of [columns] columns.
-  static double _tileWidth(double available, int columns) {
-    if (columns <= 1) return available;
-    return (available - 14 * (columns - 1)) / columns;
-  }
 }
 
-/// The forest green command panel that carries the workspace search and the
-/// two destinations that matter most: the docket and the calendar.
-class _CommandPanel extends StatelessWidget {
-  const _CommandPanel({
-    required this.search,
+class _TopBar extends StatelessWidget {
+  const _TopBar({
+    required this.controller,
+    required this.user,
+    required this.syncing,
     required this.onSearch,
-    required this.onDocket,
-    required this.onCalendar,
+    required this.onSync,
+    required this.onNotifications,
+    required this.onProfile,
   });
-
-  final TextEditingController search;
+  final TextEditingController controller;
+  final User user;
+  final bool syncing;
   final VoidCallback onSearch;
-  final VoidCallback onDocket;
-  final VoidCallback onCalendar;
+  final VoidCallback onSync;
+  final VoidCallback onNotifications;
+  final VoidCallback onProfile;
 
   @override
   Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(18),
-      child: Container(
-        constraints: const BoxConstraints(minHeight: 250),
-        decoration: BoxDecoration(
-          color: AppPalette.primaryGreen,
-          border: Border.all(color: AppPalette.onForestBorder),
-          borderRadius: BorderRadius.circular(18),
-        ),
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            Image.asset(
-              'assets/images/Statue.png',
-              fit: BoxFit.contain,
-              alignment: Alignment.centerRight,
-              errorBuilder: (_, _, _) => const SizedBox.shrink(),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(28, 24, 28, 24),
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final compact = constraints.maxWidth < 650;
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Text(
-                        'YOUR PRACTICE. IN COMMAND.',
-                        style: TextStyle(
-                          color: AppPalette.accentGold,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 2.8,
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      Text(
-                        'A clearer view of justice.',
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontFamily: AppTypography.heading,
-                          fontSize: compact ? 27 : 34,
-                          fontWeight: FontWeight.w700,
-                          height: 1.08,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      const Text(
-                        'Your matters, hearings and deadlines — together in one place.',
-                        maxLines: 2,
-                        style: TextStyle(
-                          color: AppPalette.onForestMuted,
-                          fontSize: 12,
-                          height: 1.5,
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                      Wrap(
-                        spacing: 10,
-                        runSpacing: 10,
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        children: [
-                          SizedBox(
-                            width: compact ? constraints.maxWidth : 340,
-                            child: WindowsSearchField(
-                              controller: search,
-                              hint: 'Search cases, clients, matters…',
-                              onDark: true,
-                              width: double.infinity,
-                              onSubmitted: (_) => onSearch(),
-                            ),
-                          ),
-                          FilledButton.icon(
-                            onPressed: onDocket,
-                            style: WindowsButtonStyles.onForest(filled: true),
-                            icon: const Icon(Icons.folder_open_outlined, size: 17),
-                            label: const Text('Open docket'),
-                          ),
-                          OutlinedButton.icon(
-                            onPressed: onCalendar,
-                            style: WindowsButtonStyles.onForest(),
-                            icon: const Icon(Icons.calendar_month_outlined, size: 17),
-                            label: const Text('Hearings'),
-                          ),
-                        ],
-                      ),
-                    ],
-                  );
-                },
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// The two-column workspace body: the day's hearings beside the deadlines
-/// that need attention, and the fortnight ahead beside recent activity.
-class _WorkspaceGrid extends StatelessWidget {
-  const _WorkspaceGrid({
-    required this.breakpoint,
-    required this.hearings,
-    required this.upcoming,
-    required this.recent,
-    required this.loading,
-  });
-
-  final WindowsBreakpoint breakpoint;
-  final List<CaseModel> hearings;
-  final List<CaseModel> upcoming;
-  final List<CaseModel> recent;
-  final bool loading;
-
-  @override
-  Widget build(BuildContext context) {
-    final todayPanel = _HearingPanel(
-      title: "Today's hearings",
-      subtitle: 'The matters on your schedule today',
-      cases: hearings,
-      loading: loading,
-      emptyTitle: 'No hearings scheduled today',
-      emptyDetail: 'Your docket is clear for today.',
-      onAction: () =>
-          Navigator.of(context).pushNamed('/calendar'),
-      actionLabel: 'Open calendar',
-    );
-
-    final recentPanel = _RecentPanel(
-      cases: recent.take(6).toList(),
-      loading: loading,
-    );
-
-    final remindersPanel = _RemindersPanel();
-
-    if (breakpoint.isCompact) {
-      return Column(
-        children: [
-          todayPanel,
-          const SizedBox(height: 18),
-          remindersPanel,
-          const SizedBox(height: 18),
-          _UpcomingPanel(
-            cases: upcoming,
-            loading: loading,
-            onAction: () =>
-                Navigator.of(context).pushNamed('/calendar'),
-          ),
-          const SizedBox(height: 18),
-          recentPanel,
-        ],
-      );
-    }
-
-    return Column(
-      children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(child: todayPanel),
-            const SizedBox(width: 18),
-            Expanded(child: remindersPanel),
-          ],
-        ),
-        const SizedBox(height: 18),
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: _UpcomingPanel(
-                cases: upcoming,
-                loading: loading,
-                onAction: () => Navigator.of(
-                  context,
-                ).pushNamed('/calendar'),
-              ),
-            ),
-            const SizedBox(width: 18),
-            Expanded(child: recentPanel),
-          ],
-        ),
-      ],
-    );
-  }
-}
-
-/// A panel that lists the matters that have a hearing on a given day.
-class _HearingPanel extends StatelessWidget {
-  const _HearingPanel({
-    required this.title,
-    required this.subtitle,
-    required this.cases,
-    required this.loading,
-    required this.emptyTitle,
-    required this.emptyDetail,
-    required this.onAction,
-    required this.actionLabel,
-  });
-
-  final String title;
-  final String subtitle;
-  final List<CaseModel> cases;
-  final bool loading;
-  final String emptyTitle;
-  final String emptyDetail;
-  final VoidCallback onAction;
-  final String actionLabel;
-
-  @override
-  Widget build(BuildContext context) {
-    return _Surface(
-      title: title,
-      subtitle: subtitle,
-      action: TextButton(
-        onPressed: onAction,
-        style: WindowsButtonStyles.ghost(),
-        child: Text(actionLabel),
-      ),
-      child: loading && cases.isEmpty
-          ? const WindowsLoadingPanel()
-          : cases.isEmpty
-          ? WindowsMessageState(
-              icon: Icons.event_available_outlined,
-              title: emptyTitle,
-              message: emptyDetail,
-              action: OutlinedButton(
-                onPressed: onAction,
-                style: WindowsButtonStyles.secondary(),
-                child: Text(actionLabel),
-              ),
-            )
-          : Column(
-              children: [
-                for (final item in cases)
-                  _CaseRow(caseItem: item, showHearing: false),
-              ],
-            ),
-    );
-  }
-}
-
-/// A panel that lists the hearings falling in the next fortnight.
-class _UpcomingPanel extends StatelessWidget {
-  const _UpcomingPanel({
-    required this.cases,
-    required this.loading,
-    required this.onAction,
-  });
-
-  final List<CaseModel> cases;
-  final bool loading;
-  final VoidCallback onAction;
-
-  @override
-  Widget build(BuildContext context) {
-    return _Surface(
-      title: 'Coming up',
-      subtitle: 'Hearings scheduled in the next 14 days',
-      action: TextButton(
-        onPressed: onAction,
-        style: WindowsButtonStyles.ghost(),
-        child: const Text('Calendar'),
-      ),
-      child: loading && cases.isEmpty
-          ? const WindowsLoadingPanel()
-          : cases.isEmpty
-          ? const WindowsMessageState(
-              icon: Icons.event_note_outlined,
-              title: 'Nothing scheduled ahead',
-              message: 'No hearings are recorded in the next two weeks.',
-            )
-          : Column(
-              children: [
-                for (final item in cases)
-                  _CaseRow(caseItem: item, showHearing: true),
-              ],
-            ),
-    );
-  }
-}
-
-/// A panel that lists the most recently touched matters.
-class _RecentPanel extends StatelessWidget {
-  const _RecentPanel({required this.cases, required this.loading});
-
-  final List<CaseModel> cases;
-  final bool loading;
-
-  @override
-  Widget build(BuildContext context) {
-    return _Surface(
-      title: 'Recently updated',
-      subtitle: 'Your latest case activity',
-      action: TextButton(
-        onPressed: () => Navigator.of(context).pushNamed('/cases'),
-        style: WindowsButtonStyles.ghost(),
-        child: const Text('All cases'),
-      ),
-      child: loading && cases.isEmpty
-          ? const WindowsLoadingPanel()
-          : cases.isEmpty
-          ? const WindowsMessageState(
-              icon: Icons.folder_open_outlined,
-              title: 'Your docket starts here',
-              message: 'Create a case to see your work organized.',
-            )
-          : Column(
-              children: [
-                for (final item in cases)
-                  _CaseRow(caseItem: item, showHearing: false),
-              ],
-            ),
-    );
-  }
-}
-
-/// A panel that lists the deadlines the user still has to meet.
-///
-/// The reminders collection is already scoped to the signed-in user by the
-/// service, so this panel never widens the access boundary.
-class _RemindersPanel extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    final service = FirestoreService();
-
-    return _Surface(
-      title: 'Deadlines',
-      subtitle: 'Your open reminders',
-      action: TextButton(
-        onPressed: () =>
-            Navigator.of(context).pushNamed('/reminders'),
-        style: WindowsButtonStyles.ghost(),
-        child: const Text('All reminders'),
-      ),
-      child: StreamBuilder<List<ReminderModel>>(
-        stream: service.watchReminders(showCompleted: true),
-        builder: (context, snapshot) {
-          if (snapshot.hasError) {
-            return const WindowsMessageState(
-              icon: Icons.cloud_off_outlined,
-              title: 'Deadlines unavailable',
-              message:
-                  'The reminder service could not be reached. Your cases '
-                  'are unaffected.',
-              isError: true,
-            );
-          }
-
-          if (snapshot.connectionState == ConnectionState.waiting &&
-              snapshot.data == null) {
-            return const WindowsLoadingPanel();
-          }
-
-          final items = (snapshot.data ?? const <ReminderModel>[])
-              .where((item) => !item.isCompleted)
-              .toList()
-            ..sort(
-              (a, b) => a.dueDateTime.compareTo(b.dueDateTime),
-            );
-
-          if (items.isEmpty) {
-            return const WindowsMessageState(
-              icon: Icons.task_alt_rounded,
-              title: 'No open deadlines',
-              message: 'Reminders you add will appear here.',
-            );
-          }
-
-          return Column(
-            children: [
-              for (final item in items.take(6))
-                _ReminderRow(reminder: item),
-            ],
-          );
-        },
-      ),
-    );
-  }
-}
-
-/// The shared white panel used by every workspace section.
-class _Surface extends StatelessWidget {
-  const _Surface({
-    required this.title,
-    required this.subtitle,
-    required this.child,
-    this.action,
-  });
-
-  final String title;
-  final String subtitle;
-  final Widget child;
-  final Widget? action;
-
-  @override
-  Widget build(BuildContext context) {
+    final name = (user.displayName ?? '').trim().isEmpty
+        ? (user.email ?? 'Advocate').split('@').first
+        : user.displayName!.trim();
     return Container(
-      padding: const EdgeInsets.fromLTRB(20, 18, 20, 14),
-      decoration: BoxDecoration(
-        color: AppPalette.cardBackground,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppPalette.borderLight),
+      height: 68,
+      padding: const EdgeInsets.symmetric(horizontal: 22),
+      decoration: const BoxDecoration(
+        color: Color(0xFFFAF8F4),
+        border: Border(bottom: BorderSide(color: Color(0xFFE6E1D8))),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: const TextStyle(
-                        color: AppPalette.textPrimary,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      subtitle,
-                      style: const TextStyle(
-                        color: AppPalette.textMuted,
-                        fontSize: 11,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              ?action,
-            ],
-          ),
-          const SizedBox(height: 10),
-          child,
-        ],
-      ),
-    );
-  }
-}
-
-/// A single matter inside a workspace panel.
-class _CaseRow extends StatelessWidget {
-  const _CaseRow({required this.caseItem, required this.showHearing});
-
-  final CaseModel caseItem;
-
-  /// When true the row shows the hearing date on its own column.
-  final bool showHearing;
-
-  @override
-  Widget build(BuildContext context) {
-    final date = caseItem.nextHearingDate;
-
-    final label = date == null
-        ? 'Date not set'
-        : '${date.day.toString().padLeft(2, '0')}/'
-              '${date.month.toString().padLeft(2, '0')}/'
-              '${date.year}';
-
-    return WindowsListRow(
-      onTap: () => Navigator.of(context).pushNamed('/cases'),
       child: Row(
         children: [
-          Container(
-            width: 38,
-            height: 38,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: AppPalette.canvas,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: const Icon(
-              Icons.folder_open_outlined,
-              color: AppPalette.primaryGreen,
-              size: 19,
-            ),
-          ),
-          const SizedBox(width: 11),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  caseItem.caseTitle,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: AppPalette.textPrimary,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 720),
+              child: TextField(
+                controller: controller,
+                onSubmitted: (_) => onSearch(),
+                style: const TextStyle(fontSize: 13, color: Color(0xFF202820)),
+                decoration: InputDecoration(
+                  hintText: 'Search cases, clients, matters…',
+                  prefixIcon: const Icon(Icons.search_rounded, size: 19),
+                  suffixText: 'Ctrl + K',
+                  filled: true,
+                  fillColor: Colors.white,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 9),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: const BorderSide(color: Color(0xFFE3DED5)),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: const BorderSide(color: Color(0xFFE3DED5)),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: const BorderSide(color: Color(0xFFCCA046), width: 1.3),
                   ),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  '${caseItem.caseNumber} · '
-                  '${caseItem.clientName} · '
-                  '${caseItem.courtName}',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: AppPalette.textMuted,
-                    fontSize: 10,
-                  ),
-                ),
-              ],
+              ),
             ),
           ),
           const SizedBox(width: 10),
-          if (showHearing)
-            Text(
-              label,
-              style: const TextStyle(
-                color: AppPalette.primaryGreen,
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-              ),
-            )
-          else if (caseItem.isUrgent)
-            const WindowsStatusChip(
-              label: 'Urgent',
-              color: AppPalette.statusDanger,
-            )
-          else if (caseItem.isStarred)
-            const WindowsStatusChip(
-              label: 'Starred',
-              color: AppPalette.statusWarningDark,
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-/// A single open reminder inside the deadlines panel.
-class _ReminderRow extends StatelessWidget {
-  const _ReminderRow({required this.reminder});
-
-  final ReminderModel reminder;
-
-  @override
-  Widget build(BuildContext context) {
-    final overdue = reminder.isOverdue;
-    final due = reminder.dueDateTime;
-    final when = DateFormat('d MMM · HH:mm').format(due);
-
-    return WindowsListRow(
-      onTap: () =>
-          Navigator.of(context).pushNamed('/reminders'),
-      child: Row(
-        children: [
-          Container(
-            width: 38,
-            height: 38,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: overdue
-                  ? AppPalette.statusDangerTile
-                  : AppPalette.statusTile,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(
-              overdue
-                  ? Icons.priority_high_rounded
-                  : Icons.notifications_none_rounded,
-              color: overdue
-                  ? AppPalette.statusDanger
-                  : AppPalette.primaryGreen,
-              size: 19,
-            ),
+          IconButton(
+            tooltip: syncing ? 'Synchronizing' : 'Synchronize',
+            onPressed: syncing ? null : onSync,
+            icon: syncing
+                ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                : const Icon(Icons.sync_rounded),
+            color: const Color(0xFF1F3D2B),
           ),
-          const SizedBox(width: 11),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  reminder.title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: AppPalette.textPrimary,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  reminder.caseTitle ?? 'General deadline',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: AppPalette.textMuted,
-                    fontSize: 10,
-                  ),
-                ),
-              ],
-            ),
+          IconButton(
+            tooltip: 'Notifications',
+            onPressed: onNotifications,
+            icon: const Icon(Icons.notifications_none_rounded),
+            color: const Color(0xFF1F3D2B),
           ),
-          const SizedBox(width: 10),
-          WindowsStatusChip(
-            label: overdue ? 'Overdue' : when,
-            color: overdue ? AppPalette.statusDanger : AppPalette.textMuted,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// A compact notice used when a data source cannot be reached.
-class _ErrorNotice extends StatelessWidget {
-  const _ErrorNotice({required this.message});
-
-  final String message;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(13),
-      decoration: BoxDecoration(
-        color: AppPalette.errorFill,
-        borderRadius: BorderRadius.circular(11),
-        border: Border.all(color: AppPalette.statusDanger.withValues(alpha: 0.3)),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Icon(
-            Icons.error_outline_rounded,
-            color: AppPalette.statusDanger,
-            size: 18,
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              message,
-              style: const TextStyle(
-                color: AppPalette.statusDangerDark,
-                fontSize: 12,
-                height: 1.4,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// High-frequency actions surfaced directly on the Windows workspace.
-/// Each action routes to the existing screen; no duplicate business logic is
-/// introduced here.
-class _PrimaryQuickActions extends StatelessWidget {
-  const _PrimaryQuickActions();
-
-  @override
-  Widget build(BuildContext context) {
-    const actions = <(String, IconData, String)>[
-      ('Cases', Icons.folder_open_outlined, '/cases'),
-      ('Calendar', Icons.calendar_month_outlined, '/calendar'),
-      ('Reminders', Icons.notifications_none_rounded, '/reminders'),
-      ('Fees', Icons.account_balance_wallet_outlined, '/fee'),
-      ('Starred', Icons.star_outline_rounded, '/starred'),
-      ('Team', Icons.groups_2_outlined, '/team'),
-    ];
-
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final compact = constraints.maxWidth < 760;
-        final itemWidth = compact
-            ? (constraints.maxWidth - 12) / 2
-            : (constraints.maxWidth - 5 * 12) / 6;
-        return Wrap(
-          spacing: 12,
-          runSpacing: 12,
-          children: [
-            for (final action in actions)
-              SizedBox(
-                width: itemWidth,
-                child: _QuickActionTile(
-                  title: action.$1,
-                  icon: action.$2,
-                  onTap: () => Navigator.of(context).pushNamed(action.$3),
-                ),
-              ),
-          ],
-        );
-      },
-    );
-  }
-}
-
-class _QuickActionTile extends StatefulWidget {
-  const _QuickActionTile({
-    required this.title,
-    required this.icon,
-    required this.onTap,
-  });
-
-  final String title;
-  final IconData icon;
-  final VoidCallback onTap;
-
-  @override
-  State<_QuickActionTile> createState() => _QuickActionTileState();
-}
-
-class _QuickActionTileState extends State<_QuickActionTile> {
-  bool _hovered = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return MouseRegion(
-      onEnter: (_) => setState(() => _hovered = true),
-      onExit: (_) => setState(() => _hovered = false),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 160),
-        curve: Curves.easeOutCubic,
-        transform: Matrix4.translationValues(0, _hovered ? -2 : 0, 0),
-        decoration: BoxDecoration(
-          color: AppPalette.cardBackground,
-          borderRadius: BorderRadius.circular(15),
-          border: Border.all(
-            color: _hovered ? AppPalette.accentGold : AppPalette.borderLight,
-          ),
-          boxShadow: _hovered
-              ? const [
-                  BoxShadow(
-                    color: Color(0x0D1F3D2B),
-                    blurRadius: 16,
-                    offset: Offset(0, 5),
-                  ),
-                ]
-              : const [],
-        ),
-        child: Material(
-          color: Colors.transparent,
-          borderRadius: BorderRadius.circular(15),
-          child: InkWell(
-            onTap: widget.onTap,
-            borderRadius: BorderRadius.circular(15),
+          const SizedBox(width: 8),
+          Container(width: 1, height: 30, color: const Color(0xFFDCD6CC)),
+          const SizedBox(width: 12),
+          InkWell(
+            onTap: onProfile,
+            borderRadius: BorderRadius.circular(10),
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 15),
+              padding: const EdgeInsets.symmetric(vertical: 5, horizontal: 4),
               child: Row(
                 children: [
-                  Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      color: AppPalette.statusTile,
-                      borderRadius: BorderRadius.circular(11),
-                    ),
-                    child: Icon(widget.icon, color: AppPalette.primaryGreen, size: 19),
+                  CircleAvatar(
+                    radius: 17,
+                    backgroundColor: const Color(0xFF1F3D2B),
+                    backgroundImage: user.photoURL == null ? null : NetworkImage(user.photoURL!),
+                    child: user.photoURL == null
+                        ? Text(name.isEmpty ? 'A' : name[0].toUpperCase(),
+                            style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w700))
+                        : null,
                   ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      widget.title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: AppPalette.textPrimary,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                      ),
+                  const SizedBox(width: 9),
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 145),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(name, maxLines: 1, overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF202820))),
+                        const Text('Advocate workspace', style: TextStyle(fontSize: 10, color: Color(0xFF7B807B))),
+                      ],
                     ),
                   ),
-                  const Icon(Icons.arrow_outward_rounded,
-                      size: 14, color: AppPalette.textMuted),
+                  const Icon(Icons.keyboard_arrow_down_rounded, size: 17),
                 ],
               ),
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HeroPanel extends StatelessWidget {
+  const _HeroPanel({required this.greeting, required this.name, required this.date});
+  final String greeting;
+  final String name;
+  final String date;
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(9),
+      child: SizedBox(
+        height: 222,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            Image.asset(
+              'assets/images/led_hero_statue.png',
+              fit: BoxFit.cover,
+              alignment: Alignment.centerRight,
+              errorBuilder: (_, __, ___) => const ColoredBox(color: Color(0xFF0B241A)),
+            ),
+            DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.centerLeft,
+                  end: Alignment.centerRight,
+                  colors: [
+                    const Color(0xFF071D16).withOpacity(.98),
+                    const Color(0xFF071D16).withOpacity(.82),
+                    const Color(0xFF071D16).withOpacity(.10),
+                  ],
+                  stops: const [0, .55, 1],
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(28, 20, 22, 20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(greeting, style: const TextStyle(color: Color(0xFFE5B957), fontSize: 10, letterSpacing: 3, fontWeight: FontWeight.w800)),
+                  const SizedBox(height: 5),
+                  Text(name, maxLines: 1, overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontFamily: 'Palatino Linotype', fontSize: 42, height: 1.05, color: Colors.white, fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 7),
+                  const Text('Here’s what’s happening with your practice today.',
+                    style: TextStyle(color: Colors.white, fontSize: 14)),
+                  const SizedBox(height: 17),
+                  Row(children: [
+                    const Icon(Icons.calendar_today_outlined, size: 15, color: Colors.white),
+                    const SizedBox(width: 7),
+                    Text(date, style: const TextStyle(color: Colors.white, fontSize: 11)),
+                    const SizedBox(width: 18),
+                    const Icon(Icons.location_on_outlined, size: 16, color: Colors.white),
+                    const SizedBox(width: 6),
+                    const Text('Your legal workspace', style: TextStyle(color: Colors.white, fontSize: 11)),
+                  ]),
+                ],
+              ),
+            ),
+            const Positioned(
+              right: 22,
+              bottom: 25,
+              width: 165,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('“The law is not just a profession, it’s a purpose.”',
+                    style: TextStyle(fontFamily: 'Palatino Linotype', fontStyle: FontStyle.italic, color: Colors.white, fontSize: 16, height: 1.4)),
+                  SizedBox(height: 8),
+                  SizedBox(width: 28, child: Divider(color: Color(0xFFE5B957), thickness: 2)),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 }
 
-/// The quick access row that surfaces the secondary destinations.
-class _QuickAccessRow extends StatelessWidget {
-  const _QuickAccessRow();
+class _SectionHeading extends StatelessWidget {
+  const _SectionHeading({required this.title, required this.subtitle});
+  final String title;
+  final String subtitle;
+  @override
+  Widget build(BuildContext context) => Row(
+    crossAxisAlignment: CrossAxisAlignment.end,
+    children: [
+      Text(title, style: const TextStyle(fontFamily: 'Palatino Linotype', fontSize: 22, fontWeight: FontWeight.w700, color: Color(0xFF17221B))),
+      const SizedBox(width: 10),
+      Padding(padding: const EdgeInsets.only(bottom: 2),
+        child: Text(subtitle, style: const TextStyle(fontSize: 11, color: Color(0xFF858982)))),
+    ],
+  );
+}
 
+class _QuickActions extends StatelessWidget {
+  const _QuickActions({required this.compact, required this.onTap});
+  final bool compact;
+  final ValueChanged<String> onTap;
+  static const items = <(String, String, IconData, String)>[
+    ('Cases', 'View & manage all cases', Icons.folder_open_outlined, '/cases'),
+    ('Calendar', 'Check hearings & appointments', Icons.calendar_month_outlined, '/calendar'),
+    ('Reminders', 'Stay on top of important tasks', Icons.notifications_none_rounded, '/reminders'),
+    ('Fees', 'Manage fees & payments', Icons.calculate_outlined, '/fee'),
+    ('Starred', 'Your important cases', Icons.star_outline_rounded, '/starred'),
+    ('Team', 'Manage your team', Icons.groups_2_outlined, '/team'),
+  ];
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, c) {
+      const gap = 9.0;
+      final count = compact ? 2 : 6;
+      final width = compact ? (c.maxWidth - gap) / 2 : (c.maxWidth - gap * 5) / 6;
+      return Wrap(
+        spacing: gap,
+        runSpacing: gap,
+        children: [
+          for (final item in items)
+            SizedBox(
+              width: width,
+              child: Material(
+                color: const Color(0xFFFBFAF7),
+                borderRadius: BorderRadius.circular(8),
+                child: InkWell(
+                  onTap: () => onTap(item.$4),
+                  borderRadius: BorderRadius.circular(8),
+                  child: Container(
+                    constraints: const BoxConstraints(minHeight: 112),
+                    padding: const EdgeInsets.fromLTRB(12, 11, 10, 10),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: const Color(0xFFE2DED6)),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          width: 42, height: 42,
+                          decoration: const BoxDecoration(color: Color(0xFF103426), shape: BoxShape.circle),
+                          child: Icon(item.$3, color: Colors.white, size: 20),
+                        ),
+                        const SizedBox(height: 8),
+                        Row(children: [
+                          Expanded(child: Text(item.$1, style: const TextStyle(fontFamily: 'Palatino Linotype', fontSize: 15, fontWeight: FontWeight.w700, color: Color(0xFF17221B)))),
+                          const Icon(Icons.chevron_right_rounded, size: 16, color: Color(0xFF68716A)),
+                        ]),
+                        const SizedBox(height: 2),
+                        Text(item.$2, maxLines: 2, overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontSize: 10, height: 1.35, color: Color(0xFF858982))),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      );
+    },
+  );
+}
+
+class _Panel extends StatelessWidget {
+  const _Panel({required this.child, this.padding = const EdgeInsets.all(14)});
+  final Widget child;
+  final EdgeInsets padding;
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: padding,
+    decoration: BoxDecoration(
+      color: const Color(0xFFFBFAF7),
+      border: Border.all(color: const Color(0xFFE2DED6)),
+      borderRadius: BorderRadius.circular(8),
+    ),
+    child: child,
+  );
+}
+
+class _SchedulePanel extends StatelessWidget {
+  const _SchedulePanel({required this.cases, required this.upcoming, required this.onCalendar});
+  final List<CaseModel> cases;
+  final List<CaseModel> upcoming;
+  final VoidCallback onCalendar;
+  @override
+  Widget build(BuildContext context) => _Panel(
+    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(children: [
+        const Icon(Icons.calendar_month_outlined, color: Color(0xFF103426), size: 25),
+        const SizedBox(width: 10),
+        const Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('Today’s Schedule', style: TextStyle(fontFamily: 'Palatino Linotype', fontSize: 19, fontWeight: FontWeight.w700, color: Color(0xFF17221B))),
+          Text('Your hearings and appointments for today', style: TextStyle(fontSize: 10, color: Color(0xFF858982))),
+        ])),
+        TextButton(onPressed: onCalendar, child: const Text('View Calendar  →', style: TextStyle(fontSize: 10, color: Color(0xFF103426)))),
+      ]),
+      const Divider(height: 18, color: Color(0xFFE9E5DE)),
+      if (cases.isEmpty)
+        const Padding(padding: EdgeInsets.symmetric(vertical: 22), child: Center(child: Text('No hearings scheduled for today.', style: TextStyle(fontSize: 12, color: Color(0xFF858982)))))
+      else
+        for (final c in cases.take(5)) _HearingRow(caseItem: c),
+      if (upcoming.isNotEmpty) ...[
+        const Divider(height: 16, color: Color(0xFFE9E5DE)),
+        Text('UP NEXT  ·  ' + upcoming.length.toString() + ' HEARINGS IN 14 DAYS',
+          style: const TextStyle(fontSize: 9, letterSpacing: 1.1, fontWeight: FontWeight.w800, color: Color(0xFF858982))),
+        const SizedBox(height: 8),
+        for (final c in upcoming.take(2))
+          Padding(padding: const EdgeInsets.only(bottom: 7), child: Row(children: [
+            const Icon(Icons.schedule_rounded, size: 13, color: Color(0xFFCCA046)),
+            const SizedBox(width: 7),
+            Expanded(child: Text(c.caseTitle, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11, color: Color(0xFF17221B)))),
+            Text(DateFormat('d MMM').format(c.nextHearingDate!), style: const TextStyle(fontSize: 10, color: Color(0xFF858982))),
+          ])),
+      ],
+    ]),
+  );
+}
+
+class _HearingRow extends StatelessWidget {
+  const _HearingRow({required this.caseItem});
+  final CaseModel caseItem;
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(vertical: 10),
+    decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: Color(0xFFECE8E1)))),
+    child: Row(children: [
+      Container(width: 7, height: 7, decoration: const BoxDecoration(color: Color(0xFF318267), shape: BoxShape.circle)),
+      const SizedBox(width: 12),
+      SizedBox(width: 67, child: Text(DateFormat('hh:mm a').format(caseItem.nextHearingDate!),
+        style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Color(0xFF17221B)))),
+      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(caseItem.caseTitle, maxLines: 1, overflow: TextOverflow.ellipsis,
+          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF17221B))),
+        const SizedBox(height: 3),
+        Text(caseItem.clientName + '  ·  ' + caseItem.courtName, maxLines: 1, overflow: TextOverflow.ellipsis,
+          style: const TextStyle(fontSize: 9, color: Color(0xFF858982))),
+      ])),
+      const SizedBox(width: 8),
+      Container(padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+        decoration: BoxDecoration(color: const Color(0xFFE5F0E8), borderRadius: BorderRadius.circular(20)),
+        child: const Text('Hearing', style: TextStyle(fontSize: 9, color: Color(0xFF1F5B42), fontWeight: FontWeight.w700))),
+    ]),
+  );
+}
+
+class _WorkspacePanel extends StatelessWidget {
+  const _WorkspacePanel({required this.active, required this.hearings, required this.reminders, required this.onTap});
+  final int active, hearings, reminders;
+  final ValueChanged<String> onTap;
+  @override
+  Widget build(BuildContext context) => _Panel(
+    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(children: const [
+        Icon(Icons.grid_view_rounded, size: 25, color: Color(0xFF103426)),
+        SizedBox(width: 10),
+        Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('Your Workspace', style: TextStyle(fontFamily: 'Palatino Linotype', fontSize: 18, fontWeight: FontWeight.w700, color: Color(0xFF17221B))),
+          Text('Your customized workspace for quick access', style: TextStyle(fontSize: 10, color: Color(0xFF858982))),
+        ]),
+      ]),
+      const SizedBox(height: 16),
+      Row(children: [
+        Expanded(child: _WorkspaceMetric(icon: Icons.folder_open_outlined, label: 'Cases', value: active.toString(), onTap: () => onTap('/cases'))),
+        const SizedBox(width: 7),
+        Expanded(child: _WorkspaceMetric(icon: Icons.calendar_month_outlined, label: 'Hearings', value: hearings.toString(), onTap: () => onTap('/calendar'))),
+        const SizedBox(width: 7),
+        Expanded(child: _WorkspaceMetric(icon: Icons.notifications_none_rounded, label: 'Reminders', value: reminders.toString(), onTap: () => onTap('/reminders'))),
+      ]),
+      const SizedBox(height: 13),
+      ClipRRect(
+        borderRadius: BorderRadius.circular(6),
+        child: SizedBox(
+          height: 112,
+          width: double.infinity,
+          child: Stack(fit: StackFit.expand, children: [
+            Image.asset('assets/images/led_stay_focused.png', fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => const ColoredBox(color: Color(0xFF103426))),
+            DecoratedBox(decoration: BoxDecoration(gradient: LinearGradient(
+              begin: Alignment.bottomLeft, end: Alignment.topRight,
+              colors: [Colors.black.withOpacity(.75), Colors.transparent],
+            ))),
+            const Positioned(left: 14, bottom: 13, child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Stay focused. Stay prepared.', style: TextStyle(fontFamily: 'Palatino Linotype', fontStyle: FontStyle.italic, fontSize: 15, color: Colors.white)),
+                SizedBox(height: 3),
+                Text('Your work. Our priority.', style: TextStyle(fontSize: 10, color: Colors.white)),
+              ],
+            )),
+          ]),
+        ),
+      ),
+    ]),
+  );
+}
+
+class _WorkspaceMetric extends StatelessWidget {
+  const _WorkspaceMetric({required this.icon, required this.label, required this.value, required this.onTap});
+  final IconData icon;
+  final String label, value;
+  final VoidCallback onTap;
+  @override
+  Widget build(BuildContext context) => InkWell(
+    onTap: onTap,
+    borderRadius: BorderRadius.circular(7),
+    child: Container(
+      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 5),
+      decoration: BoxDecoration(border: Border.all(color: const Color(0xFFE2DED6)), borderRadius: BorderRadius.circular(7)),
+      child: Column(children: [
+        Icon(icon, size: 19, color: const Color(0xFF103426)),
+        const SizedBox(height: 5),
+        Text(label, style: const TextStyle(fontSize: 9, color: Color(0xFF858982))),
+        Text(value, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: Color(0xFF17221B))),
+      ]),
+    ),
+  );
+}
+
+class _RightRail extends StatelessWidget {
+  const _RightRail({required this.now, required this.reminders, required this.onCalendar, required this.onReminders});
+  final DateTime now;
+  final List<ReminderModel> reminders;
+  final VoidCallback onCalendar, onReminders;
+  @override
+  Widget build(BuildContext context) => Column(children: [
+    _MiniCalendar(now: now, onCalendar: onCalendar),
+    const SizedBox(height: 12),
+    _Panel(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(children: [
+        const Icon(Icons.notifications_none_rounded, color: Color(0xFF103426), size: 22),
+        const SizedBox(width: 8),
+        const Expanded(child: Text('Reminders', style: TextStyle(fontFamily: 'Palatino Linotype', fontSize: 18, fontWeight: FontWeight.w700, color: Color(0xFF17221B)))),
+        TextButton(onPressed: onReminders, child: const Text('View all  →', style: TextStyle(fontSize: 10))),
+      ]),
+      const Divider(height: 12, color: Color(0xFFE9E5DE)),
+      if (reminders.isEmpty)
+        const Padding(padding: EdgeInsets.symmetric(vertical: 14), child: Text('You’re all caught up.', style: TextStyle(fontSize: 11, color: Color(0xFF858982))))
+      else
+        for (final r in reminders.take(4))
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Container(width: 8, height: 8, margin: const EdgeInsets.only(top: 4),
+                decoration: BoxDecoration(color: r.isOverdue ? const Color(0xFFC94A3B) : const Color(0xFFCCA046), shape: BoxShape.circle)),
+              const SizedBox(width: 9),
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(r.title, maxLines: 2, overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Color(0xFF17221B))),
+                const SizedBox(height: 3),
+                Text(DateFormat('d MMM · hh:mm a').format(r.dueDateTime), style: const TextStyle(fontSize: 9, color: Color(0xFF858982))),
+              ])),
+            ]),
+          ),
+    ])),
+  ]);
+}
+
+class _MiniCalendar extends StatelessWidget {
+  const _MiniCalendar({required this.now, required this.onCalendar});
+  final DateTime now;
+  final VoidCallback onCalendar;
   @override
   Widget build(BuildContext context) {
-    const entries = <(String, IconData, String)>[
-      ('Clients', Icons.people_outline_rounded, '/clients'),
-      ('Reminders', Icons.notifications_none_rounded, '/reminders'),
-      ('To-Do list', Icons.checklist_rounded, '/todo'),
-      ('Fees & transactions', Icons.account_balance_wallet_outlined, '/fee'),
-      ('Team workspace', Icons.groups_2_outlined, '/team'),
-      ('JURIS intelligence', Icons.auto_awesome_outlined, '/juris'),
-      ('Starred cases', Icons.star_outline_rounded, '/starred'),
-    ];
-
-    return Wrap(
-      spacing: 10,
-      runSpacing: 10,
-      children: [
-        for (final entry in entries)
-          OutlinedButton.icon(
-            onPressed: () =>
-                Navigator.of(context).pushNamed(entry.$3),
-            icon: Icon(entry.$2, size: 17),
-            label: Text(entry.$1),
-            style: WindowsButtonStyles.secondary(),
+    final first = DateTime(now.year, now.month, 1);
+    final offset = (first.weekday + 6) % 7;
+    final days = DateTime(now.year, now.month + 1, 0).day;
+    final total = ((offset + days + 6) ~/ 7) * 7;
+    return _Panel(
+      padding: const EdgeInsets.fromLTRB(12, 11, 12, 12),
+      child: Column(children: [
+        Row(children: [
+          const Icon(Icons.calendar_month_outlined, color: Color(0xFF103426), size: 20),
+          const SizedBox(width: 7),
+          Expanded(child: Text(DateFormat('MMMM yyyy').format(now),
+            style: const TextStyle(fontFamily: 'Palatino Linotype', fontSize: 16, fontWeight: FontWeight.w700, color: Color(0xFF17221B)))),
+          IconButton(tooltip: 'Open calendar', onPressed: onCalendar,
+            icon: const Icon(Icons.arrow_forward_ios_rounded, size: 13), visualDensity: VisualDensity.compact),
+        ]),
+        const Divider(height: 10, color: Color(0xFFE9E5DE)),
+        Row(children: [
+          for (final d in const ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'])
+            Expanded(child: Center(child: Text(d, style: const TextStyle(fontSize: 8, color: Color(0xFF858982), fontWeight: FontWeight.w600)))),
+        ]),
+        const SizedBox(height: 5),
+        for (var week = 0; week < total ~/ 7; week++)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 2),
+            child: Row(children: [
+              for (var day = 0; day < 7; day++)
+                Expanded(child: Center(child: _CalendarDay(
+                  value: week * 7 + day - offset + 1,
+                  monthDays: days,
+                  selected: week * 7 + day - offset + 1 == now.day,
+                ))),
+            ]),
           ),
-      ],
+      ]),
     );
   }
+}
+
+class _CalendarDay extends StatelessWidget {
+  const _CalendarDay({required this.value, required this.monthDays, required this.selected});
+  final int value, monthDays;
+  final bool selected;
+  @override
+  Widget build(BuildContext context) {
+    if (value < 1 || value > monthDays) return const SizedBox(height: 25);
+    return Container(
+      width: 25, height: 25,
+      alignment: Alignment.center,
+      decoration: selected ? const BoxDecoration(color: Color(0xFF103426), shape: BoxShape.circle) : null,
+      child: Text(value.toString(), style: TextStyle(
+        fontSize: 9,
+        fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+        color: selected ? Colors.white : const Color(0xFF17221B),
+      )),
+    );
+  }
+}
+
+class _MetricsStrip extends StatelessWidget {
+  const _MetricsStrip({required this.active, required this.hearings, required this.urgent, required this.starred, required this.onTap});
+  final int active, hearings, urgent, starred;
+  final ValueChanged<String> onTap;
+  @override
+  Widget build(BuildContext context) {
+    final items = <(String, int, IconData, String)>[
+      ('Active Matters', active, Icons.folder_open_outlined, '/cases'),
+      ('Upcoming Hearings', hearings, Icons.calendar_month_outlined, '/calendar'),
+      ('Urgent Matters', urgent, Icons.warning_amber_rounded, '/cases'),
+      ('Starred Cases', starred, Icons.star_outline_rounded, '/starred'),
+    ];
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+      decoration: BoxDecoration(color: const Color(0xFFFBFAF7), border: Border.all(color: const Color(0xFFE2DED6)), borderRadius: BorderRadius.circular(8)),
+      child: LayoutBuilder(builder: (context, c) => Wrap(children: [
+        for (final item in items)
+          SizedBox(
+            width: c.maxWidth >= 720 ? c.maxWidth / 4 : c.maxWidth / 2,
+            child: InkWell(
+              onTap: () => onTap(item.$4),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                child: Row(children: [
+                  Container(width: 38, height: 38,
+                    decoration: const BoxDecoration(color: Color(0xFFF0E8D8), shape: BoxShape.circle),
+                    child: Icon(item.$3, color: const Color(0xFF103426), size: 19)),
+                  const SizedBox(width: 9),
+                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(item.$1, style: const TextStyle(fontSize: 9, color: Color(0xFF858982))),
+                    Text(item.$2.toString(), style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w700, color: Color(0xFF17221B))),
+                  ])),
+                ]),
+              ),
+            ),
+          ),
+      ])),
+    );
+  }
+}
+
+class _Notice extends StatelessWidget {
+  const _Notice(this.message);
+  final String message;
+  @override
+  Widget build(BuildContext context) => Container(
+    width: double.infinity,
+    margin: const EdgeInsets.only(bottom: 8),
+    padding: const EdgeInsets.all(10),
+    decoration: BoxDecoration(color: const Color(0xFFFFF3E7), borderRadius: BorderRadius.circular(7), border: Border.all(color: const Color(0xFFE8C9A8))),
+    child: Text(message, style: const TextStyle(fontSize: 11, color: Color(0xFF34291D))),
+  );
 }
