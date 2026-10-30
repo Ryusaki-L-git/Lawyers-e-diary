@@ -142,6 +142,7 @@ class _WindowsHomeScreenState extends State<WindowsHomeScreen> {
                     _TopBar(
                       controller: _search,
                       user: user!,
+                      notificationCount: reminders.length,
                       syncing: _syncing,
                       onSearch: _runSearch,
                       onSync: () => _sync(),
@@ -165,12 +166,20 @@ class _WindowsHomeScreenState extends State<WindowsHomeScreen> {
                                   date: DateFormat('EEEE, d MMMM yyyy').format(now),
                                 ),
                                 const SizedBox(height: 12),
-                                const _SectionHeading(
-                                  title: 'Quick Actions',
-                                  subtitle: 'Access your most-used features',
+                                _Panel(
+                                  padding: const EdgeInsets.fromLTRB(16, 12, 12, 12),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const _SectionHeading(
+                                        title: 'Quick Actions',
+                                        subtitle: 'Access your most-used features',
+                                      ),
+                                      const SizedBox(height: 10),
+                                      _QuickActions(compact: narrow, onTap: _go),
+                                    ],
+                                  ),
                                 ),
-                                const SizedBox(height: 9),
-                                _QuickActions(compact: narrow, onTap: _go),
                                 const SizedBox(height: 12),
                                 if (caseSnapshot.hasError)
                                   _Notice('The case register could not be loaded: ' + caseSnapshot.error.toString()),
@@ -215,7 +224,7 @@ class _WindowsHomeScreenState extends State<WindowsHomeScreen> {
                                     ),
                                     const SizedBox(width: 12),
                                     SizedBox(
-                                      width: constraints.maxWidth < 1350 ? 220 : 250,
+                                      width: constraints.maxWidth < 1180 ? 230 : 285,
                                       child: _RightRail(
                                         now: now,
                                         reminders: reminders,
@@ -263,6 +272,7 @@ class _TopBar extends StatelessWidget {
   const _TopBar({
     required this.controller,
     required this.user,
+    required this.notificationCount,
     required this.syncing,
     required this.onSearch,
     required this.onSync,
@@ -271,6 +281,7 @@ class _TopBar extends StatelessWidget {
   });
   final TextEditingController controller;
   final User user;
+  final int notificationCount;
   final bool syncing;
   final VoidCallback onSearch;
   final VoidCallback onSync;
@@ -333,7 +344,27 @@ class _TopBar extends StatelessWidget {
           IconButton(
             tooltip: 'Notifications',
             onPressed: onNotifications,
-            icon: const Icon(Icons.notifications_none_rounded),
+            icon: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                const Icon(Icons.notifications_none_rounded),
+                if (notificationCount > 0)
+                  Positioned(
+                    right: -7,
+                    top: -6,
+                    child: Container(
+                      constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      alignment: Alignment.center,
+                      decoration: const BoxDecoration(color: Color(0xFFC94A3B), shape: BoxShape.circle),
+                      child: Text(
+                        notificationCount > 9 ? '9+' : notificationCount.toString(),
+                        style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w800),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
             color: const Color(0xFF1F3D2B),
           ),
           const SizedBox(width: 8),
