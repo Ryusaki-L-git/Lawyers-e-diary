@@ -409,6 +409,7 @@ class _HeroPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final compact = MediaQuery.sizeOf(context).width < 1200;
     return ClipRRect(
       borderRadius: BorderRadius.circular(9),
       child: SizedBox(
@@ -445,7 +446,7 @@ class _HeroPanel extends StatelessWidget {
                   Text(greeting, style: const TextStyle(color: Color(0xFFE5B957), fontSize: 10, letterSpacing: 3, fontWeight: FontWeight.w800)),
                   const SizedBox(height: 5),
                   Text(name, maxLines: 1, overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontFamily: 'Palatino Linotype', fontSize: 42, height: 1.05, color: Colors.white, fontWeight: FontWeight.w700)),
+                    style: const TextStyle(fontFamily: 'Palatino Linotype', fontSize: compact ? 32 : 42, height: 1.05, color: Colors.white, fontWeight: FontWeight.w700)),
                   const SizedBox(height: 7),
                   const Text('Here’s what’s happening with your practice today.',
                     style: TextStyle(color: Colors.white, fontSize: 14)),
@@ -462,20 +463,21 @@ class _HeroPanel extends StatelessWidget {
                 ],
               ),
             ),
+            if (!compact)
             const Positioned(
-              right: 22,
-              bottom: 25,
-              width: 165,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('“The law is not just a profession, it’s a purpose.”',
-                    style: TextStyle(fontFamily: 'Palatino Linotype', fontStyle: FontStyle.italic, color: Colors.white, fontSize: 16, height: 1.4)),
-                  SizedBox(height: 8),
-                  SizedBox(width: 28, child: Divider(color: Color(0xFFE5B957), thickness: 2)),
-                ],
+                right: 22,
+                bottom: 25,
+                width: 165,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('“The law is not just a profession, it’s a purpose.”',
+                      style: TextStyle(fontFamily: 'Palatino Linotype', fontStyle: FontStyle.italic, color: Colors.white, fontSize: 16, height: 1.4)),
+                    SizedBox(height: 8),
+                    SizedBox(width: 28, child: Divider(color: Color(0xFFE5B957), thickness: 2)),
+                  ],
+                ),
               ),
-            ),
           ],
         ),
       ),
