@@ -129,11 +129,14 @@ class _TeamEntryScreenState extends State<TeamEntryScreen> {
                       ],
                     )
                   : IndexedStack(index: _currentIndex, children: pages),
-              bottomNavigationBar: TeamBottomNavigation(
-                currentIndex: _currentIndex,
-                isOwnerOrLeader: isOwnerOrLeader,
-                onTap: (idx) => setState(() => _currentIndex = idx),
-              ),
+              bottomNavigationBar:
+                  defaultTargetPlatform == TargetPlatform.windows
+                      ? null
+                      : TeamBottomNavigation(
+                          currentIndex: _currentIndex,
+                          isOwnerOrLeader: isOwnerOrLeader,
+                          onTap: (idx) => setState(() => _currentIndex = idx),
+                        ),
             );
           },
         );
