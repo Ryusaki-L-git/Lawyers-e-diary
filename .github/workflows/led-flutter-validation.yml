@@ -7,6 +7,10 @@ on:
     branches: [master, feat/prestige-home-dashboard]
   workflow_dispatch:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
@@ -62,5 +66,7 @@ jobs:
         run: flutter config --enable-windows-desktop
       - name: Resolve dependencies
         run: flutter pub get
+      - name: Generate LED Windows icons
+        run: ./windows/runner/generate_icons.ps1
       - name: Build Windows application
         run: flutter build windows --debug
