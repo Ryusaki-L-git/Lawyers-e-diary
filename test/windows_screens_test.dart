@@ -242,21 +242,25 @@ void main() {
   });
 
   group('Windows desktop shell', () {
-    testWidgets('shows the shared workspace header on inner pages', (tester) async {
-      await pumpDesktop(tester, const SizedBox.shrink());
-      expect(find.text('Search cases, clients, matters…'), findsOneWidget);
-      expect(find.byTooltip('Notifications'), findsOneWidget);
-      expect(find.byTooltip('Profile'), findsOneWidget);
+    testWidgets('does not duplicate the page-owned header', (tester) async {
+      await pumpDesktop(
+        tester,
+        const WindowsNotificationsScreen(),
+      );
+      expect(find.text('Notifications'), findsOneWidget);
+      expect(find.text('Search cases, clients, matters…'), findsNothing);
+      expect(find.byTooltip('Profile'), findsNothing);
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('keeps the shared header within a compact desktop window', (tester) async {
+    testWidgets('keeps the compact navigation rail usable', (tester) async {
       await pumpDesktop(
         tester,
-        const SizedBox.shrink(),
+        const WindowsNotificationsScreen(),
         size: const Size(920, 640),
       );
-      expect(find.text('Search cases, clients, matters…'), findsOneWidget);
+      expect(find.byTooltip('Home'), findsOneWidget);
+      expect(find.text('Notifications'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
 
