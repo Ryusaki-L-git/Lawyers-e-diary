@@ -197,58 +197,89 @@ class _WindowsTeamScreenState extends State<WindowsTeamScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Container(
-                width: 52,
-                height: 52,
-                decoration: BoxDecoration(
-                  color: AppPalette.primaryGreen,
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: const Icon(
-                  Icons.account_balance_rounded,
-                  color: AppPalette.accentGold,
-                  size: 25,
-                ),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final identity = Row(
+                children: [
+                  Container(
+                    width: 52,
+                    height: 52,
+                    decoration: BoxDecoration(
+                      color: AppPalette.primaryGreen,
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: const Icon(
+                      Icons.account_balance_rounded,
+                      color: AppPalette.accentGold,
+                      size: 25,
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          team.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: AppPalette.textPrimary,
+                            fontSize: 17,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          team.lawFirm.isEmpty
+                              ? 'Firm name not specified'
+                              : team.lawFirm,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: AppPalette.textMuted,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              );
+              final actions = Wrap(
+                spacing: 10,
+                runSpacing: 8,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  WindowsStatusChip(
+                    label: '${team.memberCount} members',
+                    color: AppPalette.primaryGreen,
+                  ),
+                  OutlinedButton(
+                    onPressed: _openTeamWorkspace,
+                    style: WindowsButtonStyles.secondary(),
+                    child: const Text('Manage team'),
+                  ),
+                ],
+              );
+              if (constraints.maxWidth < 680) {
+                return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      team.name,
-                      style: const TextStyle(
-                        color: AppPalette.textPrimary,
-                        fontSize: 17,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      team.lawFirm.isEmpty
-                          ? 'Firm name not specified'
-                          : team.lawFirm,
-                      style: const TextStyle(
-                        color: AppPalette.textMuted,
-                        fontSize: 12,
-                      ),
-                    ),
+                    identity,
+                    const SizedBox(height: 12),
+                    actions,
                   ],
-                ),
-              ),
-              WindowsStatusChip(
-                label: '${team.memberCount} members',
-                color: AppPalette.primaryGreen,
-              ),
-              const SizedBox(width: 12),
-              OutlinedButton(
-                onPressed: _openTeamWorkspace,
-                style: WindowsButtonStyles.secondary(),
-                child: const Text('Manage team'),
-              ),
-            ],
+                );
+              }
+              return Row(
+                children: [
+                  Expanded(child: identity),
+                  const SizedBox(width: 12),
+                  actions,
+                ],
+              );
+            },
           ),
           if (team.description.trim().isNotEmpty) ...[
             Padding(
