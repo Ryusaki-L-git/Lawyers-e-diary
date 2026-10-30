@@ -186,7 +186,7 @@ void main() {
       expect(find.text('AGREED'), findsOneWidget);
       expect(find.text('COLLECTED'), findsOneWidget);
       expect(find.text('OUTSTANDING'), findsOneWidget);
-      expect(find.text('Services'), findsOneWidget);
+      expect(find.text('Services'), findsNWidgets(2));
       expect(find.text('Payment history'), findsOneWidget);
     });
 
