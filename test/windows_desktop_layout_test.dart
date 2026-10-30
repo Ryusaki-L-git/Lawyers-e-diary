@@ -47,7 +47,7 @@ void main() {
     testWidgets('shows full labels on a wide window', (tester) async {
       await pumpDesktop(tester, const Text('Workspace'), size: const Size(1400, 900));
       expect(find.text('Home'), findsOneWidget);
-      expect(find.text('All cases'), findsOneWidget);
+      expect(find.text('Cases'), findsOneWidget);
     });
 
     testWidgets('collapses to icon-only below the threshold', (tester) async {
@@ -58,8 +58,8 @@ void main() {
 
     testWidgets('renders the brand mark and the selected-state dot', (tester) async {
       await pumpDesktop(tester, const Text('Workspace'), size: const Size(1400, 900));
-      expect(find.text("LAWYER'S"), findsOneWidget);
-      expect(find.text('E-DIARY'), findsOneWidget);
+      expect(find.text('LED'), findsOneWidget);
+      expect(find.text('Lawyer’s E-Diary'), findsOneWidget);
     });
   });
 
