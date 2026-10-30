@@ -103,7 +103,7 @@ class _WindowsDesktopShellState extends State<WindowsDesktopShell> {
             'assets/images/led_pillar_sidebar.png',
             fit: BoxFit.cover,
             alignment: Alignment.bottomCenter,
-            errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+            errorBuilder: (_, _, _) => const SizedBox.shrink(),
           ),
         ),
         Positioned.fill(
@@ -136,7 +136,7 @@ class _WindowsDesktopShellState extends State<WindowsDesktopShell> {
           'assets/images/master logo.png',
           height: 42,
           fit: BoxFit.contain,
-          errorBuilder: (_, __, ___) => const Icon(Icons.balance_rounded, color: WindowsDesktopShell.gold, size: 30),
+          errorBuilder: (_, _, _) => const Icon(Icons.balance_rounded, color: WindowsDesktopShell.gold, size: 30),
         ),
       );
     }
@@ -152,7 +152,7 @@ class _WindowsDesktopShellState extends State<WindowsDesktopShell> {
               child: Image.asset(
                 'assets/images/master logo.png',
                 fit: BoxFit.contain,
-                errorBuilder: (_, __, ___) => const Icon(Icons.balance_rounded, color: WindowsDesktopShell.gold, size: 34),
+                errorBuilder: (_, _, _) => const Icon(Icons.balance_rounded, color: WindowsDesktopShell.gold, size: 34),
               ),
             ),
             const SizedBox(width: 10),
