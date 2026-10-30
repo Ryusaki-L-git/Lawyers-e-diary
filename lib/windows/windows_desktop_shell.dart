@@ -93,6 +93,9 @@ class _WindowsDesktopShellState extends State<WindowsDesktopShell> {
         '/settings_native',
         '/cloud_storage',
         '/upgrade',
+        '/profile',
+        '/notifications',
+        '/support',
       }.contains(route);
     }
     return false;
