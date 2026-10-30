@@ -154,13 +154,13 @@ class WindowsPanel extends StatelessWidget {
       padding: padding,
       decoration: BoxDecoration(
         color: AppPalette.cardBackground,
-        borderRadius: BorderRadius.circular(17),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: AppPalette.borderLight),
         boxShadow: const [
           BoxShadow(
             color: Color(0x071A1A1A),
-            blurRadius: 18,
-            offset: Offset(0, 5),
+            blurRadius: 14,
+            offset: Offset(0, 4),
           ),
         ],
       ),
@@ -354,8 +354,8 @@ class WindowsPage extends StatelessWidget {
   const WindowsPage({
     super.key,
     required this.child,
-    this.maxWidth = 1000,
-    this.padding = const EdgeInsets.fromLTRB(30, 25, 30, 28),
+    this.maxWidth = 1240,
+    this.padding = const EdgeInsets.fromLTRB(28, 24, 28, 28),
     this.scrollable = true,
   });
 
