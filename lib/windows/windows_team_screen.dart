@@ -69,8 +69,10 @@ class _WindowsTeamScreenState extends State<WindowsTeamScreen> {
                 eyebrow: 'COLLABORATIVE PRACTICE',
                 title: 'Team & chambers',
                 subtitle: 'Your firm teams, members and shared practice.',
-                actions: Row(
-                  mainAxisSize: MainAxisSize.min,
+                actions: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
                     OutlinedButton.icon(
                       onPressed: _openTeamWorkspace,
@@ -78,7 +80,6 @@ class _WindowsTeamScreenState extends State<WindowsTeamScreen> {
                       label: const Text('Open team workspace'),
                       style: WindowsButtonStyles.secondary(),
                     ),
-                    const SizedBox(width: 10),
                     FilledButton.icon(
                       onPressed: _openCreateTeam,
                       icon: const Icon(Icons.add_rounded),
