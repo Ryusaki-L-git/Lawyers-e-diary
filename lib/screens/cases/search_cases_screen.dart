@@ -12,6 +12,7 @@ import '../../widgets/case_empty_state.dart';
 import '../../widgets/case_filter_sheet.dart';
 import 'case_detail_screen.dart';
 import '../../widgets/app_palette.dart';
+import '../../templates/animations/loading_effects.dart';
 
 /// Search Cases Screen matching the Case Section blueprint.
 /// Includes 300ms debounce, recent searches, live Firestore search, and CaseBottomNavigation.
@@ -28,12 +29,7 @@ class _SearchCasesScreenState extends State<SearchCasesScreen> {
   Timer? _debounceTimer;
 
   String _searchQuery = '';
-  CaseFilterCriteria _filterCriteria = const CaseFilterCriteria();
-  final List<String> _recentSearches = [
-    'Smith vs Johnson',
-    'ABC Corp',
-    'State vs John',
-  ];
+  CaseFilterCriteria _filterCriteria = const CaseFilterCriteria(datePeriod: 'Today');
 
   static const Color background = Color(0xFFF7F5F2);
   static const Color primaryGreen = Color(0xFF1F3D2B);
@@ -53,6 +49,41 @@ class _SearchCasesScreenState extends State<SearchCasesScreen> {
     _debounceTimer = Timer(const Duration(milliseconds: 300), () {
       setState(() => _searchQuery = query.trim());
     });
+  }
+
+  DateTimeRange? get _effectiveHearingDateRange {
+    if (_filterCriteria.customDateRange != null) {
+      return _filterCriteria.customDateRange;
+    }
+
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    switch (_filterCriteria.datePeriod) {
+      case 'Today':
+        return DateTimeRange(
+          start: today,
+          end: today.add(const Duration(days: 1)).subtract(
+                const Duration(microseconds: 1),
+              ),
+        );
+      case 'Week':
+        final start = today.subtract(Duration(days: today.weekday - 1));
+        return DateTimeRange(
+          start: start,
+          end: start.add(const Duration(days: 7)).subtract(
+                const Duration(microseconds: 1),
+              ),
+        );
+      case 'Month':
+        return DateTimeRange(
+          start: DateTime(today.year, today.month),
+          end: DateTime(today.year, today.month + 1).subtract(
+                const Duration(microseconds: 1),
+              ),
+        );
+      default:
+        return null;
+    }
   }
 
   void _openFilterSheet() {
@@ -195,51 +226,6 @@ class _SearchCasesScreenState extends State<SearchCasesScreen> {
 
                 const SizedBox(height: 14),
 
-                // Recent Searches Section
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 18),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Recent Searches',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          color: textMuted,
-                          letterSpacing: 0.2,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Wrap(
-                        spacing: 8,
-                        children: _recentSearches.map((term) {
-                          return ActionChip(
-                            label: Text(term),
-                            onPressed: () {
-                              _controller.text = term;
-                              setState(() => _searchQuery = term);
-                            },
-                            backgroundColor: Colors.white,
-                            side: const BorderSide(color: border, width: 0.8),
-                            labelStyle: const TextStyle(
-                              fontSize: 11.5,
-                              color: textDark,
-                            ),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 4,
-                              vertical: 0,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                          );
-                        }).toList(),
-                      ),
-                    ],
-                  ),
-                ),
-
                 const SizedBox(height: 14),
 
                 // Search Results Header
@@ -265,16 +251,11 @@ class _SearchCasesScreenState extends State<SearchCasesScreen> {
                       caseType: _filterCriteria.caseType,
                       status: _filterCriteria.status,
                       sortBy: _filterCriteria.sortBy,
-                      dateRange: _filterCriteria.customDateRange,
+                      dateRange: _effectiveHearingDateRange,
                     ),
                     builder: (context, snapshot) {
                       if (snapshot.connectionState == ConnectionState.waiting) {
-                        return const Center(
-                          child: CircularProgressIndicator(
-                            color: primaryGreen,
-                            strokeWidth: 2,
-                          ),
-                        );
+                        return const TemplateLoadingPlaceholder();
                       }
 
                       final cases = snapshot.data ?? [];
@@ -283,10 +264,14 @@ class _SearchCasesScreenState extends State<SearchCasesScreen> {
                         return Padding(
                           padding: const EdgeInsets.all(18),
                           child: CaseEmptyState(
-                            title: 'No search results found',
+                            title: _searchQuery.isNotEmpty
+                                ? 'No matching docket cases'
+                                : 'No cases scheduled today',
                             subtitle: _searchQuery.isNotEmpty
-                                ? 'No case records matched "$_searchQuery".'
-                                : 'Start typing a case title, client name, or CNR number.',
+                                ? 'No case in your accessible LED docket matched "$_searchQuery".'
+                                : _filterCriteria.datePeriod == 'Today'
+                                    ? 'There are no cases in your docket scheduled for today. Change the Hearing Date filter to view other cases.'
+                                    : 'No cases in your accessible LED docket match the selected filters.',
                             icon: Icons.search_off_rounded,
                           ),
                         );

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../templates/animations/loading_effects.dart';
 import '../../data/local/app_database.dart';
 import '../../models/case_model.dart';
 import '../../repositories/case_repository.dart';
@@ -31,7 +32,7 @@ class _AllCasesScreenState extends State<AllCasesScreen> {
   Timer? _debounce;
 
   String _activeChip = 'All';
-  CaseFilterCriteria _filterCriteria = const CaseFilterCriteria();
+  CaseFilterCriteria _filterCriteria = const CaseFilterCriteria(datePeriod: 'Today');
 
   final Set<String> _selectedCaseIds = {};
   List<CaseModel> _latestCases = [];
@@ -229,8 +230,7 @@ class _AllCasesScreenState extends State<AllCasesScreen> {
                             onTap: () {
                               setState(() {
                                 _activeChip = chip;
-                                _filterCriteria =
-                                    const CaseFilterCriteria(); // reset filters
+                                _filterCriteria = const CaseFilterCriteria(datePeriod: 'Today'); // preserve today's default
                               });
                             },
                             child: Container(
@@ -274,11 +274,7 @@ class _AllCasesScreenState extends State<AllCasesScreen> {
                       builder: (context, snapshot) {
                         if (snapshot.connectionState ==
                             ConnectionState.waiting) {
-                          return const Center(
-                            child: CircularProgressIndicator(
-                              color: primaryGreen,
-                            ),
-                          );
+                          return const TemplateLoadingPlaceholder();
                         }
                         if (snapshot.hasError) {
                           return Center(

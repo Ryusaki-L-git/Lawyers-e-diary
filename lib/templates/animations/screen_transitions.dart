@@ -126,3 +126,15 @@ class TemplateAnimatedSwitcher extends StatelessWidget {
     child: child,
   );
 }
+
+
+/// Shared transition builder for normal MaterialApp route navigation.
+class TemplatePlatformPageTransitionsBuilder extends PageTransitionsBuilder {
+  const TemplatePlatformPageTransitionsBuilder({this.style = TemplateTransitionStyle.fadeSlide});
+  final TemplateTransitionStyle style;
+  @override
+  Widget buildTransitions<T>(PageRoute<T> route, BuildContext context, Animation<double> animation, Animation<double> secondaryAnimation, Widget child) {
+    if (MediaQuery.disableAnimationsOf(context)) return child;
+    return buildTemplateTransition(animation: animation, child: child, style: style, curve: Curves.easeOutCubic);
+  }
+}

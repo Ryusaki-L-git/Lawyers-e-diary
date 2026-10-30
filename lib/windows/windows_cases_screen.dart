@@ -27,6 +27,7 @@ class _WindowsCasesScreenState extends State<WindowsCasesScreen> {
   final _search = TextEditingController();
   String _status = 'all';
   String _sort = 'hearing';
+  String _hearingFilter = 'today';
 
   /// Held in state so a failed load can be retried by re-subscribing.
   late Stream<List<CaseModel>> _stream = _openStream();
@@ -90,6 +91,23 @@ class _WindowsCasesScreenState extends State<WindowsCasesScreen> {
               if (_status == 'completed' && !item.isCompleted) return false;
               if (_status == 'urgent' && !item.isUrgent) return false;
               if (_status == 'starred' && !item.isStarred) return false;
+              if (_hearingFilter != 'all') {
+                final hearing = item.nextHearingDate;
+                if (hearing == null) return false;
+                final now = DateTime.now();
+                final today = DateTime(now.year, now.month, now.day);
+                final hearingDay = DateTime(hearing.year, hearing.month, hearing.day);
+                if (_hearingFilter == 'today' && hearingDay != today) return false;
+                if (_hearingFilter == 'week') {
+                  final weekStart = today.subtract(Duration(days: today.weekday - 1));
+                  final weekEnd = weekStart.add(const Duration(days: 7));
+                  if (hearingDay.isBefore(weekStart) || !hearingDay.isBefore(weekEnd)) return false;
+                }
+                if (_hearingFilter == 'month' &&
+                    (hearingDay.year != today.year || hearingDay.month != today.month)) {
+                  return false;
+                }
+              }
               if (query.isEmpty) return true;
 
               return '${item.caseTitle} ${item.caseNumber} '
@@ -132,7 +150,7 @@ class _WindowsCasesScreenState extends State<WindowsCasesScreen> {
                     eyebrow: 'CASE REGISTER',
                     title: _pageTitle,
                     subtitle:
-                        'Search, review and organize your legal matters.',
+                        'Search, review and organize your legal matters. Today’s hearings are shown by default.',
                     actions: FilledButton.icon(
                       onPressed: () =>
                           Navigator.of(context).pushNamed('/add_case'),
@@ -193,6 +211,32 @@ class _WindowsCasesScreenState extends State<WindowsCasesScreen> {
                           ),
                         );
 
+                        final hearingFilter = SizedBox(
+                          width: 165,
+                          child: DropdownButtonFormField<String>(
+                            initialValue: _hearingFilter,
+                            decoration: const WindowsFieldDecoration(
+                              hint: 'Hearing date',
+                            ).build().copyWith(
+                              labelText: 'Hearing date',
+                              isDense: true,
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 13,
+                              ),
+                            ),
+                            items: const [
+                              DropdownMenuItem(value: 'today', child: Text("Today's cases")),
+                              DropdownMenuItem(value: 'all', child: Text('All dates')),
+                              DropdownMenuItem(value: 'week', child: Text('This week')),
+                              DropdownMenuItem(value: 'month', child: Text('This month')),
+                            ],
+                            onChanged: (value) => setState(
+                              () => _hearingFilter = value ?? 'today',
+                            ),
+                          ),
+                        );
+
                         final filters = WindowsFilterBar(
                           options: const [
                             ('all', 'All'),
@@ -214,6 +258,8 @@ class _WindowsCasesScreenState extends State<WindowsCasesScreen> {
                               const SizedBox(height: 12),
                               filters,
                               const SizedBox(height: 12),
+                              hearingFilter,
+                              const SizedBox(height: 12),
                               sort,
                             ],
                           );
@@ -226,6 +272,8 @@ class _WindowsCasesScreenState extends State<WindowsCasesScreen> {
                               children: [
                                 search,
                                 const Spacer(),
+                                hearingFilter,
+                                const SizedBox(width: 12),
                                 sort,
                               ],
                             ),

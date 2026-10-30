@@ -7,6 +7,7 @@ import '../../widgets/app_nav_controller.dart';
 import '../../widgets/case_card.dart';
 import 'case_detail_screen.dart';
 import '../../widgets/app_palette.dart';
+import '../../templates/animations/loading_effects.dart';
 
 /// Toggles the star on a case and reports a genuine write failure.
 ///
@@ -97,12 +98,7 @@ class StarredCasesScreen extends StatelessWidget {
                     stream: FirestoreService().watchCases(),
                     builder: (context, snapshot) {
                       if (snapshot.connectionState == ConnectionState.waiting) {
-                        return const Center(
-                          child: CircularProgressIndicator(
-                            color: primaryGreen,
-                            strokeWidth: 2,
-                          ),
-                        );
+                        return const TemplateLoadingPlaceholder();
                       }
 
                       if (snapshot.hasError) {

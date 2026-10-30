@@ -1,119 +1,103 @@
-# Icon Generation Script for Lawyers E-Diary MSIX Packaging
-# This script generates all required MSIX icon sizes from the source app_icon.ico
-# Run from: C:\Users\Lawyers-e-diary-main\windows\runner\
-#
-# Requirements: ImageMagick (https://www.imagemagick.org/) or PowerShell with System.Drawing
+# Icon Generation Script for Lawyers E-Diary Windows Packaging
+# Uses the final shared LED brand asset as the single source of truth.
+# Run before flutter build windows to refresh the executable icon, and before packaging to refresh MSIX tile assets.
 
 param(
-    [string]$SourceIcon = "",
+    [string]$SourceImage = "",
     [string]$OutputDir = ""
 )
 
 $ErrorActionPreference = "Stop"
-
-# Resolve the default paths relative to this script so the script works from
-# any working directory.
 $scriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
-if ([string]::IsNullOrWhiteSpace($SourceIcon)) {
-    $SourceIcon = Join-Path $scriptRoot "resources\app_icon.ico"
-}
-if ([string]::IsNullOrWhiteSpace($OutputDir)) {
-    $OutputDir = Join-Path $scriptRoot "assets\icons"
-}
+if ([string]::IsNullOrWhiteSpace($SourceImage)) { $SourceImage = Join-Path $scriptRoot "..\..\assets\images\master logo.png" }
+if ([string]::IsNullOrWhiteSpace($OutputDir)) { $OutputDir = Join-Path $scriptRoot "assets\icons" }
+$SourceImage = [System.IO.Path]::GetFullPath($SourceImage)
+$OutputDir = [System.IO.Path]::GetFullPath($OutputDir)
+$AppIconPath = Join-Path $scriptRoot "resources\app_icon.ico"
 
-# Required MSIX icon sizes (width x height in pixels)
+if (-not (Test-Path $SourceImage)) { throw "Final LED logo source not found: $SourceImage" }
+if (-not (Test-Path $OutputDir)) { New-Item -ItemType Directory -Path $OutputDir -Force | Out-Null }
+
 $iconSizes = @(
-    @{ Name = "square30x30Logo.png";    Size = 30  }
-    @{ Name = "square44x44Logo.png";    Size = 44  }
-    @{ Name = "square71x71Logo.png";    Size = 71  }
-    @{ Name = "square150x150Logo.png";  Size = 150 }
-    @{ Name = "square310x310Logo.png";  Size = 310 }
-    @{ Name = "StoreLogo.png";          Size = 50  }
-    @{ Name = "wide310x150Logo.png";    Width = 310; Height = 150 }
+    @{ Name = "square30x30Logo.png"; Size = 30 }
+    @{ Name = "square44x44Logo.png"; Size = 44 }
+    @{ Name = "square71x71Logo.png"; Size = 71 }
+    @{ Name = "square150x150Logo.png"; Size = 150 }
+    @{ Name = "square310x310Logo.png"; Size = 310 }
+    @{ Name = "StoreLogo.png"; Size = 50 }
+    @{ Name = "wide310x150Logo.png"; Width = 310; Height = 150 }
 )
 
-# Create output directory
-if (-not (Test-Path $OutputDir)) {
-    New-Item -ItemType Directory -Path $OutputDir -Force | Out-Null
-    Write-Host "Created output directory: $OutputDir"
-}
-
-# Check if source icon exists
-if (-not (Test-Path $SourceIcon)) {
-    Write-Error "Source icon not found: $SourceIcon"
-    exit 1
-}
-
-# Check for ImageMagick
-$hasMagick = $null -ne (Get-Command magick -ErrorAction SilentlyContinue)
-
-if ($hasMagick) {
-    Write-Host "Using ImageMagick for icon generation..." -ForegroundColor Green
-    
+$magickCommand = Get-Command magick -ErrorAction SilentlyContinue
+if ($null -ne $magickCommand) {
+    Write-Host "Generating Windows icons from the final LED logo..." -ForegroundColor Green
     foreach ($icon in $iconSizes) {
         $outPath = Join-Path $OutputDir $icon.Name
-        
         if ($icon.Width -and $icon.Height) {
-            # Wide icon (non-square)
-            magick convert $SourceIcon -resize "$($icon.Width)x$($icon.Height)!" -background none $outPath
+            & magick $SourceImage -resize "140x140" -gravity center -background none -extent "$($icon.Width)x$($icon.Height)" $outPath
         } else {
-            # Square icon
             $size = $icon.Size
-            magick convert $SourceIcon -resize "${size}x${size}!" -background none $outPath
+            & magick $SourceImage -resize "${size}x${size}" -gravity center -background none -extent "${size}x${size}" $outPath
         }
-        
-        if ($?) {
-            Write-Host "  Generated: $($icon.Name) ($($icon.Size)x$($icon.Size))" -ForegroundColor Gray
-        } else {
-            Write-Warning "Failed to generate: $($icon.Name)"
-        }
+        if ($LASTEXITCODE -ne 0) { throw "Failed to generate $($icon.Name)" }
+        Write-Host "  Generated $($icon.Name)" -ForegroundColor Gray
     }
+    & magick $SourceImage -define icon:auto-resize=256,128,64,48,32,16 $AppIconPath
+    if ($LASTEXITCODE -ne 0) { throw "Failed to generate the Windows executable icon." }
 } else {
-    Write-Warning "ImageMagick not found. Attempting fallback with System.Drawing..."
-    
+    Write-Warning "ImageMagick not found; using System.Drawing fallback."
     Add-Type -AssemblyName System.Drawing
-    
-    $sourceImage = [System.Drawing.Image]::FromFile($SourceIcon)
-    
-    foreach ($icon in $iconSizes) {
-        $outPath = Join-Path $OutputDir $icon.Name
-        
-        if ($icon.Width -and $icon.Height) {
-            $bitmap = New-Object System.Drawing.Bitmap $icon.Width, $icon.Height
-        } else {
-            $bitmap = New-Object System.Drawing.Bitmap $icon.Size, $icon.Size
+    $source = [System.Drawing.Image]::FromFile($SourceImage)
+    try {
+        foreach ($icon in $iconSizes) {
+            if ($icon.Width -and $icon.Height) { $width = [int]$icon.Width; $height = [int]$icon.Height; $maxDimension = 140 }
+            else { $width = [int]$icon.Size; $height = [int]$icon.Size; $maxDimension = [Math]::Min($width, $height) }
+            $bitmap = New-Object System.Drawing.Bitmap $width, $height
+            try {
+                $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
+                try {
+                    $graphics.Clear([System.Drawing.Color]::Transparent)
+                    $graphics.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::HighQuality
+                    $graphics.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
+                    $scale = [Math]::Min($maxDimension / $source.Width, $maxDimension / $source.Height)
+                    $drawWidth = [int][Math]::Round($source.Width * $scale)
+                    $drawHeight = [int][Math]::Round($source.Height * $scale)
+                    $x = [int](($width - $drawWidth) / 2); $y = [int](($height - $drawHeight) / 2)
+                    $graphics.DrawImage($source, $x, $y, $drawWidth, $drawHeight)
+                } finally { $graphics.Dispose() }
+                $bitmap.Save((Join-Path $OutputDir $icon.Name), [System.Drawing.Imaging.ImageFormat]::Png)
+            } finally { $bitmap.Dispose() }
+            Write-Host "  Generated $($icon.Name)" -ForegroundColor Gray
         }
-        
-        $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
-        $graphics.Clear([System.Drawing.Color]::Transparent)
-        
-        # Calculate centered scaling
-        if ($icon.Width -and $icon.Height) {
-            $scaleX = $icon.Width / $sourceImage.Width
-            $scaleY = $icon.Height / $sourceImage.Height
-            $scale = [Math]::Min($scaleX, $scaleY)
-            $destWidth = [int]($sourceImage.Width * $scale)
-            $destHeight = [int]($sourceImage.Height * $scale)
-            $x = [int](($icon.Width - $destWidth) / 2)
-            $y = [int](($icon.Height - $destHeight) / 2)
-        } else {
-            $scale = $icon.Size / [Math]::Max($sourceImage.Width, $sourceImage.Height)
-            $destWidth = [int]($sourceImage.Width * $scale)
-            $destHeight = [int]($sourceImage.Height * $scale)
-            $x = [int](($icon.Size - $destWidth) / 2)
-            $y = [int](($icon.Size - $destHeight) / 2)
-        }
-        
-        $graphics.DrawImage($sourceImage, $x, $y, $destWidth, $destHeight)
-        $graphics.Dispose()
-        $bitmap.Save($outPath, [System.Drawing.Imaging.ImageFormat]::Png)
-        $bitmap.Dispose()
-        
-        Write-Host "  Generated: $($icon.Name)" -ForegroundColor Gray
-    }
-    
-    $sourceImage.Dispose()
+        $iconBitmap = New-Object System.Drawing.Bitmap 256, 256
+        try {
+            $graphics = [System.Drawing.Graphics]::FromImage($iconBitmap)
+            try {
+                $graphics.Clear([System.Drawing.Color]::Transparent)
+                $graphics.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::HighQuality
+                $graphics.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
+                $scale = [Math]::Min(240.0 / $source.Width, 240.0 / $source.Height)
+                $drawWidth = [int][Math]::Round($source.Width * $scale); $drawHeight = [int][Math]::Round($source.Height * $scale)
+                $graphics.DrawImage($source, [int]((256 - $drawWidth) / 2), [int]((256 - $drawHeight) / 2), $drawWidth, $drawHeight)
+            } finally { $graphics.Dispose() }
+            $hIcon = $iconBitmap.GetHicon()
+            try {
+                $iconObject = [System.Drawing.Icon]::FromHandle($hIcon)
+                $stream = [System.IO.File]::Open($AppIconPath, [System.IO.FileMode]::Create)
+                try { $iconObject.Save($stream) } finally { $stream.Dispose() }
+            } finally {
+                Add-Type @"
+using System;
+using System.Runtime.InteropServices;
+public static class LedIconNativeMethods { [DllImport("user32.dll", SetLastError=true)] public static extern bool DestroyIcon(IntPtr hIcon); }
+"@ -ErrorAction SilentlyContinue
+                [LedIconNativeMethods]::DestroyIcon($hIcon) | Out-Null
+            }
+        } finally { $iconBitmap.Dispose() }
+    } finally { $source.Dispose() }
 }
 
-Write-Host "`nIcon generation complete. Files in: $OutputDir" -ForegroundColor Green
-Get-ChildItem $OutputDir | Select-Object Name, Length | Format-Table -AutoSize
+Write-Host "`nWindows icon generation complete." -ForegroundColor Green
+Write-Host "Source: $SourceImage"
+Write-Host "Executable icon: $AppIconPath"
+Write-Host "MSIX icons: $OutputDir"

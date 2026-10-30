@@ -156,9 +156,21 @@ class WindowsDesktopShell extends StatefulWidget {
       'INTELLIGENCE',
     ),
     _DesktopNavItem(
+      'Service catalogue',
+      Icons.grid_view_rounded,
+      '/services',
+      'INTELLIGENCE',
+    ),
+    _DesktopNavItem(
       'Case tokens',
       Icons.toll_outlined,
       '/token_balance',
+      'INTELLIGENCE',
+    ),
+    _DesktopNavItem(
+      'Usage history',
+      Icons.receipt_long_outlined,
+      '/usage_history',
       'INTELLIGENCE',
     ),
     _DesktopNavItem(
@@ -241,17 +253,35 @@ class _WindowsDesktopShellState extends State<WindowsDesktopShell> {
   Widget _buildRail({required bool collapsed}) {
     return Container(
       color: WindowsDesktopShell.forest,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+      child: Stack(
+        fit: StackFit.expand,
         children: [
-          _buildBrand(collapsed: collapsed),
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 20),
-            child: Divider(color: Color(0x33FFFFFF), height: 1),
+          Positioned.fill(
+            child: Image.asset(
+              'assets/images/led_pillar_sidebar.png',
+              fit: BoxFit.cover,
+              alignment: Alignment.bottomCenter,
+              errorBuilder: (_, _, _) => const SizedBox.shrink(),
+            ),
           ),
-          const SizedBox(height: 15),
-          Expanded(child: _buildNavigation(collapsed: collapsed)),
-          _buildFooter(collapsed: collapsed),
+          Positioned.fill(
+            child: ColoredBox(
+              color: WindowsDesktopShell.forest.withValues(alpha: 0.86),
+            ),
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _buildBrand(collapsed: collapsed),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 20),
+                child: Divider(color: Color(0x33FFFFFF), height: 1),
+              ),
+              const SizedBox(height: 15),
+              Expanded(child: _buildNavigation(collapsed: collapsed)),
+              _buildFooter(collapsed: collapsed),
+            ],
+          ),
         ],
       ),
     );
@@ -266,7 +296,16 @@ class _WindowsDesktopShellState extends State<WindowsDesktopShell> {
         borderRadius: BorderRadius.circular(13),
         border: Border.all(color: const Color(0x66CCA046)),
       ),
-      child: const Icon(Icons.balance_rounded, color: WindowsDesktopShell.gold, size: 24),
+      padding: const EdgeInsets.all(5),
+      child: Image.asset(
+        'assets/images/master logo.png',
+        fit: BoxFit.contain,
+        errorBuilder: (_, _, _) => const Icon(
+          Icons.balance_rounded,
+          color: WindowsDesktopShell.gold,
+          size: 24,
+        ),
+      ),
     );
 
     if (collapsed) {

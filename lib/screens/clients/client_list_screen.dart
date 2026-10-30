@@ -7,6 +7,7 @@ import '../../services/client_service.dart';
 import '../../widgets/app_palette.dart';
 import 'add_edit_client_screen.dart';
 import 'client_detail_screen.dart';
+import '../../templates/animations/loading_effects.dart';
 
 /// Production Client Management Directory Screen.
 /// Includes real-time 300ms debounced multi-field search, client type filters,
@@ -197,12 +198,7 @@ class _ClientListScreenState extends State<ClientListScreen> {
                 ),
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(
-                      child: CircularProgressIndicator(
-                        color: AppPalette.primaryGreen,
-                        strokeWidth: 2.5,
-                      ),
-                    );
+                    return const TemplateLoadingPlaceholder();
                   }
 
                   if (snapshot.hasError) {

@@ -37,6 +37,7 @@ import 'screens/team/team_entry_screen.dart';
 import 'signup_screen.dart';
 import 'splash_screen.dart';
 import 'welcome_screen.dart';
+import 'templates/animations/screen_transitions.dart';
 import 'widgets/app_palette.dart';
 import 'widgets/windows_desktop_ui.dart';
 import 'windows/windows_desktop_shell.dart';
@@ -89,9 +90,18 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Lawyers E-Diary',
       debugShowCheckedModeBanner: false,
-      theme: defaultTargetPlatform == TargetPlatform.windows
-          ? AppTheme.windows
-          : AppTheme.light,
+      theme: (defaultTargetPlatform == TargetPlatform.windows
+              ? AppTheme.windows
+              : AppTheme.light)
+          .copyWith(
+            // Shared restrained transitions for Android and Windows.
+            pageTransitionsTheme: const PageTransitionsTheme(
+              builders: <TargetPlatform, PageTransitionsBuilder>{
+                TargetPlatform.android: TemplatePlatformPageTransitionsBuilder(),
+                TargetPlatform.windows: TemplatePlatformPageTransitionsBuilder(),
+              },
+            ),
+          ),
       // The desktop workspace supports click-and-drag scrolling with a
       // mouse. The default material behaviour only drags with a touch
       // device, so the behaviour is swapped only for the Windows build and

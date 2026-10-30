@@ -10,6 +10,7 @@ import '../../widgets/app_bottom_navigation.dart';
 import '../../widgets/app_nav_controller.dart';
 import '../../widgets/app_palette.dart';
 import 'edit_profile_screen.dart';
+import '../../templates/animations/loading_effects.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -59,7 +60,7 @@ class ProfileScreen extends StatelessWidget {
                   .snapshots(),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
+                  return const TemplateLoadingPlaceholder();
                 }
 
                 final userData = snapshot.data?.data() ?? {};

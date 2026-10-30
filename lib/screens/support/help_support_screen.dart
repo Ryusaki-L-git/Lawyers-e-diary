@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../models/support_ticket_model.dart';
 import '../../services/support_service.dart';
 import '../../widgets/app_palette.dart';
+import '../../templates/animations/loading_effects.dart';
 
 /// Comprehensive in-app Help & Support Screen.
 /// Sections: FAQ Accordion, Submit Ticket Intake Sheet, My Tickets History, App Information.
@@ -310,12 +311,7 @@ class _HelpSupportScreenState extends State<HelpSupportScreen> {
       stream: SupportService.instance.watchMyTickets(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(
-            child: CircularProgressIndicator(
-              color: AppPalette.primaryGreen,
-              strokeWidth: 2.5,
-            ),
-          );
+          return const TemplateLoadingPlaceholder(label: 'Loading your support tickets…');
         }
 
         if (snapshot.hasError) {

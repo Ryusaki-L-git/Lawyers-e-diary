@@ -2,14 +2,10 @@ name: LED Flutter validation
 
 on:
   pull_request:
-    branches: [master, feature/juris-credits-ui-2026-10-27]
+    branches: [master]
   push:
-    branches: [master, feat/prestige-home-dashboard, 'feature/**']
+    branches: [master, feat/prestige-home-dashboard]
   workflow_dispatch:
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
 
 permissions:
   contents: read
