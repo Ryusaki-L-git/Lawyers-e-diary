@@ -1,5 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 
 import '../data/local/app_database.dart';
@@ -22,6 +23,7 @@ class WindowsHomeScreen extends StatefulWidget {
 
 class _WindowsHomeScreenState extends State<WindowsHomeScreen> {
   final _search = TextEditingController();
+  final _searchFocus = FocusNode();
   final _cases = CaseRepository(database: AppDatabase.instance);
   final _firestore = FirestoreService();
   bool _syncing = false;
@@ -35,6 +37,7 @@ class _WindowsHomeScreenState extends State<WindowsHomeScreen> {
   @override
   void dispose() {
     _search.dispose();
+    _searchFocus.dispose();
     super.dispose();
   }
 
@@ -112,7 +115,13 @@ class _WindowsHomeScreenState extends State<WindowsHomeScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF7F5F1),
       body: SafeArea(
-        child: StreamBuilder<List<CaseModel>>(
+        child: CallbackShortcuts(
+          bindings: <ShortcutActivator, VoidCallback>{
+            const SingleActivator(LogicalKeyboardKey.keyK, control: true): () => _searchFocus.requestFocus(),
+          },
+          child: Focus(
+            autofocus: true,
+            child: StreamBuilder<List<CaseModel>>(
           stream: _cases.watchCasesForCurrentUser(),
           builder: (context, caseSnapshot) {
             final all = caseSnapshot.data ?? const <CaseModel>[];
@@ -141,8 +150,8 @@ class _WindowsHomeScreenState extends State<WindowsHomeScreen> {
                   children: [
                     _TopBar(
                       controller: _search,
+                      focusNode: _searchFocus,
                       user: user!,
-                      notificationCount: reminders.length,
                       syncing: _syncing,
                       onSearch: _runSearch,
                       onSync: () => _sync(),
@@ -262,6 +271,8 @@ class _WindowsHomeScreenState extends State<WindowsHomeScreen> {
               },
             );
           },
+          ),
+        ),
         ),
       ),
     );
@@ -271,8 +282,8 @@ class _WindowsHomeScreenState extends State<WindowsHomeScreen> {
 class _TopBar extends StatelessWidget {
   const _TopBar({
     required this.controller,
+    required this.focusNode,
     required this.user,
-    required this.notificationCount,
     required this.syncing,
     required this.onSearch,
     required this.onSync,
@@ -280,8 +291,8 @@ class _TopBar extends StatelessWidget {
     required this.onProfile,
   });
   final TextEditingController controller;
+  final FocusNode focusNode;
   final User user;
-  final int notificationCount;
   final bool syncing;
   final VoidCallback onSearch;
   final VoidCallback onSync;
@@ -307,6 +318,7 @@ class _TopBar extends StatelessWidget {
               constraints: const BoxConstraints(maxWidth: 720),
               child: TextField(
                 controller: controller,
+                focusNode: focusNode,
                 onSubmitted: (_) => onSearch(),
                 style: const TextStyle(fontSize: 13, color: Color(0xFF202820)),
                 decoration: InputDecoration(
@@ -344,27 +356,7 @@ class _TopBar extends StatelessWidget {
           IconButton(
             tooltip: 'Notifications',
             onPressed: onNotifications,
-            icon: Stack(
-              clipBehavior: Clip.none,
-              children: [
-                const Icon(Icons.notifications_none_rounded),
-                if (notificationCount > 0)
-                  Positioned(
-                    right: -7,
-                    top: -6,
-                    child: Container(
-                      constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
-                      padding: const EdgeInsets.symmetric(horizontal: 4),
-                      alignment: Alignment.center,
-                      decoration: const BoxDecoration(color: Color(0xFFC94A3B), shape: BoxShape.circle),
-                      child: Text(
-                        notificationCount > 9 ? '9+' : notificationCount.toString(),
-                        style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w800),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
+            icon: const Icon(Icons.notifications_none_rounded),
             color: const Color(0xFF1F3D2B),
           ),
           const SizedBox(width: 8),
