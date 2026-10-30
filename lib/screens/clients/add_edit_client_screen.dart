@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../models/client_model.dart';
@@ -158,7 +159,14 @@ class _AddEditClientScreenState extends State<AddEditClientScreen> {
         onBack: () => Navigator.pop(context),
       ),
       body: SafeArea(
-        child: Form(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: defaultTargetPlatform == TargetPlatform.windows
+                  ? 900
+                  : double.infinity,
+            ),
+            child: Form(
           key: _formKey,
           child: ListView(
             padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
@@ -328,6 +336,7 @@ class _AddEditClientScreenState extends State<AddEditClientScreen> {
                 ),
               ),
             ],
+            ),
           ),
         ),
       ),
