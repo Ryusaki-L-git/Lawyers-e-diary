@@ -136,6 +136,20 @@ void main() {
     });
   });
 
+  group('Windows action sizing', () {
+    test('primary and secondary actions use compact desktop dimensions', () {
+      final primary = WindowsButtonStyles.primary();
+      final secondary = WindowsButtonStyles.secondary();
+
+      expect(primary.minimumSize?.resolve({})?.height, 40);
+      expect(secondary.minimumSize?.resolve({})?.height, 40);
+      expect(primary.tapTargetSize, MaterialTapTargetSize.shrinkWrap);
+      expect(secondary.tapTargetSize, MaterialTapTargetSize.shrinkWrap);
+      expect(primary.visualDensity, VisualDensity.compact);
+      expect(secondary.visualDensity, VisualDensity.compact);
+    });
+  });
+
   group('Shared Windows desktop components', () {
     testWidgets('WindowsPageHeader renders eyebrow, serif title and subtitle', (
       tester,
