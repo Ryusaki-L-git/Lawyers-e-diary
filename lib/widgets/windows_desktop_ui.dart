@@ -448,16 +448,18 @@ abstract final class WindowsLayout {
 /// across the whole workspace.
 abstract final class WindowsButtonStyles {
   /// The single primary action of a page: solid forest green.
-  static ButtonStyle primary({double height = 44}) {
+  static ButtonStyle primary({double height = 40}) {
     return FilledButton.styleFrom(
       backgroundColor: AppPalette.primaryGreen,
       foregroundColor: Colors.white,
       disabledBackgroundColor: AppPalette.primaryGreen.withValues(alpha: 0.45),
       disabledForegroundColor: Colors.white.withValues(alpha: 0.8),
       minimumSize: Size(0, height),
-      padding: const EdgeInsets.symmetric(horizontal: 18),
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      visualDensity: VisualDensity.compact,
+      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
       textStyle: const TextStyle(
-        fontSize: 13,
+        fontSize: 12,
         fontWeight: FontWeight.w700,
         letterSpacing: 0.1,
       ),
@@ -466,14 +468,16 @@ abstract final class WindowsButtonStyles {
   }
 
   /// A secondary action: white surface, forest green label, hairline border.
-  static ButtonStyle secondary({double height = 44}) {
+  static ButtonStyle secondary({double height = 40}) {
     return OutlinedButton.styleFrom(
       foregroundColor: AppPalette.primaryGreen,
       backgroundColor: AppPalette.cardBackground,
       side: const BorderSide(color: AppPalette.borderLight),
       minimumSize: Size(0, height),
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+      padding: const EdgeInsets.symmetric(horizontal: 11),
+      visualDensity: VisualDensity.compact,
+      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(11)),
     );
   }
@@ -489,7 +493,7 @@ abstract final class WindowsButtonStyles {
   }
 
   /// A destructive action, kept visually distinct from the primary action.
-  static ButtonStyle danger({double height = 44}) {
+  static ButtonStyle danger({double height = 40}) {
     return OutlinedButton.styleFrom(
       foregroundColor: AppPalette.statusDanger,
       backgroundColor: AppPalette.cardBackground,
@@ -497,8 +501,10 @@ abstract final class WindowsButtonStyles {
         color: AppPalette.statusDanger.withValues(alpha: 0.45),
       ),
       minimumSize: Size(0, height),
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+      padding: const EdgeInsets.symmetric(horizontal: 11),
+      visualDensity: VisualDensity.compact,
+      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(11)),
     );
   }
@@ -509,8 +515,10 @@ abstract final class WindowsButtonStyles {
       return FilledButton.styleFrom(
         backgroundColor: AppPalette.accentGold,
         foregroundColor: AppPalette.primaryGreen,
-        minimumSize: const Size(0, 44),
-        padding: const EdgeInsets.symmetric(horizontal: 20),
+        minimumSize: const Size(0, 40),
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        visualDensity: VisualDensity.compact,
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
         textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(11)),
       );
@@ -518,8 +526,10 @@ abstract final class WindowsButtonStyles {
     return OutlinedButton.styleFrom(
       foregroundColor: Colors.white,
       side: const BorderSide(color: Color(0x66FFFFFF)),
-      minimumSize: const Size(0, 44),
-      padding: const EdgeInsets.symmetric(horizontal: 20),
+      minimumSize: const Size(0, 40),
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      visualDensity: VisualDensity.compact,
+      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
       textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(11)),
     );
