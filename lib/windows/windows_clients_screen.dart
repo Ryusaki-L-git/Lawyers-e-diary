@@ -89,6 +89,8 @@ class _WindowsClientsScreenState extends State<WindowsClientsScreen> {
                           : 'Try changing your search or filter.',
                     );
                   }
+                  final compactDirectory = MediaQuery.sizeOf(context).width < 1100;
+
                   return Container(
                     decoration: BoxDecoration(
                       color: AppPalette.cardBackground,
@@ -114,7 +116,8 @@ class _WindowsClientsScreenState extends State<WindowsClientsScreen> {
                                 flex: 4,
                               ),
                               const WindowsColumnLabel('Type', flex: 2),
-                              const WindowsColumnLabel('Contact', flex: 3),
+                              if (!compactDirectory)
+                                const WindowsColumnLabel('Contact', flex: 3),
                               const SizedBox(width: 19),
                             ],
                           ),
@@ -172,6 +175,8 @@ class _WindowsClientsScreenState extends State<WindowsClientsScreen> {
                                                 children: [
                                                   Text(
                                                     c.name,
+                                                    maxLines: 1,
+                                                    overflow: TextOverflow.ellipsis,
                                                     style: const TextStyle(
                                                       color: AppPalette
                                                           .textPrimary,
@@ -209,18 +214,21 @@ class _WindowsClientsScreenState extends State<WindowsClientsScreen> {
                                           ),
                                         ),
                                       ),
-                                      Expanded(
-                                        flex: 3,
-                                        child: Text(
-                                          c.phone.isEmpty
-                                              ? 'No phone recorded'
-                                              : c.phone,
-                                          style: const TextStyle(
-                                            color: AppPalette.textPrimary,
-                                            fontSize: 12,
+                                      if (!compactDirectory)
+                                        Expanded(
+                                          flex: 3,
+                                          child: Text(
+                                            c.phone.isEmpty
+                                                ? 'No phone recorded'
+                                                : c.phone,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: const TextStyle(
+                                              color: AppPalette.textPrimary,
+                                              fontSize: 12,
+                                            ),
                                           ),
                                         ),
-                                      ),
                                       const Icon(
                                         Icons.chevron_right_rounded,
                                         color: AppPalette.textMuted,
