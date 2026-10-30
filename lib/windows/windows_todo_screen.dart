@@ -257,6 +257,8 @@ class _WindowsTodoScreenState extends State<WindowsTodoScreen> {
               children: [
                 Text(
                   todo.title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     color: done ? AppPalette.textMuted : AppPalette.textPrimary,
                     fontSize: 13,
