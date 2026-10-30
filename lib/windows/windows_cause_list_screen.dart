@@ -41,8 +41,10 @@ class _WindowsCauseListScreenState extends State<WindowsCauseListScreen> {
           children: [
             LayoutBuilder(
               builder: (context, constraints) {
-                final actions = Row(
-                  mainAxisSize: MainAxisSize.min,
+                final actions = Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
                     OutlinedButton.icon(
                       onPressed: _pickDate,
@@ -50,7 +52,6 @@ class _WindowsCauseListScreenState extends State<WindowsCauseListScreen> {
                       label: Text(DateFormat('dd MMM yyyy').format(_date)),
                       style: WindowsButtonStyles.secondary(),
                     ),
-                    const SizedBox(width: 10),
                     FilledButton.icon(
                       onPressed: () =>
                           Navigator.of(context).pushNamed('/add_case'),
