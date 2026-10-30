@@ -122,7 +122,20 @@ class _WindowsDesktopShellState extends State<WindowsDesktopShell> {
                     : WindowsDesktopShell.expandedRailWidth,
                 child: _buildRail(collapsed),
               ),
-              Expanded(child: ClipRect(child: widget.child)),
+              Expanded(
+                child: ClipRect(
+                  child: ColoredBox(
+                    color: WindowsDesktopShell.canvas,
+                    child: Align(
+                      alignment: Alignment.topCenter,
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 1680),
+                        child: SizedBox.expand(child: widget.child),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
             ],
           );
         },
