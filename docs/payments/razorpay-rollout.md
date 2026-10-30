@@ -39,6 +39,9 @@ Configure the Razorpay webhook URL as https://<LED-gateway-host>/v1/payments/web
 - Razorpay's published standard plan is generally 2% plus GST, with some methods at 3%; merchant eligibility, settlement terms and actual rate must be confirmed before launch.
 - Do not deploy, enable live payments, or perform real-money tests until the merchant account is approved, secrets are configured, legal business/KYC obligations are satisfied, refund/support processes exist, and staging verification passes.
 
-## Remaining client work
+## Client integration status
 
-The backend is only one layer. The Windows UI should call /links, open the returned shortUrl in the system browser, and poll /links/{reference_id}; it must never credit locally. Android needs Google Play Billing purchase flow plus backend purchase-token verification and acknowledgement, or a separately approved India alternative-billing implementation. These client changes and store-console configuration are not completed by this backend change.
+- Windows: the Balances screen now loads the server-owned packs, requests an authenticated hosted payment link, opens the returned HTTPS `shortUrl` in the system browser, and exposes a status-check action for the returned `referenceId`. It disables another checkout while one reference is awaiting confirmation. The UI never credits a balance locally; it refreshes only after the gateway reports that the signed webhook has been processed.
+- Android: Razorpay checkout is not exposed. The Play-distributed Android app still needs Google Play Billing purchase flow, backend purchase-token verification and acknowledgement, or a separately approved India alternative-billing implementation. Do not route Android users to the Windows Razorpay flow.
+- Subscriptions: the Plans & Upgrades catalogue remains informational. These top-up endpoints do not activate subscription plans or entitlements; subscriptions need their own server-authoritative purchase and renewal flow.
+- Store-console setup, merchant KYC/approval, refund/support processes, production secrets, and staging verification remain release blockers. Keep `PAYMENTS_ENABLED=false` until those gates are complete.
