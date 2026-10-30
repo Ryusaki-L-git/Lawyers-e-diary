@@ -102,6 +102,8 @@ class _WindowsSearchCasesScreenState extends State<WindowsSearchCasesScreen> {
                       );
                     }
 
+                    final compactResults = MediaQuery.sizeOf(context).width < 1100;
+
                     return Container(
                       decoration: BoxDecoration(
                         color: AppPalette.cardBackground,
@@ -128,7 +130,8 @@ class _WindowsSearchCasesScreenState extends State<WindowsSearchCasesScreen> {
                                   'Case register · ${items.length}',
                                   flex: 4,
                                 ),
-                                const WindowsColumnLabel('Client', flex: 2),
+                                if (!compactResults)
+                                  const WindowsColumnLabel('Client', flex: 2),
                                 const WindowsColumnLabel(
                                   'Next hearing',
                                   flex: 2,
@@ -207,22 +210,25 @@ class _WindowsSearchCasesScreenState extends State<WindowsSearchCasesScreen> {
                                             ],
                                           ),
                                         ),
-                                        Expanded(
-                                          flex: 2,
-                                          child: Text(
-                                            c.clientName,
-                                            style: const TextStyle(
-                                              color: AppPalette.textPrimary,
-                                              fontSize: 11,
+                                        if (!compactResults)
+                                          Expanded(
+                                            flex: 2,
+                                            child: Text(
+                                              c.clientName,
+                                              style: const TextStyle(
+                                                color: AppPalette.textPrimary,
+                                                fontSize: 11,
+                                              ),
+                                              maxLines: 2,
+                                              overflow: TextOverflow.ellipsis,
                                             ),
-                                            maxLines: 2,
-                                            overflow: TextOverflow.ellipsis,
                                           ),
-                                        ),
                                         Expanded(
                                           flex: 2,
                                           child: Text(
                                             hearingLabel,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
                                             style: const TextStyle(
                                               color: AppPalette.textPrimary,
                                               fontSize: 11,
