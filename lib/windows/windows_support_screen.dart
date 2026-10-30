@@ -63,27 +63,41 @@ class _WindowsSupportScreenState extends State<WindowsSupportScreen> {
               subtitle: 'Find guidance or contact the LED support team.',
             ),
             const SizedBox(height: 20),
-            Row(
-              children: [
-                Expanded(
-                  child: WindowsFilterBar(
-                    options: const [
-                      ('knowledge', 'Knowledge center'),
-                      ('requests', 'My requests'),
-                    ],
-                    selected: _tab == 0 ? 'knowledge' : 'requests',
-                    onChanged: (value) =>
-                        setState(() => _tab = value == 'knowledge' ? 0 : 1),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                FilledButton.icon(
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final compact = constraints.maxWidth < 760;
+                final filter = WindowsFilterBar(
+                  options: const [
+                    ('knowledge', 'Knowledge center'),
+                    ('requests', 'My requests'),
+                  ],
+                  selected: _tab == 0 ? 'knowledge' : 'requests',
+                  onChanged: (value) =>
+                      setState(() => _tab = value == 'knowledge' ? 0 : 1),
+                );
+                final action = FilledButton.icon(
                   onPressed: _submitRequest,
                   icon: const Icon(Icons.add_comment_outlined, size: 18),
                   label: const Text('Submit request'),
                   style: WindowsButtonStyles.primary(),
-                ),
-              ],
+                );
+                return compact
+                    ? Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          filter,
+                          const SizedBox(height: 10),
+                          action,
+                        ],
+                      )
+                    : Row(
+                        children: [
+                          Expanded(child: filter),
+                          const SizedBox(width: 12),
+                          action,
+                        ],
+                      );
+              },
             ),
             const SizedBox(height: 16),
             Expanded(child: _tab == 0 ? _buildFaq() : _buildTickets()),
