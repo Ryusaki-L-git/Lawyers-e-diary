@@ -255,7 +255,7 @@ class WindowsCaseManagementScreen extends StatelessWidget {
                           crossAxisCount: cols,
                           mainAxisSpacing: 12,
                           crossAxisSpacing: 12,
-                          childAspectRatio: 2.6,
+                          mainAxisExtent: 116,
                           children: [
                             for (final a in actions)
                               Material(
