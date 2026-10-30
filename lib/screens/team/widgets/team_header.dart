@@ -1,7 +1,9 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../../models/team_model.dart';
 import '../../../widgets/app_palette.dart';
+import '../../../widgets/platform_app_bar.dart';
 
 /// Top bar used across Team screens.
 /// Shows team name, firm name, role badge, and actions.
@@ -24,10 +26,25 @@ class TeamHeader extends StatelessWidget implements PreferredSizeWidget {
   final VoidCallback? onBack;
 
   @override
-  Size get preferredSize => const Size.fromHeight(60);
+  Size get preferredSize => defaultTargetPlatform == TargetPlatform.windows
+      ? Size.fromHeight(subtitle == null || subtitle!.isEmpty ? 62 : 84)
+      : const Size.fromHeight(60);
 
   @override
   Widget build(BuildContext context) {
+    if (defaultTargetPlatform == TargetPlatform.windows) {
+      return PlatformAppBar(
+        title: title,
+        eyebrow: 'TEAM WORKSPACE',
+        subtitle: subtitle,
+        onBack: showBack
+            ? (onBack ?? () => Navigator.of(context).maybePop())
+            : null,
+        actions: actions,
+        backgroundColor: AppPalette.cardBackground,
+        foregroundColor: AppPalette.textPrimary,
+      );
+    }
     return AppBar(
       backgroundColor: AppPalette.cardBackground,
       foregroundColor: AppPalette.primaryGreen,
