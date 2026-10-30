@@ -3,17 +3,10 @@ import 'package:flutter/material.dart';
 
 import 'app_palette.dart';
 
-/// An application bar that adapts to the host platform.
-///
-/// The LED Windows application presents its screens inside the persistent
-/// [WindowsDesktopShell], which already supplies the navigation rail and the
-/// page chrome. A stock mobile [AppBar] inside that shell produced a second,
-/// conflicting header band, so this widget renders a desktop header on
-/// Windows and the familiar mobile app bar everywhere else.
-///
-/// Using it keeps a single screen implementation for both platforms without
-/// forking the layout, and it guarantees every embedded flow gets the same
-/// desktop treatment.
+/// Mobile application bar. On Windows the persistent [WindowsDesktopShell]
+/// owns the global workspace bar and individual desktop pages own their page
+/// heading, so this widget deliberately occupies no vertical space there.
+
 class PlatformAppBar extends StatelessWidget implements PreferredSizeWidget {
   const PlatformAppBar({
     super.key,
@@ -55,11 +48,8 @@ class PlatformAppBar extends StatelessWidget implements PreferredSizeWidget {
 
   @override
   Size get preferredSize {
-    if (!_isWindows) return const Size.fromHeight(kToolbarHeight);
-    // The desktop header carries an eyebrow, a serif title and an optional
-    // subtitle, so it needs more vertical room than a mobile toolbar.
-    final hasSubtitle = subtitle != null && subtitle!.isNotEmpty;
-    return Size.fromHeight(hasSubtitle ? 84 : 62);
+    if (_isWindows) return Size.zero;
+    return const Size.fromHeight(kToolbarHeight);
   }
 
   @override
@@ -77,82 +67,6 @@ class PlatformAppBar extends StatelessWidget implements PreferredSizeWidget {
       );
     }
 
-    final ink = foregroundColor ?? AppPalette.textPrimary;
-
-    return PreferredSize(
-      preferredSize: preferredSize,
-      child: Container(
-        color: backgroundColor ?? AppPalette.canvas,
-        padding: const EdgeInsets.fromLTRB(30, 10, 30, 10),
-        child: Row(
-          children: [
-            if (onBack != null) ...[
-              IconButton(
-                onPressed: onBack,
-                icon: const Icon(Icons.arrow_back_rounded),
-                color: ink,
-                tooltip: 'Back',
-                visualDensity: VisualDensity.compact,
-              ),
-              const SizedBox(width: 6),
-            ] else if (leading != null) ...[
-              leading!,
-              const SizedBox(width: 6),
-            ],
-            Expanded(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (eyebrow != null && eyebrow!.isNotEmpty) ...[
-                    Text(
-                      eyebrow!,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: AppPalette.textMuted,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 1.5,
-                      ),
-                    ),
-                    const SizedBox(height: 3),
-                  ],
-                  Text(
-                    title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontFamily: AppTypography.heading,
-                      color: ink,
-                      fontSize: 22,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            if (subtitle != null && subtitle!.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.only(left: 16),
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 320),
-                  child: Text(
-                    subtitle!,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    textAlign: TextAlign.right,
-                    style: const TextStyle(
-                      color: AppPalette.textMuted,
-                      fontSize: 12,
-                    ),
-                  ),
-                ),
-              ),
-            if (actions != null) ...[const SizedBox(width: 12), ...actions!],
-          ],
-        ),
-      ),
-    );
+    return const SizedBox.shrink();
   }
 }
