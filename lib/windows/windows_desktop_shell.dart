@@ -20,7 +20,7 @@ class WindowsDesktopShell extends StatefulWidget {
   static const gold = AppPalette.accentGold;
   static const expandedRailWidth = 236.0;
   static const compactRailWidth = 72.0;
-  static const collapseThreshold = 920.0;
+  static const collapseThreshold = 1080.0;
 
   static const _items = <_DesktopNavItem>[
     _DesktopNavItem('Home', Icons.home_filled, '/home'),
@@ -120,7 +120,7 @@ class _WindowsDesktopShellState extends State<WindowsDesktopShell> {
         ? user!.displayName!.trim()
         : (user?.email ?? 'Advocate').split('@').first;
     final initials = displayName
-        .split(RegExp(r'\\s+'))
+        .split(RegExp(r'\s+'))
         .where((part) => part.isNotEmpty)
         .take(2)
         .map((part) => part[0].toUpperCase())
@@ -134,11 +134,13 @@ class _WindowsDesktopShellState extends State<WindowsDesktopShell> {
       ),
       child: Row(
         children: [
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 720),
-            child: SizedBox(
-              height: 40,
-              child: TextField(
+          SizedBox(
+            width: (MediaQuery.sizeOf(context).width -
+                    (MediaQuery.sizeOf(context).width < 1080 ? 72 : 236) -
+                    380)
+                .clamp(180.0, 720.0),
+            height: 40,
+            child: TextField(
                 controller: _searchController,
                 focusNode: _searchFocus,
                 textInputAction: TextInputAction.search,
@@ -183,7 +185,6 @@ class _WindowsDesktopShellState extends State<WindowsDesktopShell> {
                   ),
                 ),
               ),
-            ),
           ),
           const Spacer(),
           IconButton(
