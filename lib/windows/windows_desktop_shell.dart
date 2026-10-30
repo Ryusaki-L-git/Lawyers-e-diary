@@ -115,7 +115,13 @@ class _WindowsDesktopShellState extends State<WindowsDesktopShell> {
   }
 
   Widget _buildWorkspaceBar() {
-    final user = FirebaseAuth.instance.currentUser;
+    final user = (() {
+      try {
+        return FirebaseAuth.instance.currentUser;
+      } catch (_) {
+        return null;
+      }
+    })();
     final displayName = (user?.displayName ?? '').trim().isNotEmpty
         ? user!.displayName!.trim()
         : (user?.email ?? 'Advocate').split('@').first;
