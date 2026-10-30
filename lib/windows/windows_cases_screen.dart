@@ -348,6 +348,13 @@ class _WindowsCasesScreenState extends State<WindowsCasesScreen> {
                                 style: WindowsButtonStyles.secondary(),
                               ),
                             )
+                          : snapshot.connectionState == ConnectionState.waiting &&
+                                !snapshot.hasData
+                          ? const WindowsMessageState(
+                              icon: Icons.hourglass_empty_rounded,
+                              title: 'Loading your case register',
+                              message: 'Your authorized matters will appear here shortly.',
+                            )
                           : cases.isEmpty
                           ? WindowsMessageState(
                               icon: Icons.folder_open_outlined,
@@ -357,7 +364,7 @@ class _WindowsCasesScreenState extends State<WindowsCasesScreen> {
                               message: query.isEmpty
                                   ? 'Try another filter or create a case to '
                                         'get started.'
-                                  : 'No matter matches “$_search.text.trim()”. '
+                                  : 'No matter matches “${_search.text.trim()}”. '
                                         'Try a different search term.',
                               action: OutlinedButton.icon(
                                 onPressed: () =>
