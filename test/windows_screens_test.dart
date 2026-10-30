@@ -39,6 +39,26 @@ void main() {
     await tester.pump();
   }
 
+  testWidgets('keeps ultrawide workspace content within its editorial canvas', (
+    tester,
+  ) async {
+    await pumpDesktop(
+      tester,
+      LayoutBuilder(
+        builder: (context, constraints) => SizedBox(
+          key: const ValueKey('workspace-content'),
+          width: constraints.maxWidth,
+          height: 40,
+        ),
+      ),
+      size: const Size(2400, 1000),
+    );
+
+    final content = tester.getSize(find.byKey(const ValueKey('workspace-content')));
+    expect(content.width, lessThanOrEqualTo(1680));
+    expect(tester.takeException(), isNull);
+  });
+
   group('WindowsRecordPaymentScreen', () {
     FeeModel fee() => FeeModel(
       id: 'fee-1',
