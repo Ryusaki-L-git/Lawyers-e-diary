@@ -340,6 +340,7 @@ class _AddEditClientScreenState extends State<AddEditClientScreen> {
           ),
         ),
       ),
+    ),
     );
   }
 
