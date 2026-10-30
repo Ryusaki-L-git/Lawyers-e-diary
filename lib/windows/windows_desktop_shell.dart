@@ -207,44 +207,24 @@ class _WindowsDesktopShellState extends State<WindowsDesktopShell> {
   }
 
   Widget _buildQuote() {
-    return SizedBox(
-      height: 300,
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          const Padding(
-            padding: EdgeInsets.fromLTRB(24, 10, 18, 0),
-            child: Align(
-              alignment: Alignment.topLeft,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('“Justice is not\njust a word,\nit’s a commitment.”',
-                    style: TextStyle(fontFamily: 'Palatino Linotype', fontStyle: FontStyle.italic,
-                      color: Colors.white, fontSize: 17, height: 1.35)),
-                  SizedBox(height: 10),
-                  SizedBox(width: 30, child: Divider(color: WindowsDesktopShell.gold, thickness: 2)),
-                ],
-              ),
-            ),
+    return const SizedBox(
+      height: 255,
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(24, 12, 18, 0),
+        child: Align(
+          alignment: Alignment.topLeft,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('“Justice is not\njust a word,\nit’s a commitment.”',
+                style: TextStyle(fontFamily: 'Palatino Linotype', fontStyle: FontStyle.italic,
+                  color: Colors.white, fontSize: 17, height: 1.35)),
+              SizedBox(height: 10),
+              SizedBox(width: 30, child: Divider(color: WindowsDesktopShell.gold, thickness: 2)),
+            ],
           ),
-          Positioned(
-            left: 24,
-            right: 18,
-            bottom: 12,
-            child: Opacity(
-              opacity: .72,
-              child: Image.asset(
-                'assets/images/led_pillar_sidebar.png',
-                height: 145,
-                fit: BoxFit.cover,
-                alignment: Alignment.bottomCenter,
-                errorBuilder: (_, __, ___) => const SizedBox.shrink(),
-              ),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
