@@ -107,6 +107,8 @@ class _WindowsRemindersScreenState extends State<WindowsRemindersScreen> {
                             : 'There are no reminders in this view.',
                       );
                     }
+                    final compactReminders = MediaQuery.sizeOf(context).width < 1100;
+
                     return Container(
                       decoration: BoxDecoration(
                         color: AppPalette.cardBackground,
@@ -142,18 +144,19 @@ class _WindowsRemindersScreenState extends State<WindowsRemindersScreen> {
                                     ),
                                   ),
                                 ),
-                                const Expanded(
-                                  flex: 3,
-                                  child: Text(
-                                    'RELATED MATTER',
-                                    style: TextStyle(
-                                      color: AppPalette.textMuted,
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.w800,
-                                      letterSpacing: 1,
+                                if (!compactReminders)
+                                  const Expanded(
+                                    flex: 3,
+                                    child: Text(
+                                      'RELATED MATTER',
+                                      style: TextStyle(
+                                        color: AppPalette.textMuted,
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w800,
+                                        letterSpacing: 1,
+                                      ),
                                     ),
                                   ),
-                                ),
                                 const Expanded(
                                   flex: 2,
                                   child: Text(
@@ -265,43 +268,46 @@ class _WindowsRemindersScreenState extends State<WindowsRemindersScreen> {
                                           ],
                                         ),
                                       ),
-                                      Expanded(
-                                        flex: 3,
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              (r.caseTitle ?? '').isEmpty
-                                                  ? 'General reminder'
-                                                  : r.caseTitle!,
-                                              maxLines: 2,
-                                              overflow: TextOverflow.ellipsis,
-                                              style: const TextStyle(
-                                                color: AppPalette.textPrimary,
-                                                fontSize: 11,
-                                                fontWeight: FontWeight.w700,
-                                              ),
-                                            ),
-                                            if ((r.clientName ?? '')
-                                                .isNotEmpty)
+                                      if (!compactReminders)
+                                        Expanded(
+                                          flex: 3,
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
                                               Text(
-                                                r.clientName!,
-                                                maxLines: 1,
-                                                overflow:
-                                                    TextOverflow.ellipsis,
+                                                (r.caseTitle ?? '').isEmpty
+                                                    ? 'General reminder'
+                                                    : r.caseTitle!,
+                                                maxLines: 2,
+                                                overflow: TextOverflow.ellipsis,
                                                 style: const TextStyle(
-                                                  color: AppPalette.textMuted,
-                                                  fontSize: 10,
+                                                  color: AppPalette.textPrimary,
+                                                  fontSize: 11,
+                                                  fontWeight: FontWeight.w700,
                                                 ),
                                               ),
-                                          ],
+                                              if ((r.clientName ?? '')
+                                                  .isNotEmpty)
+                                                Text(
+                                                  r.clientName!,
+                                                  maxLines: 1,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                  style: const TextStyle(
+                                                    color: AppPalette.textMuted,
+                                                    fontSize: 10,
+                                                  ),
+                                                ),
+                                            ],
+                                          ),
                                         ),
-                                      ),
                                       Expanded(
                                         flex: 2,
                                         child: Text(
                                           _dateFormat.format(r.dueDateTime),
+                                          maxLines: 2,
+                                          overflow: TextOverflow.ellipsis,
                                           style: TextStyle(
                                             color: overdue
                                                 ? AppPalette.statusDanger
