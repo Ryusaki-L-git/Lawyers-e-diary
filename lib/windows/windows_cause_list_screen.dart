@@ -173,6 +173,8 @@ class _WindowsCauseListScreenState extends State<WindowsCauseListScreen> {
                       message: 'No cases in your accessible docket have a hearing date recorded for this day.',
                     );
                   }
+                  final compactDocket = MediaQuery.sizeOf(context).width < 1100;
+
                   return Container(
                     decoration: BoxDecoration(
                       color: AppPalette.cardBackground,
@@ -197,11 +199,13 @@ class _WindowsCauseListScreenState extends State<WindowsCauseListScreen> {
                                 'Matter · ${cases.length}',
                                 flex: 4,
                               ),
-                              const WindowsColumnLabel('Client', flex: 2),
-                              const WindowsColumnLabel(
-                                'Court / forum',
-                                flex: 2,
-                              ),
+                              if (!compactDocket)
+                                const WindowsColumnLabel('Client', flex: 2),
+                              if (!compactDocket)
+                                const WindowsColumnLabel(
+                                  'Court / forum',
+                                  flex: 2,
+                                ),
                               const WindowsColumnLabel('Status', flex: 2),
                               const SizedBox(width: 19),
                             ],
@@ -267,10 +271,11 @@ class _WindowsCauseListScreenState extends State<WindowsCauseListScreen> {
                                           ],
                                         ),
                                       ),
-                                      Expanded(
-                                        flex: 2,
-                                        child: Text(
-                                          c.clientName,
+                                      if (!compactDocket)
+                                        Expanded(
+                                          flex: 2,
+                                          child: Text(
+                                            c.clientName,
                                           style: const TextStyle(
                                             color: AppPalette.textPrimary,
                                             fontSize: 11,
@@ -279,10 +284,11 @@ class _WindowsCauseListScreenState extends State<WindowsCauseListScreen> {
                                           overflow: TextOverflow.ellipsis,
                                         ),
                                       ),
-                                      Expanded(
-                                        flex: 2,
-                                        child: Text(
-                                          c.courtName,
+                                      if (!compactDocket)
+                                        Expanded(
+                                          flex: 2,
+                                          child: Text(
+                                            c.courtName,
                                           style: const TextStyle(
                                             color: AppPalette.textPrimary,
                                             fontSize: 11,
