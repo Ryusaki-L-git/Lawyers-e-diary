@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -30,6 +31,8 @@ class WindowsDesktopShell extends StatefulWidget {
     _DesktopNavItem('Clients', Icons.person_outline_rounded, '/clients'),
     _DesktopNavItem('Team', Icons.groups_2_outlined, '/team'),
     _DesktopNavItem('JURIS', Icons.psychology_alt_outlined, '/juris'),
+    _DesktopNavItem('To-Do list', Icons.checklist_rounded, '/todo'),
+    _DesktopNavItem('Services', Icons.grid_view_rounded, '/services'),
     _DesktopNavItem('Reports', Icons.description_outlined, '/usage_history'),
     _DesktopNavItem('Settings', Icons.settings_outlined, '/settings'),
   ];
@@ -42,12 +45,16 @@ class _WindowsDesktopShellState extends State<WindowsDesktopShell> {
   final List<FocusNode> _focusNodes = [
     for (final _ in WindowsDesktopShell._items) FocusNode(),
   ];
+  final TextEditingController _searchController = TextEditingController();
+  final FocusNode _searchFocus = FocusNode();
 
   @override
   void dispose() {
     for (final node in _focusNodes) {
       node.dispose();
     }
+    _searchController.dispose();
+    _searchFocus.dispose();
     super.dispose();
   }
 
@@ -74,21 +81,171 @@ class _WindowsDesktopShellState extends State<WindowsDesktopShell> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: WindowsDesktopShell.canvas,
-      body: LayoutBuilder(
-        builder: (context, constraints) {
-          final collapsed = constraints.maxWidth < WindowsDesktopShell.collapseThreshold;
-          return Row(
-            children: [
-              SizedBox(
-                width: collapsed
-                    ? WindowsDesktopShell.compactRailWidth
-                    : WindowsDesktopShell.expandedRailWidth,
-                child: _buildRail(collapsed),
-              ),
-              Expanded(child: ClipRect(child: widget.child)),
-            ],
-          );
+      body: CallbackShortcuts(
+        bindings: <ShortcutActivator, VoidCallback>{
+          const SingleActivator(LogicalKeyboardKey.keyK, control: true): () =>
+              _searchFocus.requestFocus(),
         },
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final collapsed =
+                constraints.maxWidth < WindowsDesktopShell.collapseThreshold;
+            return Row(
+              children: [
+                SizedBox(
+                  width: collapsed
+                      ? WindowsDesktopShell.compactRailWidth
+                      : WindowsDesktopShell.expandedRailWidth,
+                  child: _buildRail(collapsed),
+                ),
+                Expanded(
+                  child: Column(
+                    children: [
+                      if (widget.activeRoute != '/home') _buildWorkspaceBar(),
+                      Expanded(child: ClipRect(child: widget.child)),
+                    ],
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildWorkspaceBar() {
+    final user = FirebaseAuth.instance.currentUser;
+    final displayName = (user?.displayName ?? '').trim().isNotEmpty
+        ? user!.displayName!.trim()
+        : (user?.email ?? 'Advocate').split('@').first;
+    final initials = displayName
+        .split(RegExp(r'\\s+'))
+        .where((part) => part.isNotEmpty)
+        .take(2)
+        .map((part) => part[0].toUpperCase())
+        .join();
+    return Container(
+      height: 72,
+      padding: const EdgeInsets.symmetric(horizontal: 28),
+      decoration: const BoxDecoration(
+        color: Color(0xFFFBFAF7),
+        border: Border(bottom: BorderSide(color: Color(0xFFE5DFD7))),
+      ),
+      child: Row(
+        children: [
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 720),
+            child: SizedBox(
+              height: 40,
+              child: TextField(
+                controller: _searchController,
+                focusNode: _searchFocus,
+                textInputAction: TextInputAction.search,
+                onSubmitted: (value) {
+                  final query = value.trim();
+                  if (query.isNotEmpty) {
+                    Navigator.of(context).pushNamed(
+                      '/search_cases',
+                      arguments: query,
+                    );
+                  }
+                },
+                decoration: InputDecoration(
+                  hintText: 'Search cases, clients, matters…',
+                  hintStyle: const TextStyle(
+                    color: Color(0xFF8A8984),
+                    fontSize: 12,
+                  ),
+                  prefixIcon: const Icon(Icons.search_rounded, size: 19),
+                  suffixText: 'Ctrl + K',
+                  suffixStyle: const TextStyle(
+                    color: Color(0xFF88847D),
+                    fontSize: 10,
+                  ),
+                  filled: true,
+                  fillColor: Colors.white,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: const BorderSide(color: Color(0xFFE2DED7)),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: const BorderSide(color: Color(0xFFE2DED7)),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: const BorderSide(
+                      color: WindowsDesktopShell.gold,
+                      width: 1.4,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const Spacer(),
+          IconButton(
+            tooltip: 'Notifications',
+            onPressed: () => Navigator.of(context).pushNamed('/notifications'),
+            icon: const Icon(Icons.notifications_none_rounded),
+            color: WindowsDesktopShell.forest,
+          ),
+          const SizedBox(width: 8),
+          Container(
+            width: 1,
+            height: 34,
+            color: const Color(0xFFDCD7CE),
+          ),
+          const SizedBox(width: 16),
+          CircleAvatar(
+            radius: 17,
+            backgroundColor: const Color(0xFFE8E2D5),
+            child: Text(
+              initials.isEmpty ? 'A' : initials,
+              style: const TextStyle(
+                color: WindowsDesktopShell.forest,
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 170),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  displayName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Color(0xFF17221B),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                const Text(
+                  'Advocate workspace',
+                  style: TextStyle(
+                    color: Color(0xFF77766F),
+                    fontSize: 10,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            tooltip: 'Profile',
+            onPressed: () => Navigator.of(context).pushNamed('/profile'),
+            icon: const Icon(Icons.keyboard_arrow_down_rounded),
+            color: WindowsDesktopShell.forest,
+          ),
+        ],
       ),
     );
   }
