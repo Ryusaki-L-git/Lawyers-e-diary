@@ -1,8 +1,12 @@
+import 'dart:async';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../models/team_model.dart';
 import '../../services/team_service.dart';
 import '../../services/token_service.dart';
+import '../../services/payments_service.dart';
 import '../../widgets/app_palette.dart';
 import '../../widgets/platform_app_bar.dart';
 import '../../widgets/windows_desktop_ui.dart';
@@ -17,6 +21,13 @@ class TokenBalanceScreen extends StatefulWidget {
 
 class _TokenBalanceScreenState extends State<TokenBalanceScreen> {
   final _service = TokenService();
+  final _payments = PaymentsService();
+  List<PaymentPack> _paymentPacks = const [];
+  bool _loadingPaymentPacks = false;
+  bool _checkoutBusy = false;
+  String? _paymentError;
+  String? _pendingPaymentReference;
+  String? _pendingPaymentLabel;
   TokenBalance? _balance;
   bool _loading = true;
   String? _error;
@@ -39,11 +50,15 @@ class _TokenBalanceScreenState extends State<TokenBalanceScreen> {
     super.initState();
     _teamsStream = TeamService.instance.watchUserTeams();
     _loadBalance();
+    if (defaultTargetPlatform == TargetPlatform.windows) {
+      unawaited(_loadPaymentPacks());
+    }
   }
 
   @override
   void dispose() {
     _service.dispose();
+    _payments.dispose();
     _caseLimitController.dispose();
     _jurisLimitController.dispose();
     _storageLimitController.dispose();
@@ -348,6 +363,206 @@ class _TokenBalanceScreenState extends State<TokenBalanceScreen> {
     }
   }
 
+  Future<void> _loadPaymentPacks() async {
+    if (!mounted) return;
+    setState(() {
+      _loadingPaymentPacks = true;
+      _paymentError = null;
+    });
+    try {
+      final packs = await _payments.fetchPacks();
+      if (!mounted) return;
+      setState(() {
+        _paymentPacks = packs;
+        _loadingPaymentPacks = false;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _paymentError = error.toString();
+        _loadingPaymentPacks = false;
+      });
+    }
+  }
+
+  Future<void> _buyPack(PaymentPack pack) async {
+    if (_checkoutBusy) return;
+    setState(() {
+      _checkoutBusy = true;
+      _paymentError = null;
+    });
+    try {
+      final link = await _payments.createHostedLink(pack.id);
+      if (!mounted) return;
+      setState(() {
+        _pendingPaymentReference = link.referenceId;
+        _pendingPaymentLabel = pack.label;
+      });
+      await _payments.openCheckout(link.shortUrl);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Secure checkout opened. Complete payment in your browser, then check its status here.'),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _paymentError = error.toString());
+    } finally {
+      if (mounted) setState(() => _checkoutBusy = false);
+    }
+  }
+
+  Future<void> _checkPendingPayment() async {
+    final reference = _pendingPaymentReference;
+    if (reference == null || _checkoutBusy) return;
+    setState(() {
+      _checkoutBusy = true;
+      _paymentError = null;
+    });
+    try {
+      final result = await _payments.getHostedLinkStatus(reference);
+      if (!mounted) return;
+      if (result.status == 'paid') {
+        setState(() {
+          _pendingPaymentReference = null;
+          _pendingPaymentLabel = null;
+        });
+        await _loadBalance();
+        if (!mounted) return;
+        final balanceName = result.tokenType == 'case'
+            ? 'Case Tokens'
+            : 'JURIS Credits';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${result.creditedUnits} ${balanceName} added after server confirmation.'),
+          ),
+        );
+      } else {
+        setState(() {
+          _paymentError = 'Payment is not confirmed yet. Your balance has not changed; check again after checkout completes.';
+        });
+      }
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _paymentError = error.toString());
+    } finally {
+      if (mounted) setState(() => _checkoutBusy = false);
+    }
+  }
+
+  Widget _buildTopUpPanel() {
+    return WindowsPanel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Top up balances',
+            style: TextStyle(
+              color: AppPalette.textPrimary,
+              fontSize: 16,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 5),
+          const Text(
+            'Windows checkout uses a secure hosted payment page. LED adds funds only after the signed payment webhook confirms the transaction.',
+            style: TextStyle(
+              color: AppPalette.textMuted,
+              fontSize: 12,
+              height: 1.45,
+            ),
+          ),
+          const SizedBox(height: 16),
+          if (_loadingPaymentPacks)
+            const WindowsLoadingPanel(label: 'Loading top-up options')
+          else if (_paymentPacks.isEmpty)
+            const Text(
+              'Top-up options are unavailable until the LED payment service is configured.',
+              style: TextStyle(color: AppPalette.textMuted, fontSize: 12),
+            )
+          else ...[
+            for (final type in const ['juris', 'case']) ...[
+              Text(
+                type == 'juris' ? 'JURIS Credits' : 'eCourts Case Tokens',
+                style: const TextStyle(
+                  color: AppPalette.primaryGreen,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: _paymentPacks
+                    .where((pack) => pack.tokenType == type)
+                    .map(
+                      (pack) => OutlinedButton(
+                        onPressed: _checkoutBusy ? null : () => _buyPack(pack),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppPalette.primaryGreen,
+                          side: const BorderSide(color: AppPalette.borderLight),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 13,
+                            vertical: 11,
+                          ),
+                        ),
+                        child: Text('${pack.label} · ${pack.amountLabel}'),
+                      ),
+                    )
+                    .toList(),
+              ),
+              const SizedBox(height: 14),
+            ],
+          ],
+          if (_pendingPaymentReference != null) ...[
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Awaiting confirmation: ${_pendingPaymentLabel ?? 'checkout'}',
+                    style: const TextStyle(
+                      color: AppPalette.textMuted,
+                      fontSize: 11,
+                    ),
+                  ),
+                ),
+                FilledButton.icon(
+                  onPressed: _checkoutBusy ? null : _checkPendingPayment,
+                  icon: _checkoutBusy
+                      ? const SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Icon(Icons.verified_outlined, size: 16),
+                  label: const Text('Check status'),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppPalette.primaryGreen,
+                    foregroundColor: Colors.white,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+          ],
+          if (_paymentError != null)
+            Text(
+              _paymentError!,
+              style: const TextStyle(
+                color: AppPalette.statusDanger,
+                fontSize: 12,
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
   Widget _poolLine(String label, String value) => Padding(
     padding: const EdgeInsets.symmetric(vertical: 4),
     child: Row(
@@ -591,6 +806,10 @@ class _TokenBalanceScreenState extends State<TokenBalanceScreen> {
                   title: 'No balances yet',
                   message: 'Credits and Case Tokens appear here once your account has a balance.',
                 ),
+              if (defaultTargetPlatform == TargetPlatform.windows) ...[
+                const SizedBox(height: 16),
+                _buildTopUpPanel(),
+              ],
               const SizedBox(height: 24),
               const Text(
                 'Credits are for JURIS AI; Case Tokens are for eCourts. The balances are separate and cannot be exchanged.',
