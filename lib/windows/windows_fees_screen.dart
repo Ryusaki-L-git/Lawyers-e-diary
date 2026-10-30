@@ -181,6 +181,7 @@ class _WindowsFeesScreenState extends State<WindowsFeesScreen> {
   }
 
   Widget _register(List<FeeModel> fees) {
+    final compact = MediaQuery.sizeOf(context).width < 1100;
     return WindowsPanel(
       padding: EdgeInsets.zero,
       child: Column(
@@ -195,7 +196,7 @@ class _WindowsFeesScreenState extends State<WindowsFeesScreen> {
               children: [
                 WindowsColumnLabel('Client / matter · ${fees.length}', flex: 4),
                 WindowsColumnLabel('Agreed', flex: 2),
-                WindowsColumnLabel('Collected', flex: 2),
+                if (!compact) WindowsColumnLabel('Collected', flex: 2),
                 WindowsColumnLabel('Outstanding', flex: 2),
                 const SizedBox(width: 105),
               ],
@@ -206,7 +207,7 @@ class _WindowsFeesScreenState extends State<WindowsFeesScreen> {
               itemCount: fees.length,
               separatorBuilder: (_, _) =>
                   const Divider(height: 1, color: AppPalette.borderLight),
-              itemBuilder: (context, index) => _row(fees[index]),
+              itemBuilder: (context, index) => _row(fees[index], compact: compact),
             ),
           ),
         ],
@@ -214,7 +215,7 @@ class _WindowsFeesScreenState extends State<WindowsFeesScreen> {
     );
   }
 
-  Widget _row(FeeModel fee) {
+  Widget _row(FeeModel fee, {required bool compact}) {
     final statusColor = fee.status == FeeStatus.settled
         ? AppPalette.statusSuccess
         : fee.status == FeeStatus.partiallyPaid
@@ -233,6 +234,8 @@ class _WindowsFeesScreenState extends State<WindowsFeesScreen> {
                 children: [
                   Text(
                     fee.clientName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       color: AppPalette.textPrimary,
                       fontSize: 13,
@@ -261,6 +264,8 @@ class _WindowsFeesScreenState extends State<WindowsFeesScreen> {
               flex: 2,
               child: Text(
                 '₹ ${_money.format(fee.agreedTotal)}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
                   color: AppPalette.textPrimary,
                   fontSize: 11,
@@ -268,7 +273,7 @@ class _WindowsFeesScreenState extends State<WindowsFeesScreen> {
                 ),
               ),
             ),
-            Expanded(
+            if (!compact) Expanded(
               flex: 2,
               child: Text(
                 '₹ ${_money.format(fee.collectedTotal)}',
@@ -282,6 +287,8 @@ class _WindowsFeesScreenState extends State<WindowsFeesScreen> {
               flex: 2,
               child: Text(
                 '₹ ${_money.format(fee.pendingTotal)}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                   color: fee.pendingTotal > 0
                       ? AppPalette.statusDanger
