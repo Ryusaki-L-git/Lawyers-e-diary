@@ -123,8 +123,10 @@ class _WindowsCaseDetailScreenState extends State<WindowsCaseDetailScreen> {
                   icon: const Icon(Icons.arrow_back_rounded),
                   tooltip: 'Back to case register',
                 ),
-                actions: Row(
-                  mainAxisSize: MainAxisSize.min,
+                actions: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
                     OutlinedButton.icon(
                       onPressed: _busy ? null : _toggleStar,
@@ -137,7 +139,6 @@ class _WindowsCaseDetailScreenState extends State<WindowsCaseDetailScreen> {
                       label: Text(_starred ? 'Starred' : 'Star case'),
                       style: WindowsButtonStyles.secondary(),
                     ),
-                    const SizedBox(width: 10),
                     OutlinedButton.icon(
                       onPressed: _smartRefreshing ? null : _smartRefresh,
                       icon: _smartRefreshing
@@ -152,7 +153,6 @@ class _WindowsCaseDetailScreenState extends State<WindowsCaseDetailScreen> {
                       ),
                       style: WindowsButtonStyles.secondary(),
                     ),
-                    const SizedBox(width: 10),
                     FilledButton.icon(
                       onPressed: () => Navigator.of(context).pushNamed(
                         '/juris',
