@@ -436,20 +436,6 @@ class _CommandPanel extends StatelessWidget {
               alignment: Alignment.centerRight,
               errorBuilder: (_, _, _) => const SizedBox.shrink(),
             ),
-            DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.centerLeft,
-                  end: Alignment.centerRight,
-                  colors: [
-                    AppPalette.primaryGreen.withValues(alpha: 0.98),
-                    AppPalette.primaryGreen.withValues(alpha: 0.82),
-                    AppPalette.primaryGreen.withValues(alpha: 0.20),
-                  ],
-                  stops: const [0.0, 0.52, 1.0],
-                ),
-              ),
-            ),
             Padding(
               padding: const EdgeInsets.fromLTRB(28, 24, 28, 24),
               child: LayoutBuilder(
