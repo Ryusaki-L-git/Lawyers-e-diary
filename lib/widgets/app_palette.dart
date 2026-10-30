@@ -382,6 +382,36 @@ abstract final class AppTheme {
       centerTitle: false,
     ),
     dividerColor: AppPalette.borderLight,
+    filledButtonTheme: FilledButtonThemeData(
+      style: FilledButton.styleFrom(
+        backgroundColor: AppPalette.primaryGreen,
+        foregroundColor: Colors.white,
+        disabledBackgroundColor: AppPalette.primaryGreen.withValues(alpha: .35),
+        disabledForegroundColor: Colors.white70,
+        minimumSize: const Size(40, 42),
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+        textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        elevation: 0,
+      ),
+    ),
+    outlinedButtonTheme: OutlinedButtonThemeData(
+      style: OutlinedButton.styleFrom(
+        foregroundColor: AppPalette.primaryGreen,
+        minimumSize: const Size(40, 42),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+        side: const BorderSide(color: AppPalette.borderLight),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ),
+    ),
+    textButtonTheme: TextButtonThemeData(
+      style: TextButton.styleFrom(
+        foregroundColor: AppPalette.primaryGreen,
+        textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9)),
+      ),
+    ),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
       fillColor: AppPalette.canvas,
