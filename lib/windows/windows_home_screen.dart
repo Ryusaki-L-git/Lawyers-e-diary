@@ -54,8 +54,7 @@ class _WindowsHomeScreenState extends State<WindowsHomeScreen> {
           result.rejected > 0 || result.pullError != null;
       if (notify || issue) {
         final message = issue
-            ? 'Sync completed with issues: ' + result.uploaded.toString() +
-                ' uploaded, ' + result.downloaded.toString() + ' downloaded.'
+            ? 'Sync completed with issues: ${result.uploaded} uploaded, ${result.downloaded} downloaded.'
             : result.uploaded + result.downloaded > 0
                 ? 'Workspace synchronized successfully.'
                 : 'Your workspace is already up to date.';
@@ -66,7 +65,7 @@ class _WindowsHomeScreenState extends State<WindowsHomeScreen> {
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not synchronize cases: ' + error.toString())),
+          SnackBar(content: Text('Could not synchronize cases: $error')),
         );
       }
     } finally {
@@ -421,7 +420,7 @@ class _HeroPanel extends StatelessWidget {
               'assets/images/led_hero_statue.png',
               fit: BoxFit.cover,
               alignment: Alignment.centerRight,
-              errorBuilder: (_, __, ___) => const ColoredBox(color: Color(0xFF0B241A)),
+              errorBuilder: (_, _, _) => const ColoredBox(color: Color(0xFF0B241A)),
             ),
             DecoratedBox(
               decoration: BoxDecoration(
@@ -429,9 +428,9 @@ class _HeroPanel extends StatelessWidget {
                   begin: Alignment.centerLeft,
                   end: Alignment.centerRight,
                   colors: [
-                    const Color(0xFF071D16).withOpacity(.98),
-                    const Color(0xFF071D16).withOpacity(.82),
-                    const Color(0xFF071D16).withOpacity(.10),
+                    const Color(0xFF071D16).withValues(alpha: .98),
+                    const Color(0xFF071D16).withValues(alpha: .82),
+                    const Color(0xFF071D16).withValues(alpha: .10),
                   ],
                   stops: const [0, .55, 1],
                 ),
@@ -516,7 +515,6 @@ class _QuickActions extends StatelessWidget {
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, c) {
       const gap = 9.0;
-      final count = compact ? 2 : 6;
       final width = compact ? (c.maxWidth - gap) / 2 : (c.maxWidth - gap * 5) / 6;
       return Wrap(
         spacing: gap,
@@ -606,7 +604,7 @@ class _SchedulePanel extends StatelessWidget {
         for (final c in cases.take(5)) _HearingRow(caseItem: c),
       if (upcoming.isNotEmpty) ...[
         const Divider(height: 16, color: Color(0xFFE9E5DE)),
-        Text('UP NEXT  ·  ' + upcoming.length.toString() + ' HEARINGS IN 14 DAYS',
+        Text('UP NEXT  ·  ${upcoming.length} HEARINGS IN 14 DAYS',
           style: const TextStyle(fontSize: 9, letterSpacing: 1.1, fontWeight: FontWeight.w800, color: Color(0xFF858982))),
         const SizedBox(height: 8),
         for (final c in upcoming.take(2))
@@ -637,7 +635,7 @@ class _HearingRow extends StatelessWidget {
         Text(caseItem.caseTitle, maxLines: 1, overflow: TextOverflow.ellipsis,
           style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF17221B))),
         const SizedBox(height: 3),
-        Text(caseItem.clientName + '  ·  ' + caseItem.courtName, maxLines: 1, overflow: TextOverflow.ellipsis,
+        Text('${caseItem.clientName}  ·  ${caseItem.courtName}', maxLines: 1, overflow: TextOverflow.ellipsis,
           style: const TextStyle(fontSize: 9, color: Color(0xFF858982))),
       ])),
       const SizedBox(width: 8),
@@ -679,10 +677,10 @@ class _WorkspacePanel extends StatelessWidget {
           width: double.infinity,
           child: Stack(fit: StackFit.expand, children: [
             Image.asset('assets/images/led_stay_focused.png', fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => const ColoredBox(color: Color(0xFF103426))),
+              errorBuilder: (_, _, _) => const ColoredBox(color: Color(0xFF103426))),
             DecoratedBox(decoration: BoxDecoration(gradient: LinearGradient(
               begin: Alignment.bottomLeft, end: Alignment.topRight,
-              colors: [Colors.black.withOpacity(.75), Colors.transparent],
+              colors: [Colors.black.withValues(alpha: .75), Colors.transparent],
             ))),
             const Positioned(left: 14, bottom: 13, child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
