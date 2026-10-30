@@ -439,7 +439,7 @@ class _HeroPanel extends StatelessWidget {
                   Text(greeting, style: const TextStyle(color: Color(0xFFE5B957), fontSize: 10, letterSpacing: 3, fontWeight: FontWeight.w800)),
                   const SizedBox(height: 5),
                   Text(name, maxLines: 1, overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontFamily: 'Palatino Linotype', fontSize: compact ? 32 : 42, height: 1.05, color: Colors.white, fontWeight: FontWeight.w700)),
+                    style: TextStyle(fontFamily: 'Palatino Linotype', fontSize: compact ? 32 : 42, height: 1.05, color: Colors.white, fontWeight: FontWeight.w700)),
                   const SizedBox(height: 7),
                   const Text('Here’s what’s happening with your practice today.',
                     style: TextStyle(color: Colors.white, fontSize: 14)),
