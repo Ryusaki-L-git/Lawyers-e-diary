@@ -87,7 +87,7 @@ class WindowsPageHeader extends StatelessWidget {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final compact = constraints.maxWidth < 680;
+        final compact = constraints.maxWidth < 860;
         final header = compact
             ? Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
