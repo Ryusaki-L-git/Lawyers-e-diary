@@ -254,7 +254,7 @@ void main() {
       // '/fee' is the active route, so the Fees item is rendered as selected.
       final fees = find.descendant(
         of: find.byType(InkWell),
-        matching: find.text('Fees & transactions'),
+        matching: find.text('Fees'),
       );
       await tester.scrollUntilVisible(
         fees,
