@@ -113,7 +113,22 @@ class _TeamEntryScreenState extends State<TeamEntryScreen> {
 
             return Scaffold(
               backgroundColor: _bg,
-              body: IndexedStack(index: _currentIndex, children: pages),
+              body: defaultTargetPlatform == TargetPlatform.windows
+                  ? Row(
+                      children: [
+                        _buildWindowsTeamNavigation(
+                          activeTeam,
+                          isOwnerOrLeader,
+                        ),
+                        Expanded(
+                          child: IndexedStack(
+                            index: _currentIndex,
+                            children: pages,
+                          ),
+                        ),
+                      ],
+                    )
+                  : IndexedStack(index: _currentIndex, children: pages),
               bottomNavigationBar: TeamBottomNavigation(
                 currentIndex: _currentIndex,
                 isOwnerOrLeader: isOwnerOrLeader,
@@ -123,6 +138,143 @@ class _TeamEntryScreenState extends State<TeamEntryScreen> {
           },
         );
       },
+    );
+  }
+
+  Widget _buildWindowsTeamNavigation(
+    TeamModel team,
+    bool isOwnerOrLeader,
+  ) {
+    final items = isOwnerOrLeader
+        ? const [
+            ('Dashboard', Icons.analytics_outlined),
+            ('Master docket', Icons.gavel_outlined),
+            ('Broadcast', Icons.campaign_outlined),
+            ('Groups', Icons.folder_outlined),
+            ('Management', Icons.admin_panel_settings_outlined),
+          ]
+        : const [
+            ('Overview', Icons.dashboard_outlined),
+            ('My cases', Icons.gavel_outlined),
+            ('Team chat', Icons.chat_bubble_outline_rounded),
+            ('My groups', Icons.folder_outlined),
+            ('Roster', Icons.people_outline_rounded),
+          ];
+    return Container(
+      width: 204,
+      color: AppPalette.cardBackground,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(18, 24, 16, 18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'TEAM WORKSPACE',
+                  style: TextStyle(
+                    color: AppPalette.textMuted,
+                    fontSize: 9,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 1.3,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  team.name,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: AppPalette.textPrimary,
+                    fontFamily: AppTypography.heading,
+                    fontSize: 17,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  isOwnerOrLeader ? 'OWNER / LEADER' : 'TEAM MEMBER',
+                  style: const TextStyle(
+                    color: AppPalette.primaryGreen,
+                    fontSize: 9,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: .8,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 1, color: AppPalette.borderLight),
+          const SizedBox(height: 12),
+          for (var i = 0; i < items.length; i++)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+              child: Material(
+                color: _currentIndex == i
+                    ? AppPalette.primaryGreen.withValues(alpha: .09)
+                    : Colors.transparent,
+                borderRadius: BorderRadius.circular(10),
+                child: InkWell(
+                  onTap: () => setState(() => _currentIndex = i),
+                  borderRadius: BorderRadius.circular(10),
+                  child: Container(
+                    height: 44,
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: _currentIndex == i
+                            ? AppPalette.primaryGreen.withValues(alpha: .16)
+                            : Colors.transparent,
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          items[i].$2,
+                          size: 19,
+                          color: _currentIndex == i
+                              ? AppPalette.primaryGreen
+                              : AppPalette.textMuted,
+                        ),
+                        const SizedBox(width: 11),
+                        Expanded(
+                          child: Text(
+                            items[i].$1,
+                            style: TextStyle(
+                              color: _currentIndex == i
+                                  ? AppPalette.primaryGreen
+                                  : AppPalette.textPrimary,
+                              fontSize: 11,
+                              fontWeight: _currentIndex == i
+                                  ? FontWeight.w800
+                                  : FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          const Spacer(),
+          const Divider(height: 1, color: AppPalette.borderLight),
+          Padding(
+            padding: const EdgeInsets.all(14),
+            child: TextButton.icon(
+              onPressed: () => Navigator.of(context).maybePop(),
+              icon: const Icon(Icons.arrow_back_rounded, size: 17),
+              label: const Text('Back to LED'),
+              style: TextButton.styleFrom(
+                foregroundColor: AppPalette.textMuted,
+                alignment: Alignment.centerLeft,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
